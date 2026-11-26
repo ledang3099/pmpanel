@@ -1,0 +1,29 @@
+{
+	"hook": [
+		{
+			"tag": "site_cb",
+			"site_cb": {
+				"title": "ModSecurity防火墙",
+				"name": "modsecurity",
+				"add": {"func": "site_hook"},
+				"update": {"func": "site_hook"},
+				"delete": {"func": "site_hook"}
+			}
+		}
+	],
+	"sort": 1,
+	"title": "ModSecurity防火墙",
+	"tip": "soft",
+	"name": "modsecurity",
+	"type": "安全",
+	"ps": "基于 ModSecurity v3 + OWASP 核心规则集(CRS 4), 防护 SQL注入、XSS、命令注入、文件包含、扫描器等攻击",
+	"install_pre_inspection": true,
+	"shell": "install.sh",
+	"checks": "server/modsecurity",
+	"path": "server/modsecurity",
+	"author": "OWASP",
+	"home": "https://coreruleset.org/",
+	"date": "2026-11-26",
+	"pid": "4",
+	"versions": ["3.0"]
+}
