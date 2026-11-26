@@ -7,9 +7,6 @@
 # ---------------------------------------------------------------------------------
 
 import io
-import time
-import base64
-import json
 import os
 import sys
 
@@ -37,40 +34,6 @@ def index():
 # 安全路径
 @blueprint.route('/<path>',endpoint='admin_safe_path',methods=['GET'])
 def admin_safe_path(path):
-    # 面板收藏的快捷登录: 与 /do_login 使用相同的IP限流, 开启两步验证时禁用
-    login = request.args.get('login', '')
-    if login != '':
-        import utils.security as security
-        from admin import cache
-        ip = mw.getClientIp()
-        try:
-            two_step = thisdb.getOptionByJson('two_step_verification', default={'open': False})
-            if two_step['open'] or security.login_is_locked(cache, ip):
-                return redirect('/')
-
-            login_str = base64.b64decode(login).decode('utf-8')
-            data = json.loads(login_str)
-
-            time_now = time.time() * 1000
-            if abs(time_now - float(data['time'])) > 2000:
-                return redirect('/')
-
-            info = thisdb.getUserByName(str(data['username']))
-            if info is None or not thisdb.checkUserPassword(info, str(data['password'])):
-                security.login_record_fail(cache, ip)
-                return redirect('/')
-
-            security.login_reset(cache, ip)
-            session.clear()
-            session['login'] = True
-            session['username'] = info['name']
-            session['overdue'] = int(time.time()) + 7 * 24 * 60 * 60
-
-            thisdb.updateUserLoginTime()
-            return redirect('/')
-        except Exception as e:
-            return redirect('/')
-
     db_path = thisdb.getOption('admin_path')
     name = thisdb.getOption('template', default='default')
     if isLogined():

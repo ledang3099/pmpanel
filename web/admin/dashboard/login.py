@@ -173,7 +173,7 @@ def verifyLogin():
         return mw.returnData(-1, '登录失败次数过多,该IP已被禁止登录1小时!')
 
     username = request.form.get('username', '').strip()
-    password = request.form.get('password', '').strip()
+    password = request.form.get('password', '')
 
     info = thisdb.getUserByName(username)
     if info is None or not thisdb.checkUserPassword(info, password):
@@ -203,7 +203,7 @@ def do_login():
         return mw.returnData(-1, '登录失败次数过多,该IP已被禁止登录1小时!')
 
     username = request.form.get('username', '').strip()
-    password = request.form.get('password', '').strip()
+    password = request.form.get('password', '')
     code = request.form.get('code', '').strip()
 
     # 出现过失败后必须校验验证码(按IP判断, 不能通过丢弃会话绕过)

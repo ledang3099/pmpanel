@@ -145,6 +145,10 @@ def checkSameOrigin():
 def requestCheck():
     request.start_time = time.time()
 
+    domain_error = mw.checkDomainPanel()
+    if domain_error is not None:
+        return domain_error
+
     admin_close = thisdb.getOption('admin_close')
     if admin_close == 'yes':
         if not request.path.startswith('/close'):
@@ -173,12 +177,6 @@ def requestCheck():
     csrf_check = checkSameOrigin()
     if csrf_check is not None:
         return csrf_check
-
-    # domain_check = mw.checkDomainPanel()
-    # if domain_check:
-    #     return domain_check
-            
-
 
 @app.after_request
 def requestAfter(response):
@@ -220,6 +218,12 @@ socketio = SocketIO(logger=False,
     engineio_logger=False,
     async_mode='threading')
 socketio.init_app(app)
+
+@socketio.on('connect')
+def check_socket_domain(auth=None):
+    if mw.checkDomainPanel() is not None:
+        return False
+
 
 @socketio.on('webssh_websocketio')
 def webssh_websocketio(data):

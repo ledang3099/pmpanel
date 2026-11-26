@@ -530,40 +530,18 @@ def getClientIp():
 
 def checkDomainPanel():
     import thisdb
-    from flask import Flask, redirect, request, url_for
-    
-    current_host = getHost()
+    from flask import request, Response
+    from urllib.parse import urlsplit
+
     domain = thisdb.getOption('panel_domain', default='')
-    port = getPanelPort()
-    scheme = 'http'
-
-    panel_ssl_data = thisdb.getOptionByJson('panel_ssl', default={'open':False})
-    if panel_ssl_data['open']:
-        if not inArray(['local','nginx'], panel_ssl_data['choose']):
-            return False
-        scheme = 'https'
-
-    client_ip = getClientIp()
-    if client_ip in ['127.0.0.1', 'localhost', '::1']:
-        return False
-
-    ip = getHostAddr()
-    if isVaildIpV6(ip):
-        return False
-
-    if domain == '':
-        if ip in ['127.0.0.1', 'localhost', '::1']:
-            return False
-        if current_host.strip().lower() != ip.strip().lower():
-            to = scheme + "://" + ip + ":" + str(port)
-            return redirect(to, code=302)
-        return False
-    else:
-        # print(current_host.strip().lower(), domain.strip().lower())
-        if current_host.strip().lower() != domain.strip().lower():
-            to = scheme + "://" + domain + ":" + str(port)
-            return redirect(to, code=302)
-    return False
+    if domain:
+        try:
+            host = urlsplit('//' + request.host).hostname or ''
+        except ValueError:
+            host = ''
+        if host.rstrip('.').lower() != domain.rstrip('.').lower():
+            return Response('Forbidden', status=403)
+    return None
 
 def getLocalIp():
     try:
@@ -1879,7 +1857,8 @@ def createLocalSSL():
     key = OpenSSL.crypto.PKey()
     key.generate_key(OpenSSL.crypto.TYPE_RSA, 2048)
     cert = OpenSSL.crypto.X509()
-    cert.set_serial_number(0)
+    from cryptography import x509
+    cert.set_serial_number(x509.random_serial_number())
     
     if client_ip == '127.0.0.1':
         cert.get_subject().CN = '127.0.0.1'
@@ -1890,12 +1869,14 @@ def createLocalSSL():
     cert.gmtime_adj_notBefore(0)
     cert.gmtime_adj_notAfter(86400 * 3650)
     cert.set_pubkey(key)
-    cert.sign(key, 'md5')
+    cert.sign(key, 'sha256')
     cert_ca = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert)
     private_key = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, key)
     if len(cert_ca) > 100 and len(private_key) > 100:
         writeFile(local_dir+'/cert.pem', cert_ca, 'wb+')
-        writeFile(local_dir+'/private.pem', private_key, 'wb+')
+        with os.fdopen(os.open(local_dir+'/private.pem', os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600), 'wb') as f:
+            os.fchmod(f.fileno(), 0o600)
+            f.write(private_key)
         return True
     return False
 

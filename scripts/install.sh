@@ -275,7 +275,7 @@ done
 
 cd /www/server/pmpanel && bash /etc/rc.d/init.d/pm stop
 cd /www/server/pmpanel && bash /etc/rc.d/init.d/pm start
-cd /www/server/pmpanel && bash /etc/rc.d/init.d/pm default
+echo '登录信息请在服务器终端执行 pm default 查看。'
 
 sleep 2
 if [ ! -e /usr/bin/pm ]; then

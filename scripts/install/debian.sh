@@ -31,7 +31,13 @@ fi
 apt install chrony -y
 
 # synchronize time first
-apt install ntpdate -y
+
+if version_ge "$VERSION_ID" 13; then
+    apt install -y ntpsec-ntpdate 7zip unrar-free libncurses6 libaio1t64 lz4
+else
+    apt install -y ntpdate libncurses5 libaio1 libpcre3 libpcre3-dev liblz4-tool
+    apt install -y rar unrar
+fi
 # NTPHOST='time.nist.gov'
 # if [ ! -z "$cn" ];then
 #     NTPHOST='ntp1.aliyun.com'
@@ -71,20 +77,19 @@ apt autoremove -y
 
 apt install -y wget curl lsof unzip tar cron expect locate lrzsz
 apt install -y xz-utils
-apt install -y rar 
-apt install -y unrar
+
+
 apt install -y pv
 apt install -y bc
 apt install -y python3-pip 
 apt install -y python3-dev 
 apt install -y python3-venv
-apt install -y libncurses5
 apt install -y libncurses5-dev
 apt install -y bzip2
 apt install -y p7zip-full
 
 apt install -y libnuma1 
-apt install -y libaio1 
+
 apt install -y libaio-dev
 apt install -y libmecab2
 apt install -y libmm-dev
@@ -95,14 +100,7 @@ apt install -y apache2-utils
 apt install -y numactl
 apt install -y xxd
 apt install -y sshpass
-apt install -y libbrotli
-
-P_VER=`python3 -V | awk '{print $2}'`
-if version_ge "$P_VER" "3.11.0" ;then
-    echo -e "\e[1;31mapt install python3.12-venv\e[0m"
-    apt install -y python3.12-venv
-fi
-
+apt install -y libbrotli-dev
 
 if [ -f /usr/sbin/ufw ];then
 	# look
@@ -212,13 +210,12 @@ apt install -y automake make
 
 apt install -y webp scons
 apt install -y libwebp-dev
-apt install -y lzma lzma-dev
+apt install -y lzma liblzma-dev
 apt install -y libunwind-dev
 
-apt install -y libpcre2
+apt install -y libpcre2-8-0
 apt install -y libpcre2-dev 
-apt install -y libpcre3
-apt install -y libpcre3-dev 
+
 apt install -y openssl
 apt install -y libssl-dev
 apt install -y libargon2-dev
@@ -253,7 +250,7 @@ apt install -y curl libcurl4-gnutls-dev
 apt install -y libprotobuf-dev
 apt install -y protobuf-compiler
 apt install -y libboost-dev
-apt install -y liblz4-tool
+
 apt install -y zstd
 apt install -y libzstd-dev
 

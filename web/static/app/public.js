@@ -1220,178 +1220,48 @@ function listOrder(skey,type,obj){
 
 //获取关联列表
 function getPanelList(){
-	var con ='';
-	$.post("/setting/get_panel_list",function(rdata){
-		if (!rdata.status){
-			return;
-		}
-
-		var rdata = rdata.data;
-
-		for(var i=0; i<rdata.length; i++){
-			con +='<h3 class="mypcip mypcipnew" style="opacity:.6;cursor: pointer;" data-url="'+rdata[i].url+'" data-user="'+rdata[i].username+'" data-pw="'+rdata[i].password+'">\
-				<span class="f14 cw">'+rdata[i].title+'</span>\
-				<em class="btedit" onclick="bindPanel(0,\'c\',\''+rdata[i].title+'\',\''+rdata[i].id+'\',\''+rdata[i].url+'\',\''+rdata[i].username+'\',\''+rdata[i].password+'\')"></em>\
-				</h3>';
-		}
-
-		$("#newbtpc").html(con);
-		$(".mypcipnew").hover(function(){
-			$(this).css("opacity","1");
-		},function(){
-			$(this).css("opacity",".6");
-		}).click(function(){
-			// $("#panel_form").remove();
-			var murl = $(this).attr("data-url");
-			var user = $(this).attr("data-user");
-			var pw = $(this).attr("data-pw");
-
-			var random_str = getRandomString(8);
-
-			var timestamp = Date.parse(new Date());
-			var data = {
-				'rand':random_str,
-				'username':user,
-				'password':pw,
-				'time':timestamp
-			};
-
-
-			data_json =JSON.stringify(data);
-			login_args = base64_encode(data_json);
-
-			endpoint_url = murl + '?login='+login_args;
-			window.open(endpoint_url);
-			// layer.open({
-			// 	type: 2,
-			// 	title: false,
-			//  	closeBtn: 0, //不显示关闭按钮
-			// 	shade: [0],
-			// 	area: ['340px', '215px'],
-			// 	offset: 'rb', //右下角弹出
-			// 	time: 5, //2秒后自动关闭
-			// 	anim: 2,
-			// 	content: [murl, 'no']
-			// });
-			// window.open(murl);
-			// 
-			// var loginForm ='<div id="panel_form" style="display:none"><form id="toBtpanel" action="'+now_url.origin+'/do_login" method="post" target="btpfrom">\
-			// 	<input name="username" value="'+user+'" type="text">\
-			// 	<input name="password" value="'+pw+'" type="password">\
-			// 	<input name="code" id="bt_code" value="" type="text">\
-			// </form><iframe name="btpfrom" src=""></iframe></div>';
-			// $("body").append(loginForm);
-			// // console.log($("panel_form").html());
-			// layer.msg('正在打开面板...',{icon:16,shade: [0.3, '#000'],time:1000});
-			// setTimeout(function(){
-			// 	$("#toBtpanel").submit();
-			// },1000);
-			// setTimeout(function(){
-			// 	window.open(murl);
-			// },2000);
-		});
-		$(".btedit").click(function(e){
-			e.stopPropagation();
-		});
-	},'json');
+    $.post("/setting/get_panel_list", function(result){
+        if (!result.status) return;
+        var list = $("#newbtpc").empty();
+        result.data.forEach(function(panel){
+            var address;
+            try { address = new URL(panel.url); } catch (error) { return; }
+            if (!["https:", "http:"].includes(address.protocol) || address.username || address.password) return;
+            var row = $("<h3>", {"class":"mypcip mypcipnew"}).appendTo(list);
+            $("<a>", {href:address.href, target:"_blank", rel:"noopener noreferrer", "class":"f14 cw"})
+                .text(panel.title).appendTo(row);
+            $("<em>", {"class":"btedit"}).on("click", function(){
+                bindPanel(0, "c", panel.title, panel.id, panel.url);
+            }).appendTo(row);
+        });
+    }, "json");
 }
 getPanelList();
 
-//添加面板快捷登录
-function bindPanel(a,type,ip,btid,url,user,pw){
-	var titleName = '关联面板';
-	if(type == "b"){
-		btn = "<button type='button' class='btn btn-success btn-sm' onclick=\"bindPanel(1,'b')\">添加</button>";
-	} else {
-		titleName = '修改关联' + ip;
-		btn = "<button type='button' class='btn btn-default btn-sm' onclick=\"bindPaneldel('"+btid+"')\">删除</button>\
-		<button type='button' class='btn btn-success btn-sm' onclick=\"bindPanel(1,'c','"+ip+"','"+btid+"')\" style='margin-left:7px'>修改</button>";
-	}
-	if(url == undefined) url="http://";
-	if(user == undefined) user="";
-	if(pw == undefined) pw="";
-	if(ip == undefined) ip="";
-	if(a == 1) {
-		var gurl = "/setting/add_panel_info";
-		var btaddress = $("#btaddress").val();
-		if(!btaddress.match(/^(http|https)+:\/\/([\w-]+\.)+[\w-]+:\d+/)){
-			layer.msg('面板地址格式不正确，示例：<p>http://192.168.0.1:8888</p>',{icon:5,time:5000});
-			return;
-		}
-		var btuser = encodeURIComponent($("#btuser").val());
-		var btpassword = encodeURIComponent($("#btpassword").val());
-		var bttitle = $("#bttitle").val();
-		var data = "title="+bttitle+"&url="+encodeURIComponent(btaddress)+"&username="+btuser+"&password="+btpassword;
-		if(btaddress =="" || btuser=="" || btpassword=="" || bttitle==""){
-			layer.msg(lan.bt.panel_err_empty,{icon:8});
-			return;
-		}
-		if(type=="c"){
-			gurl = "/setting/set_panel_info";
-			data = data+"&id="+btid;
-		}
-		$.post(gurl, data, function(b) {
-			if(b.status) {
-				layer.closeAll();
-				layer.msg(b.msg, {icon: 1});
-				getPanelList();
-			} else {
-				layer.msg(b.msg, {icon: 2})
-			}
-		},'json');
-		return
-	}
-	layer.open({
-		type: 1,
-		area: "400px",
-		title: titleName,
-		closeBtn: 1,
-		shift: 5,
-		shadeClose: false,
-		content: "<div class='bt-form pd20 pb70'>\
-				<div class='line'><span class='tname'>面板地址</span>\
-				<div class='info-r'><input class='bt-input-text' type='text' name='btaddress' id='btaddress' value='"+url+"' placeholder='面板地址' style='width:100%'/></div>\
-				</div>\
-				<div class='line'><span class='tname'>用户名</span>\
-				<div class='info-r'><input class='bt-input-text' type='text' name='btuser' id='btuser' value='"+user+"' placeholder='用户名' style='width:100%'/></div>\
-				</div>\
-				<div class='line'><span class='tname'>密码</span>\
-				<div class='info-r'><input class='bt-input-text' type='password' name='btpassword' id='btpassword' value='"+pw+"' placeholder='密码' style='width:100%'/></div>\
-				</div>\
-				<div class='line'><span class='tname'>备注</span>\
-				<div class='info-r'><input class='bt-input-text' type='text' name='bttitle' id='bttitle' value='"+ip+"' placeholder='备注' style='width:100%'/></div>\
-				</div>\
-				<div class='line'><ul class='help-info-text c7'>\
-					<li>收藏其它服务器面板资料，实现一键登录面板功能</li><li>面板备注不可重复</li>\
-					<li><font style='color:red'>注意，开启广告拦截会导致无法快捷登录。</font></li></ul>\
-				</div>\
-				<div class='bt-form-submit-btn'><button type='button' class='btn btn-danger btn-sm' onclick=\"layer.closeAll()\">关闭</button> "+btn+"</div>\
-			</div>",
-
-		success:function(){
-			$("#btaddress").on("input",function(){
-				var str =$(this).val();
-				var isip = /([\w-]+\.){2,6}\w+/;
-				var iptext = str.match(isip);
-				if(iptext) {
-					var bttitle_val = $("#bttitle").val();
-					if (bttitle_val == '') {
-						$("#bttitle").val(iptext[0]);
-					}
-				}
-			}).blur(function(){
-				var str =$(this).val();
-				var isip = /([\w-]+\.){2,6}\w+/;
-				var iptext = str.match(isip);
-				if(iptext) {
-					var bttitle_val = $("#bttitle").val();
-					if (bttitle_val == '') {
-						$("#bttitle").val(iptext[0]);
-					}
-				}
-			});
-		}
-	});
+function bindPanel(a, type, title, id, url){
+    var form = $("<div>", {"class":"bt-form pd20"});
+    function field(label, value){
+        var line = $("<label>", {"class":"line"}).text(label + " ").appendTo(form);
+        return $("<input>", {"class":"bt-input-text", type:"text"}).val(value || "").appendTo(line);
+    }
+    var address = field("面板登录地址", url);
+    var name = field("备注", title);
+    var edit = type === "c";
+    layer.open({
+        type:1, title:edit ? "修改面板收藏" : "添加面板收藏", content:"<div class='pm-bookmark-fields'></div>",
+        success:function(dialog){ dialog.find(".pm-bookmark-fields").append(form); },
+        btn:edit ? ["保存", "取消", "删除"] : ["保存", "取消"],
+        yes:function(index){
+            var data = {url:address.val(), title:name.val()};
+            if (!data.title || !data.url) { layer.msg("请填写地址和备注"); return; }
+            if (edit) data.id = id;
+            $.post("/setting/" + (edit ? "set_panel_info" : "add_panel_info"), data, function(result){
+                if (result.status) { layer.close(index); getPanelList(); }
+                layer.msg(result.msg);
+            }, "json");
+        },
+        btn3:function(){ bindPaneldel(id); }
+    });
 }
 //删除快捷登录
 function bindPaneldel(id){
