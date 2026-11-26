@@ -40,9 +40,17 @@ if [ -f ${PANEL_DIR}/bin/activate ];then
     fi
 fi
 
+# 本面板 gunicorn 进程的 pid 列表(严格匹配): 程序本身或其python解释器的第一个参数
+# 必须是本面板的gunicorn, 且参数完全一致, 避免误匹配命令行中恰好包含该路径的其他进程
+pm_panel_pids()
+{
+    ps -eww -o pid=,args= | awk -v g="$PANEL_DIR/bin/gunicorn" -v self="$$" \
+        '$1 != self && ($2 == g || ($2 ~ /\/python[0-9.]*$/ && $3 == g)) && $0 ~ / -c setting\.py app:app$/ {print $1}' | xargs
+}
+
 pm_start_panel()
 {
-    isStart=`ps -efww|grep 'gunicorn -c setting.py app:app' |grep -v grep|awk '{print $2}'`
+    isStart=$(pm_panel_pids)
     if [ "$isStart" == '' ];then
         echo -e "starting pm-panel... \c"
         cd "${PANEL_DIR}/web" && gunicorn -c setting.py app:app || return 1
@@ -152,6 +160,28 @@ pm_stop_panel()
             fi
         fi
     fi
+
+    # pid 文件丢失或失效时, 按完整命令行查找本面板的 gunicorn 主进程并正常停止,
+    # 否则 restart 会误判"已在运行", 更新后继续运行旧代码
+    local pids
+    # 严格匹配: 程序本身(或其python解释器的第一个参数)必须是本面板的gunicorn, 且参数完全一致,
+    # 避免误杀命令行中恰好包含该路径的其他进程(grep/编辑器等)
+    pids=$(pm_panel_pids)
+    if [ -n "$pids" ]; then
+        kill -TERM $pids 2>/dev/null
+        for ((i=0; i<160; i++)); do
+            local alive=0
+            for p in $pids; do kill -0 "$p" 2>/dev/null && alive=1; done
+            [ "$alive" = "0" ] && break
+            sleep 0.25
+        done
+        for p in $pids; do
+            if kill -0 "$p" 2>/dev/null; then
+                echo "panel shutdown timed out"
+                return 1
+            fi
+        done
+    fi
     echo -e "\033[32mdone\033[0m"
 }
 
@@ -163,11 +193,11 @@ pm_stop()
 
 pm_status()
 {
-    isStart=$(ps auxww|grep 'gunicorn -c setting.py app:app'|grep -v grep|awk '{print $2}')
+    isStart=$(pm_panel_pids)
     if [ "$isStart" != '' ];then
-        echo -e "\033[32mmw (pid $(echo $isStart)) already running\033[0m"
+        echo -e "\033[32mpm (pid $(echo $isStart)) already running\033[0m"
     else
-        echo -e "\033[31mmw not running\033[0m"
+        echo -e "\033[31mpm not running\033[0m"
     fi
     
     isStart=$(ps aux |grep 'panel_task.py'|grep -v grep|awk '{print $2}')
@@ -181,17 +211,17 @@ pm_status()
 
 pm_reload()
 {
-	isStart=$(ps auxww|grep 'gunicorn -c setting.py app:app'|grep -v grep|awk '{print $2}')
+	isStart=$(pm_panel_pids)
     
     if [ "$isStart" != '' ];then
     	echo -e "reload pm... \c";
-	    arr=`ps auxww|grep 'gunicorn -c setting.py app:app'|grep -v grep|awk '{print $2}'`
+	    arr=$(pm_panel_pids)
 		for p in ${arr[@]}
         do
                 kill -9 $p
         done
         cd ${PANEL_DIR}/web && gunicorn -c setting.py app:app
-        isStart=`ps auxww|grep 'gunicorn -c setting.py app:app'|grep -v grep|awk '{print $2}'`
+        isStart=$(pm_panel_pids)
         if [ "$isStart" == '' ];then
             echo -e "\033[31mfailed\033[0m"
             echo '------------------------------------------------------'
@@ -202,7 +232,7 @@ pm_reload()
         fi
         echo -e "\033[32mdone\033[0m"
     else
-        echo -e "\033[31mmw not running\033[0m"
+        echo -e "\033[31mpm not running\033[0m"
         pm_start
     fi
 }
@@ -218,8 +248,11 @@ pm_open()
 
 pm_unbind_domain()
 {
+    # 绑定域名保存在数据库(panel_domain)中, 访问域名不匹配时面板返回403,
+    # 必须清除数据库中的设置才能恢复访问
+    cd ${PANEL_DIR} && python3 ${PANEL_DIR}/panel_tools.py unbind_domain
     if [ -f ${PANEL_DIR}/data/bind_domain.pl ];then
-        rm -rf ${PANEL_DIR}/data/bind_domain.pl
+        rm -f ${PANEL_DIR}/data/bind_domain.pl
     fi
 }
 

@@ -417,6 +417,9 @@ def main():
         print(getPanelSslType())
     elif method == 'panel_bind_domain':
         print(getPanelBindDomain())
+    elif method == 'unbind_domain':
+        thisdb.setOption('panel_domain', '')
+        print('解除域名绑定成功')
     elif method == "cli":
         clinum = 0
         try:
