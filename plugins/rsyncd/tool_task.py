@@ -1,11 +1,14 @@
 # coding:utf-8
 
-import sys
-import io
-import os
-import time
-import json
+# ---------------------------------------------------------------------------------
+# rsync 同步插件: 定时同步任务(写入面板计划任务)
+# Licensed under the Apache License 2.0. See LICENSE and NOTICE.
+# ---------------------------------------------------------------------------------
 
+import os
+import sys
+import json
+import shlex
 
 web_dir = os.getcwd() + "/web"
 if os.path.exists(web_dir):
@@ -15,97 +18,51 @@ if os.path.exists(web_dir):
 import core.mw as mw
 from utils.crontab import crontab as MwCrontab
 
-
-
-app_debug = False
-if mw.isAppleSystem():
-    app_debug = True
-
-
-def getPluginName():
-    return 'rsyncd'
-
-
-def getPluginDir():
-    return mw.getPluginDir() + '/' + getPluginName()
+TASK_PREFIX = "[勿删]同步插件定时任务["
 
 
 def getServerDir():
-    return mw.getServerDir() + '/' + getPluginName()
+    return mw.getServerDir() + '/rsyncd'
 
 
-def getTaskConf():
-    conf = getServerDir() + "/task_config.json"
-    return conf
+def taskName(name):
+    return TASK_PREFIX + name + "]"
 
 
-def getConfigData():
-    conf = getTaskConf()
-    if os.path.exists(conf):
-        return json.loads(mw.readFile(conf))
-    return []
+def removeBgTask():
+    '''删除本插件创建的全部定时任务(按名称前缀匹配, 旧版只删除第一个)'''
+    rows = mw.M("crontab").field("id,name").where("name like ?", (TASK_PREFIX + '%',)).select()
+    for row in rows or []:
+        MwCrontab.instance().delete(row['id'])
+    cfg = getServerDir() + "/task_config.json"
+    if os.path.exists(cfg):
+        os.remove(cfg)
+    return True
 
 
-def getConfigTpl():
-    tpl = {
-        "name": "",
-        "task_id": -1,
-    }
-    return tpl
+def createBgTaskByName(t):
+    name = t['name']
+    send_dir = getServerDir() + '/send/' + name
+    log = send_dir + '/run.log'
 
+    if t.get('period') == 'minute-n':
+        params_type, where1, hour, minute = 'minute-n', str(int(t.get('minute_n', 30))), '', ''
+    else:
+        params_type, where1 = 'day', ''
+        hour, minute = str(int(t.get('hour', 2))), str(int(t.get('minute', 30)))
 
-def createBgTask(data):
-    removeBgTask()
-    for d in data:
-        if d['realtime'] == "false":
-            createBgTaskByName(d['name'], d)
-
-
-def createBgTaskByName(name, args):
-    cfg = getConfigTpl()
-    _name = "[勿删]同步插件定时任务[" + name + "]"
-    res = mw.M("crontab").field("id, name").where("name=?", (_name,)).find()
-    if res:
-        return True
-
-    if "task_id" in cfg.keys() and cfg["task_id"] > 0:
-        res = mw.M("crontab").field("id, name").where("id=?", (cfg["task_id"],)).find()
-        if res and res["id"] == cfg["task_id"]:
-            print("计划任务已经存在!")
-            return True
-
-    period = args['period']
-    _hour = ''
-    _minute = ''
-    _where1 = ''
-    _type_day = "day"
-    if period == 'day':
-        _type_day = 'day'
-        _hour = args['hour']
-        _minute = args['minute']
-    elif period == 'minute-n':
-        _type_day = 'minute-n'
-        _where1 = args['minute-n']
-        _minute = ''
-
-    cmd = '''
-rname=%s
-plugin_path=%s
-logs_file=$plugin_path/send/${rname}/run.log
-''' % (name, getServerDir())
-    cmd += 'echo "★【`date +"%Y-%m-%d %H:%M:%S"`】 STSRT" >> $logs_file' + "\n"
-    cmd += 'echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" >> $logs_file' + "\n"
-    cmd += 'bash $plugin_path/send/${rname}/cmd >> $logs_file 2>&1' + "\n"
-    cmd += 'echo "【`date +"%Y-%m-%d %H:%M:%S"`】 END★" >> $logs_file' + "\n"
-    cmd += 'echo "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<" >> $logs_file' + "\n"
+    q = shlex.quote
+    cmd = 'echo "===== $(date +"%Y-%m-%d %H:%M:%S") 定时同步开始 =====" >> ' + q(log) + "\n"
+    cmd += 'bash ' + q(send_dir + '/cmd') + ' >> ' + q(log) + ' 2>&1' + "\n"
+    cmd += 'echo "===== $(date +"%Y-%m-%d %H:%M:%S") 定时同步结束 =====" >> ' + q(log) + "\n"
 
     params = {
-        'name': _name,
-        'type': _type_day,
+        'name': taskName(name),
+        'type': params_type,
         'week': "",
-        'where1': _where1,
-        'hour': _hour,
-        'minute': _minute,
+        'where1': where1,
+        'hour': hour,
+        'minute': minute,
         'save': "",
         'backup_to': "",
         'stype': "toShell",
@@ -113,37 +70,17 @@ logs_file=$plugin_path/send/${rname}/run.log
         'sbody': cmd,
         'url_address': '',
     }
-
-    task_id = MwCrontab.instance().add(params)
-    if task_id > 0:
-        cfg["task_id"] = task_id
-        cfg["name"] = name
-
-        _dd = getConfigData()
-        _dd.append(cfg)
-        mw.writeFile(getTaskConf(), json.dumps(_dd))
+    return MwCrontab.instance().add(params)
 
 
-def removeBgTask():
-    cfg_list = getConfigData()
-    for x in range(len(cfg_list)):
-        cfg = cfg_list[x]
-        if "task_id" in cfg.keys() and cfg["task_id"] > 0:
-            res = mw.M("crontab").field("id, name").where("id=?", (cfg["task_id"],)).find()
-            if res and res["id"] == cfg["task_id"]:
-                data = MwCrontab.instance().delete(cfg["task_id"])
-                if data[0]:
-                    cfg["task_id"] = -1
-                    cfg_list[x] = cfg
-                    mw.writeFile(getTaskConf(), '[]')
-                    return True
-    return False
+def createBgTask(data):
+    removeBgTask()
+    for t in data:
+        if not t.get('realtime'):
+            createBgTaskByName(t)
+    return True
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        action = sys.argv[1]
-        if action == "remove":
-            removeBgTask()
-        elif action == "add":
-            createBgTask()
+    if len(sys.argv) > 1 and sys.argv[1] == "remove":
+        removeBgTask()
