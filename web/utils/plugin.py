@@ -106,7 +106,9 @@ class plugin(object):
 
 
     def getIndexList(self):
-        indexList = thisdb.getOptionByJson('display_index')
+        indexList = thisdb.getOptionByJson('display_index', default=[])
+        if not isinstance(indexList, list):
+            indexList = []
         plist = []
         for i in indexList:
             tmp = i.split('-')
@@ -142,11 +144,11 @@ class plugin(object):
 
     def init(self):
         plugin_names = {
-            'openresty': '1.31.1',
-            'php': '74',
+            'openresty': '1.31',
+            'php': '84',
             'swap': '1.1',
-            'mysql': '5.7',
-            'phpmyadmin': '4.4.15',
+            'mysql': '8.4',
+            'phpmyadmin': '5.2.3',
         }
 
         pn_dir = mw.getPluginDir()
@@ -211,13 +213,29 @@ class plugin(object):
 
         if vname in indexList:
             return mw.returnData(False, '请不要重复添加!')
-        if len(indexList) > 12:
+        if len(indexList) >= 12:
             return mw.returnData(False, '首页最多只能显示12个软件!')
 
         indexList.append(vname)
 
         thisdb.setOption('display_index', json.dumps(indexList))
         return mw.returnData(True, '添加成功!')
+
+    def setIndexSort(self, sort_str):
+        # 首页软件拖动排序: 只接受已在首页显示列表中的项
+        indexList = thisdb.getOptionByJson('display_index', default=[])
+        if not isinstance(indexList, list):
+            indexList = []
+        new_list = []
+        for item in sort_str.split('|'):
+            item = item.strip()
+            if item and item in indexList and item not in new_list:
+                new_list.append(item)
+        for item in indexList:
+            if item not in new_list:
+                new_list.append(item)
+        thisdb.setOption('display_index', json.dumps(new_list))
+        return mw.returnData(True, '设置成功!')
 
     def removeIndex(self, name, version):
         vname = name + '-' + version
@@ -640,7 +658,9 @@ class plugin(object):
     # 多线程检查插件状态[cache]
     def checkStatusMThreadsByCache(self, info):
         try:
-            self.__plugin_status_data = thisdb.getOptionByJson(self.__plugin_status_cachekey, default=None)
+            self.__plugin_status_data = thisdb.getOptionByJson(self.__plugin_status_cachekey, default={})
+            if not isinstance(self.__plugin_status_data, dict):
+                self.__plugin_status_data = {}
             threads = []
             ntmp_list = range(len(info))
             for i in ntmp_list:
@@ -654,8 +674,12 @@ class plugin(object):
 
             for i in ntmp_list:
                 t = threads[i].getResult()
+                # 多版本共存插件按 "标题-版本" 缓存, 与 runByCache/autoCachePluginStatus 一致
                 k = info[i]['name']
-                self.__plugin_status_data[k] = t
+                if info[i].get('coexist'):
+                    k = info[i]['title']
+                if info[i].get('setup'):
+                    self.__plugin_status_data[k] = t
                 info[i]['status'] = t
 
             thisdb.setOption(self.__plugin_status_cachekey, json.dumps(self.__plugin_status_data))
@@ -728,8 +752,15 @@ class plugin(object):
             for index in range(len(t)):
                 info.append(t[index])
 
-        info = sorted(info, key=lambda f: int(f['sort']), reverse=False)
-        
+        def _sort_key(f):
+            try:
+                return int(f['sort'])
+            except (TypeError, ValueError):
+                return 10000
+        info = sorted(info, key=_sort_key, reverse=False)
+
+        page = max(int(page), 1)
+        size = min(max(int(size), 1), 100)
         start = (page - 1) * size
         end = start + size
         x = info[start:end]
@@ -749,7 +780,8 @@ class plugin(object):
         '''
         rdata = {}
         rdata['type'] = self.def_plugin_type
-    
+
+        page = max(int(page), 1)
         data = self.getAllPluginList(type, keyword, page, size)
         rdata['data'] = data[0]
         rdata['list'] = mw.getPage({'count':data[1],'p':page,'tojs':'getSList','row':size})

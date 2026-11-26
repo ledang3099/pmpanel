@@ -57,11 +57,11 @@ def list():
     page = request.args.get('p', '1')
     search = request.args.get('search', '').lower()
 
-    if not mw.isNumber(plugins_type):
-        plugins_type = 1
+    if not mw.isNumber(plugins_type.lstrip('-')):
+        plugins_type = '0'
 
-    if not mw.isNumber(page):
-        page = 0
+    if not mw.isNumber(page) or int(page) < 1:
+        page = 1
 
     pg = MwPlugin.instance()
     return pg.getList(plugins_type, search, int(page))
@@ -78,6 +78,13 @@ def set_index():
     if status == '1':
         return pg.addIndex(name, version)
     return pg.removeIndex(name, version)
+
+# 首页软件排序(前端拖动后调用, 旧版缺少此接口)
+@blueprint.route('/index_sort', endpoint='index_sort', methods=['POST'])
+@panel_login_required
+def index_sort():
+    ssort = request.form.get('ssort', '')
+    return MwPlugin.instance().setIndexSort(ssort)
 
 # 插件安装
 @blueprint.route('/install', endpoint='install', methods=['POST'])
