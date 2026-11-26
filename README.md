@@ -1,8 +1,6 @@
 # pmpanel
 
-一款简单的 Linux 服务器管理面板，基于插件管理网站、数据库、FTP、计划任务等常用服务。
-
-> 本项目基于 [mdserver-web](https://github.com/midoks/mdserver-web)（Apache-2.0）二次开发，详见 [NOTICE](NOTICE)。
+一款清爽的 Linux 服务器管理面板，基于插件管理网站、数据库、FTP、计划任务等常用服务。
 
 ## 系统要求
 
