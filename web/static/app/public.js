@@ -1248,7 +1248,8 @@ function bindPanel(a, type, title, id, url){
     var name = field("备注", title);
     var edit = type === "c";
     layer.open({
-        type:1, title:edit ? "修改面板收藏" : "添加面板收藏", content:form,
+        type:1, title:edit ? "修改面板收藏" : "添加面板收藏", content:"<div class='pm-bookmark-fields'></div>",
+        success:function(dialog){ dialog.find(".pm-bookmark-fields").append(form); },
         btn:edit ? ["保存", "取消", "删除"] : ["保存", "取消"],
         yes:function(index){
             var data = {url:address.val(), title:name.val()};
