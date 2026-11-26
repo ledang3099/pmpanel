@@ -196,6 +196,9 @@ def confReplace():
         mw.writeFile(static_conf, 'set $PHP_ENV 0;')
 
     # vhost
+    modules_dir = mw.getServerDir() + '/web_conf/nginx/modules'
+    if not os.path.exists(modules_dir):
+        os.makedirs(modules_dir)
     vhost_dir = mw.getServerDir() + '/web_conf/nginx/vhost'
     vhost_tpl_dir = getPluginDir() + '/conf/vhost'
     if not os.path.exists(vhost_dir):

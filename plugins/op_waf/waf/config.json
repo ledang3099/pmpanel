@@ -26,15 +26,15 @@
         "ps": "强制安全校验",
         "reqfile": "safe_js.html",
         "open": false,
-        "mode":"local",
+        "mode": "local",
         "cpu": 50,
         "auto": true,
         "time": 86400
     },
     "get": {
         "status": 200,
-        "ps": "过滤uri、uri参数中常见sql注入、xss等攻击",
-        "open": true,
+        "ps": "过滤uri、uri参数中常见sql注入、xss等攻击(旧版正则规则, 默认关闭, 建议使用 ModSecurity 防火墙)",
+        "open": false,
         "reqfile": "get.html"
     },
     "log_save": 30,
@@ -51,17 +51,17 @@
     },
     "cookie": {
         "status": 200,
-        "ps": "过滤利用Cookie发起的渗透攻击",
-        "open": true,
+        "ps": "过滤利用Cookie发起的渗透攻击(旧版正则规则, 默认关闭, 建议使用 ModSecurity 防火墙)",
+        "open": false,
         "reqfile": "cookie.html"
     },
     "logs_path": "/www/wwwlogs/waf",
     "post": {
         "status": 200,
-        "ps": "过滤POST参数中常见sql注入、xss等攻击",
-        "open": true,
+        "ps": "过滤POST参数中常见sql注入、xss等攻击(旧版正则规则, 默认关闭, 建议使用 ModSecurity 防火墙)",
+        "open": false,
         "reqfile": "post.html"
     },
-    "area_limit":false,
+    "area_limit": false,
     "open": true
 }

@@ -16,7 +16,7 @@
 	"tip":"soft",
 	"name":"op_waf",
 	"type":"其他插件",
-	"ps":"有效防止sql注入/xss/一句话木马等常见渗透攻击",
+	"ps":"CC攻击防护、IP黑白名单、地区访问限制、扫描器过滤; 注入/XSS等攻击检测请配合 ModSecurity 防火墙使用",
 	"install_pre_inspection":true,
 	"shell":"install.sh",
 	"checks":"server/op_waf",

@@ -41,8 +41,14 @@ else
 fi
 
 if [ "${action}" = "upgrade" ];then
-	sh -x $curPath/versions/$2/install.sh $1
-	
+	bash -x $curPath/versions/$2/install.sh $1 || exit 1
+
+	# 已安装 ModSecurity 防火墙时, 按新的 OpenResty 版本重新编译防火墙模块(旧模块与新版本不兼容)
+	if [ -f $serverPath/modsecurity/version.pl ] && [ -f ${rootPath}/plugins/modsecurity/install.sh ];then
+		cd ${rootPath}/plugins/modsecurity && bash install.sh rebuild_module
+		cd $curPath
+	fi
+
 	echo "${VERSION}" > $serverPath/openresty/version.pl
 
 	mkdir -p $serverPath/web_conf/php/conf
@@ -75,7 +81,17 @@ if [ "${action}" = "uninstall" ];then
 	rm -rf $serverPath/openresty
 fi
 
-sh -x $curPath/versions/$2/install.sh $1
+if [ "${action}" = "install" ];then
+	bash -x $curPath/versions/$2/install.sh $1 || exit 1
+
+	# 已安装 ModSecurity 防火墙时, 按新的 OpenResty 版本重新编译防火墙模块(旧模块与新版本不兼容)
+	if [ -f $serverPath/modsecurity/version.pl ] && [ -f ${rootPath}/plugins/modsecurity/install.sh ];then
+		cd ${rootPath}/plugins/modsecurity && bash install.sh rebuild_module
+		cd $curPath
+	fi
+else
+	bash -x $curPath/versions/$2/install.sh $1
+fi
 
 if [ "${action}" = "install" ] && [ -d $serverPath/openresty ];then
 	echo "${VERSION}" > $serverPath/openresty/version.pl

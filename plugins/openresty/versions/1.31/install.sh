@@ -90,7 +90,12 @@ Install_openresty()
 
 
 		if [ ! -f ${openrestyDir}/openssl-${opensslVersion}.tar.gz ];then
-	        wget --no-check-certificate -O ${openrestyDir}/openssl-${opensslVersion}.tar.gz https://www.openssl.org/source/openssl-${opensslVersion}.tar.gz
+	        wget --no-check-certificate -O ${openrestyDir}/openssl-${opensslVersion}.tar.gz https://www.openssl.org/source/openssl-${opensslVersion}.tar.gz -T 10
+	    fi
+	    # openssl.org 无法访问时从 OpenSSL 官方 GitHub 发布页下载
+	    if [ ! -s ${openrestyDir}/openssl-${opensslVersion}.tar.gz ];then
+	        rm -f ${openrestyDir}/openssl-${opensslVersion}.tar.gz
+	        wget -O ${openrestyDir}/openssl-${opensslVersion}.tar.gz https://github.com/openssl/openssl/releases/download/openssl-${opensslVersion}/openssl-${opensslVersion}.tar.gz
 	    fi
 
 	    if [ ! -d ${openrestyDir}/openssl-${opensslVersion} ];then
@@ -106,7 +111,12 @@ Install_openresty()
 		# OPTIONS="${OPTIONS} --with-openssl=${OPENSSL_LIB_DEPEND_DIR}"
 	else
 		if [ ! -f ${openrestyDir}/openssl-${opensslVersion}.tar.gz ];then
-	        wget --no-check-certificate -O ${openrestyDir}/openssl-${opensslVersion}.tar.gz https://www.openssl.org/source/openssl-${opensslVersion}.tar.gz
+	        wget --no-check-certificate -O ${openrestyDir}/openssl-${opensslVersion}.tar.gz https://www.openssl.org/source/openssl-${opensslVersion}.tar.gz -T 10
+	    fi
+	    # openssl.org 无法访问时从 OpenSSL 官方 GitHub 发布页下载
+	    if [ ! -s ${openrestyDir}/openssl-${opensslVersion}.tar.gz ];then
+	        rm -f ${openrestyDir}/openssl-${opensslVersion}.tar.gz
+	        wget -O ${openrestyDir}/openssl-${opensslVersion}.tar.gz https://github.com/openssl/openssl/releases/download/openssl-${opensslVersion}/openssl-${opensslVersion}.tar.gz
 	    fi
 
 	    if [ ! -d ${openrestyDir}/openssl-${opensslVersion} ];then
@@ -131,12 +141,16 @@ Install_openresty()
 	    # OPTIONS="${OPTIONS} --with-cc-opt=-I${openrestyDir}/libressl-${libresslVersion}/libressl/build/lib"
 	fi
 
-	# br
-	if [ ! -d ${openrestyDir}/ngx_brotli ];then
-		cd ${openrestyDir} && git clone https://github.com/wxx9248/ngx_brotli.git
-		cd ${openrestyDir}/ngx_brotli && git submodule update --init
-
+	# br: 每次编译都检查并加入(旧版仅在首次下载时加入, 升级/重装后模块会丢失)
+	if [ ! -f ${openrestyDir}/ngx_brotli/config ] || [ ! -f ${openrestyDir}/ngx_brotli/deps/brotli/c/include/brotli/encode.h ];then
+		rm -rf ${openrestyDir}/ngx_brotli
+		cd ${openrestyDir} && git clone --depth 1 https://github.com/wxx9248/ngx_brotli.git && \
+			cd ${openrestyDir}/ngx_brotli && git submodule update --init --depth 1 || rm -rf ${openrestyDir}/ngx_brotli
+	fi
+	if [ -f ${openrestyDir}/ngx_brotli/config ] && [ -f ${openrestyDir}/ngx_brotli/deps/brotli/c/include/brotli/encode.h ];then
 		OPTIONS="${OPTIONS} --add-module=${openrestyDir}/ngx_brotli"
+	else
+		echo "ngx_brotli 下载失败, 跳过 brotli 压缩模块"
 	fi
 
 	OPTIONS="${OPTIONS} --with-threads"
@@ -147,26 +161,34 @@ Install_openresty()
 		OPTIONS="${OPTIONS} --with-file-aio"
 	fi
 
-	#zstd
-	if [ ! -d ${openrestyDir}/zstd-nginx-module-master ];then
-		cd ${openrestyDir} && wget -O $openrestyDir/zstd-nginx-module.tar.gz https://github.com/tokers/zstd-nginx-module/archive/refs/heads/master.tar.gz
-		cd ${openrestyDir} && tar -zxvf zstd-nginx-module.tar.gz
-
-		if [ "$sysName" = "Darwin" ];then
-			export ZSTD_INC=/opt/homebrew/include
-			export ZSTD_LIB=/opt/homebrew/lib
+	#zstd: 下载失败时跳过该模块, 不影响 OpenResty 编译
+	if [ ! -f ${openrestyDir}/zstd-nginx-module-master/config ];then
+		rm -rf ${openrestyDir}/zstd-nginx-module-master ${openrestyDir}/zstd-nginx-module.tar.gz
+		cd ${openrestyDir} && wget -O $openrestyDir/zstd-nginx-module.tar.gz https://github.com/tokers/zstd-nginx-module/archive/refs/heads/master.tar.gz && \
+			tar -zxf zstd-nginx-module.tar.gz
+		if [ ! -f ${openrestyDir}/zstd-nginx-module-master/config ];then
+			rm -rf ${openrestyDir}/zstd-nginx-module-master
+			git clone --depth 1 https://github.com/tokers/zstd-nginx-module.git ${openrestyDir}/zstd-nginx-module-master || rm -rf ${openrestyDir}/zstd-nginx-module-master
 		fi
+	fi
 
-		pkg-config --exists --print-errors libzstd
-		if [ "$?" = "0" ];then
-			OPTIONS="${OPTIONS} --add-module=${openrestyDir}/zstd-nginx-module-master"
-		fi
+	if [ "$sysName" = "Darwin" ];then
+		export ZSTD_INC=/opt/homebrew/include
+		export ZSTD_LIB=/opt/homebrew/lib
+	fi
+
+	if [ -f ${openrestyDir}/zstd-nginx-module-master/config ] && pkg-config --exists libzstd;then
+		OPTIONS="${OPTIONS} --add-module=${openrestyDir}/zstd-nginx-module-master"
+	else
+		echo "zstd 模块或 libzstd 不可用, 跳过 zstd 压缩模块"
 	fi
 	
 	
 
+	# --with-compat: 允许单独编译的动态模块(如 ModSecurity 防火墙)加载
 	cd ${openrestyDir}/openresty-${VERSION} && ./configure \
 	--prefix=$serverPath/openresty \
+	--with-compat \
 	$OPTIONS \
 	--with-stream \
 	--with-http_v2_module \
@@ -181,10 +203,16 @@ Install_openresty()
 
 	CMD_MAKE=`which gmake`
 	if [ "$?" = "0" ];then
-		gmake -j${cpuCore} && gmake install && gmake clean
+		MAKE_BIN=gmake
 	else
-		make -j${cpuCore} && make install && make clean
+		MAKE_BIN=make
 	fi
+	# 编译或安装失败时立即退出, 不再显示"安装完成"
+	if ! ($MAKE_BIN -j${cpuCore} && $MAKE_BIN install); then
+		echo 'ERROR: OpenResty 编译失败, 请查看上面的错误信息'
+		exit 1
+	fi
+	$MAKE_BIN clean
 
 
     if [ -d ${openrestyDir}/pcre-${pcreVersion} ];then
@@ -210,6 +238,10 @@ Install_openresty()
 	# if [ -d $openrestyDir/ngx_brotli ];then
 	# 	rm -rf $openrestyDir/ngx_brotli
 	# fi
+	if [ ! -f $serverPath/openresty/nginx/sbin/nginx ];then
+		echo 'ERROR: 未找到 OpenResty 程序, 安装失败'
+		exit 1
+	fi
 	echo 'Installation of Openresty completed'
 }
 
