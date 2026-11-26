@@ -142,6 +142,8 @@ CREATE TABLE IF NOT EXISTS `panel` (
   `add_time` TEXT
 );
 
+UPDATE panel SET username = '', password = '' WHERE username != '' OR password != '';
+
 CREATE TABLE IF NOT EXISTS `app` (
   `id` INTEGER PRIMARY KEY AUTOINCREMENT,
   `name` TEXT,

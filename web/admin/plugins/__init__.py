@@ -27,7 +27,7 @@ blueprint = Blueprint('plugins', __name__, url_prefix='/plugins', template_folde
 @panel_login_required
 def index():
     name = thisdb.getOption('template', default='default')
-    return render_template('%s/plugins.html' % name)
+    return render_template('%s/soft.html' % name)
 
 # 初始化检查,首页提示选择安装
 @blueprint.route('/init', endpoint='init', methods=['POST'])

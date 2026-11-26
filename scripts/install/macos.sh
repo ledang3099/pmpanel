@@ -56,5 +56,5 @@ cd $DEV/server/pmpanel && ./cli.sh start
 cd $DEV/server/pmpanel && ./cli.sh stop
 
 sleep 5
-cd $DEV/server/pmpanel && ./scripts/init.d/pm default
+echo '登录信息请在服务器终端执行 pm default 查看。'
 cd $DEV/server/pmpanel && ./cli.sh debug

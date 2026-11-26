@@ -73,7 +73,7 @@ pm_start_panel()
             tail -n 20 ${PANEL_DIR}/logs/panel_error.log
             echo '------------------------------------------------------'
             echo -e "\033[31mError: pm-panel service startup failed.\033[0m"
-            return;
+            return 1;
         fi
         echo -e "\033[32mdone\033[0m"
     else
@@ -96,7 +96,7 @@ pm_start_task()
             tail -n 20 ${PANEL_DIR}/logs/panel_task.log
             echo '------------------------------------------------------'
             echo -e "\033[31mError: pm-tasks service startup failed.\033[0m"
-            return;
+            return 1;
         fi
         echo -e "\033[32mdone\033[0m"
     else
@@ -126,39 +126,32 @@ pm_stop_task()
         kill -9 $p  > /dev/null 2>&1
     done
 
-    # linux  | ps -A -o stat,ppid,pid,cmd 
-    zzpids=$(ps -A -o stat,ppid,pid | grep -e '^[Zz]' | awk '{print $2}')
-    zzpids=($zzpids)
-    for p in ${zzpids[@]}
-    do
-        kill -9 $p > /dev/null 2>&1
-    done
     echo -e "\033[32mdone\033[0m"
 }
 
 pm_stop_panel()
 {
     echo -e "stopping pm-panel... \c";
-    pidfile=${PANEL_DIR}/logs/panel.pid
-    if [ -f $pidfile ];then
-        pid=`cat $pidfile`
-        kill -9 $pid > /dev/null 2>&1
-        rm -f $pidfile
+    local pidfile="$PANEL_DIR/logs/panel.pid"
+    local pid args
+    if [ -s "$pidfile" ]; then
+        read -r pid < "$pidfile"
+        if [[ "$pid" =~ ^[0-9]+$ ]]; then
+            args=$(ps -p "$pid" -o args=)
+            if [[ "$args" == *"$PANEL_DIR/bin/gunicorn -c setting.py app:app"* ]]; then
+                kill -TERM "$pid" || return 1
+                for ((i=0; i<160; i++)); do
+                    [ ! -f "$pidfile" ] && break
+                    kill -0 "$pid" 2>/dev/null || break
+                    sleep 0.25
+                done
+                if [ -s "$pidfile" ] && kill -0 "$pid" 2>/dev/null; then
+                    echo "panel shutdown timed out"
+                    return 1
+                fi
+            fi
+        fi
     fi
-
-    APP_LIST=`ps aux|grep 'gunicorn -c setting.py app:app'|grep -v grep|awk '{print $2}'`
-    APP_LIST=($APP_LIST)
-    for p in ${APP_LIST[@]}
-    do
-        kill -9 $p > /dev/null 2>&1
-    done
-
-    APP_LIST=`ps -ef|grep app:app |grep -v grep|awk '{print $2}'`
-    APP_LIST=($APP_LIST)
-    for i in ${APP_LIST[@]}
-    do
-        kill -9 $i > /dev/null 2>&1
-    done
     echo -e "\033[32mdone\033[0m"
 }
 
@@ -205,7 +198,7 @@ pm_reload()
             tail -n 20 $pm_path/logs/error.log
             echo '------------------------------------------------------'
             echo -e "\033[31mError: pm service startup failed.\033[0m"
-            return;
+            return 1;
         fi
         echo -e "\033[32mdone\033[0m"
     else
@@ -396,8 +389,12 @@ pm_update()
     fi
 
     pm_common_proxy
-    echo "bash <(curl -fsSL "${HTTP_PREFIX}raw.githubusercontent.com/ledang3099/pmpanel/master/scripts/update.sh")"
-    bash <(curl -fsSL "${HTTP_PREFIX}raw.githubusercontent.com/ledang3099/pmpanel/master/scripts/update.sh")
+    local updater
+    updater=$(mktemp) || return 1
+    curl -fsSL "${HTTP_PREFIX}raw.githubusercontent.com/ledang3099/pmpanel/master/scripts/update.sh" -o "$updater" && bash "$updater"
+    local result=$?
+    rm -f -- "$updater"
+    return "$result"
 }
 
 pm_update_dev()
@@ -408,10 +405,12 @@ pm_update_dev()
     fi
 
     pm_common_proxy
-    echo "bash <(curl -fsSL "${HTTP_PREFIX}raw.githubusercontent.com/ledang3099/pmpanel/master/scripts/update_dev.sh")"
-    pm_clean_lib
-    bash <(curl -fsSL "${HTTP_PREFIX}raw.githubusercontent.com/ledang3099/pmpanel/master/scripts/update_dev.sh")
-    cd ${PANEL_DIR}
+    local updater
+    updater=$(mktemp) || return 1
+    curl -fsSL "${HTTP_PREFIX}raw.githubusercontent.com/ledang3099/pmpanel/master/scripts/update_dev.sh" -o "$updater" && bash "$updater"
+    local result=$?
+    rm -f -- "$updater"
+    return "$result"
 }
 
 pm_dev()
@@ -422,9 +421,12 @@ pm_dev()
     fi
 
     pm_common_proxy
-    echo "bash <(curl -fsSL "${HTTP_PREFIX}raw.githubusercontent.com/ledang3099/pmpanel/master/scripts/update_dev.sh")"
-    bash <(curl -fsSL "${HTTP_PREFIX}raw.githubusercontent.com/ledang3099/pmpanel/master/scripts/update_dev.sh")
-    cd ${PANEL_DIR}
+    local updater
+    updater=$(mktemp) || return 1
+    curl -fsSL "${HTTP_PREFIX}raw.githubusercontent.com/ledang3099/pmpanel/master/scripts/update_dev.sh" -o "$updater" && bash "$updater"
+    local result=$?
+    rm -f -- "$updater"
+    return "$result"
 }
 
 pm_update_venv()
@@ -802,11 +804,11 @@ case "$1" in
     'stop') pm_stop;;
     'reload') pm_reload;;
     'restart') 
-        pm_stop
+        pm_stop || exit 1
         sleep 2
         pm_start;;
     'restart_panel')
-        pm_stop_panel
+        pm_stop_panel || exit 1
         sleep 2
         pm_start_panel;;
     'restart_task')

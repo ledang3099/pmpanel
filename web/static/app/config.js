@@ -76,7 +76,7 @@ $('input[name="bind_domain"]').change(function(){
 	$('.btn_bind_domain').unbind().click(function(){
 		$.post('/setting/set_panel_domain','domain='+domain, function(rdata){
 			showMsg(rdata.msg,function(){
-				window.location.href = rdata.data;
+				if (rdata.status && rdata.data) window.location.href = rdata.data;
 			},{icon:rdata.status?1:2},5000);
 		},'json');
 	});
@@ -961,7 +961,7 @@ function getPanelSSL(){
 							layer.close(loadT);
 							showMsg(rdata.msg, function(){
 								if(rdata.status){
-									location.href = rdata.data;
+									location.reload();
 								}
 							},{icon:rdata.status?1:2},3000);
 						},'json');

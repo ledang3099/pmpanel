@@ -205,36 +205,20 @@ fi
 
 echo "local:${LOCAL_ADDR}"
 
-CP_CMD=/usr/bin/cp
-if [ -f /bin/cp ];then
-	CP_CMD=/bin/cp
-fi
-
-if [ -f /tmp/dev.tar.gz ];then
-	rm -rf /tmp/dev.tar.gz
-fi
-
-if [ -d /tmp/pmpanel-master ];then
-	rm -rf /tmp/pmpanel-master
-fi
-
-echo "update pmpanel dev code start"
-
-curl -fsSLo /tmp/dev.tar.gz ${HTTP_PREFIX}github.com/ledang3099/pmpanel/archive/refs/heads/master.tar.gz
-cd /tmp && tar -zxvf /tmp/dev.tar.gz
-$CP_CMD -rf /tmp/pmpanel-master/* /www/server/pmpanel
-rm -rf /tmp/dev.tar.gz
-rm -rf /tmp/pmpanel-master
-
-echo "update pmpanel dev code end"
-
+release_tmp=$(mktemp -d) || exit 1
+trap 'rm -rf -- "$release_tmp"' EXIT
+curl -fSL --retry 2 -o "$release_tmp/release.tar.gz" "${HTTP_PREFIX}github.com/ledang3099/pmpanel/archive/refs/heads/master.tar.gz" || exit 1
+tar -xzf "$release_tmp/release.tar.gz" -C "$release_tmp" || exit 1
+release_dir="$release_tmp/pmpanel-master"
+python3 "$release_dir/scripts/update/apply_release.py" "$release_dir" /www/server/pmpanel || exit 1
 
 #pip uninstall public
 echo "use system version: ${OSNAME}"
-cd /www/server/pmpanel && bash scripts/update/${OSNAME}.sh
+cd /www/server/pmpanel || exit 1
+bash "scripts/update/${OSNAME}.sh" || exit 1
 
-bash /etc/rc.d/init.d/pm restart
-bash /etc/rc.d/init.d/pm default
+bash /etc/rc.d/init.d/pm restart || exit 1
+echo '登录信息请在服务器终端执行 pm default 查看。'
 
 if [ -f /usr/bin/pm ];then
 	rm -rf /usr/bin/pm
