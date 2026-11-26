@@ -949,7 +949,13 @@ class plugin(object):
         # 清除其他插件的同名模块缓存,避免 __import__ 命中错误模块
         if script in sys.modules:
             mod_file = getattr(sys.modules[script], '__file__', '') or ''
-            if not mod_file.startswith(package):
+            # 插件更新后脚本文件已变化, 也需重新加载, 否则会一直运行旧代码直到面板重启
+            stale = False
+            try:
+                stale = os.path.getmtime(mod_file) != getattr(sys.modules[script], '__pm_mtime__', None)
+            except OSError:
+                stale = True
+            if not mod_file.startswith(package) or stale:
                 del sys.modules[script]
 
         # 旧版使用 eval 拼接执行, 可被构造参数执行任意代码
@@ -959,6 +965,11 @@ class plugin(object):
         data = None
         try:
             module = __import__(script)
+            if not hasattr(module, '__pm_mtime__'):
+                try:
+                    module.__pm_mtime__ = os.path.getmtime(module.__file__)
+                except (OSError, TypeError):
+                    pass
             fn = getattr(module, func, None)
             if fn is None or not callable(fn) or func.startswith('_'):
                 return (False, '方法不存在!')
