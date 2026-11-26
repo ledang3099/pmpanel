@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>安全入口校验失败</title>
+    <link rel="stylesheet" href="/static/css/pm-theme.css">
+    <style>
+        .pm-notice { max-width: 640px; margin: 10vh auto; padding: 32px 36px; background: #fff; border-radius: 12px; box-shadow: 0 12px 32px rgba(16,24,40,.08); border: 1px solid #e6e9ef; }
+        .pm-notice h1 { font-size: 20px; margin: 0 0 16px; color: #1f2937; }
+        .pm-notice p { color: #4b5563; line-height: 1.8; margin: 8px 0; font-size: 14px; }
+        .pm-notice code { background: #f3f4f6; padding: 2px 8px; border-radius: 4px; color: #1f2937; }
+        .pm-notice .warn { color: #b91c1c; background: #fef2f2; border-radius: 6px; padding: 10px 12px; margin-top: 16px; }
+        @media (max-width: 640px) { .pm-notice { margin: 16px; padding: 24px 20px; } }
+    </style>
+</head>
+<body class="pm-plain">
+    <div class="pm-notice">
+        <h1>请使用正确的入口登录面板</h1>
+        <p><b>错误原因：</b>面板已开启安全入口登录，新安装的面板会随机生成一个8位字符的安全入口名称，也可以在面板设置中修改。如果忘记了，可以通过以下方式解决。</p>
+        <p><b>解决方法：</b>在 SSH 终端执行以下任一命令</p>
+        <p>1. 查看面板入口：<code>pm default</code></p>
+        <p>2. 关闭安全入口：<code>pm close_admin_path</code></p>
+        <p class="warn">注意：关闭安全入口会让面板登录地址直接暴露在互联网上，非常危险，请谨慎操作。</p>
+    </div>
+</body>
+</html>

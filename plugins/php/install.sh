@@ -1,0 +1,112 @@
+#!/bin/bash
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin:/opt/homebrew/bin
+export PATH
+
+curPath=`pwd`
+rootPath=$(dirname "$curPath")
+rootPath=$(dirname "$rootPath")
+serverPath=$(dirname "$rootPath")
+sysName=`uname`
+
+# cd /www/server/pmpanel/plugins/php && bash install.sh install 56
+# cd /www/server/pmpanel/plugins/php && bash install.sh upgrade 85
+# cd /www/server/pmpanel && . ./bin/activate && python3 plugins/php/index.py upgrade_check 56
+
+# https://www.php.net/releases
+
+if id www &> /dev/null ;then 
+    echo "www uid is `id -u www`"
+    echo "www shell is `grep "^www:" /etc/passwd |cut -d':' -f7 `"
+else
+    groupadd www
+	useradd -g www -s /sbin/nologin www
+	# useradd -g www -s /bin/bash www
+fi
+
+action=$1
+type=$2
+
+if [ "${2}" = "" ];then
+	echo '缺少安装脚本...'
+	exit 0
+fi 
+
+if [ ! -d $curPath/versions/$2 ];then
+	echo '缺少安装脚本2...'
+	exit 0
+fi
+
+
+# if [ "${action}" = "install" ] && [ -d $serverPath/php/${type} ];then
+# 	exit 0
+# fi
+
+if [ "${action}" = "uninstall" ];then
+	
+	if [ -f /usr/lib/systemd/system/php${type}.service ] || [ -f /lib/systemd/system/php${type}.service ] ;then
+		systemctl stop php${type}
+		systemctl disable php${type}
+		rm -rf /usr/lib/systemd/system/php${type}.service
+		rm -rf /lib/systemd/system/php${type}.service
+		systemctl daemon-reload
+	fi
+fi
+
+if [ "${action}" = "upgrade" ];then
+	cd ${curPath} && sh -x $curPath/versions/$2/install.sh upgrade
+	which systemctl && systemctl restart php${type}
+	exit 0
+fi
+
+cd ${curPath} && sh -x $curPath/versions/$2/install.sh $1
+
+
+if [ "${action}" = "install" ] && [ -d ${serverPath}/php/${type} ];then
+
+	#初始化 
+	cd ${rootPath} && python3 plugins/php/index.py start ${type}
+	cd ${rootPath} && python3 plugins/php/index.py initd_install ${type}
+
+	# 安装通用扩展
+	echo "install PHP${type} extend start"
+
+	# cd /www/server/pmpanel/plugins/php/versions/common  && bash iconv.sh install 53
+	# cd /www/server/pmpanel/plugins/php/versions/common  && bash intl.sh install 73
+	# cd /www/server/pmpanel/plugins/php/versions/common  && bash gd.sh install 56
+	# cd /www/server/pmpanel/plugins/php/versions/common  && bash openssl.sh install 56
+	# cd /www/server/pmpanel/plugins/php/versions/common  && bash fileinfo.sh install 81
+	# cd /www/server/pmpanel/plugins/php/versions/common  && bash pgsql.sh install 84
+	# cd /www/server/pmpanel/plugins/php/versions/common  && bash pdo_pgsql.sh install 84
+	cd ${rootPath}/plugins/php/versions/common && bash curl.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash gd.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash readline.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash iconv.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash exif.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash intl.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash mcrypt.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash openssl.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash bcmath.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash gettext.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash redis.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash memcached.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash pcntl.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash zip.sh install ${type}
+	cd ${rootPath}/plugins/php/versions/common && bash zlib.sh install ${type}
+
+	echo "install PHP${type} extend end"
+
+	if [ ! -f /usr/local/bin/composer ] && [ "$sysName" != "Darwin" ] ;then
+		cd /tmp
+		curl -sS https://getcomposer.org/installer | /www/server/php/${type}/bin/php
+		mv composer.phar /usr/local/bin/composer
+	fi
+
+	if [ ! -f /usr/local/bin/pie ] && [ "$sysName" != "Darwin" ] ;then
+			curl -fL --output /tmp/pie.phar https://github.com/php/pie/releases/latest/download/pie.phar \
+				&& gh attestation verify --owner php /tmp/pie.phar \
+			 	&& mv /tmp/pie.phar /usr/local/bin/pie \
+			 	&& chmod +x /usr/local/bin/pie
+	fi
+fi
+
+

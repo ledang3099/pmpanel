@@ -1,0 +1,196 @@
+# coding:utf-8
+
+# ---------------------------------------------------------------------------------
+# PM-Linux面板
+# ---------------------------------------------------------------------------------
+# Licensed under the Apache License 2.0. See LICENSE and NOTICE.
+# ---------------------------------------------------------------------------------
+
+import os
+import fcntl
+import core.mw as mw
+from utils.crontab import crontab
+from croniter import croniter
+from datetime import datetime
+import thisdb
+
+def cron_todb(data):
+    # print("------")
+    rdata = {}
+    if data[3] == "*" and data[2] != "*" :
+        rdata['type'] = 'month'
+    elif data[3] == "*" and data[4] != "*" :
+        rdata['type'] = 'week'
+    elif data[3] == "*" and data[4] == "*" and data[2] == "*" :
+        rdata['type'] = 'day'
+    elif data[1].find("/") > -1 :
+        rdata['type'] = 'hour-n'
+    elif data[0].find("/") > -1 :
+        rdata['type'] = 'minute-n'
+
+    # print(rdata)
+    # print(data)
+    return rdata
+    # print("------")
+
+def init_acme_cron():
+    # 使用文件锁防止并发添加
+    lock_file = mw.getPanelDir() + '/logs/init_acme_cron.lock'
+    lock_fd = None
+    
+    try:
+        # 创建锁文件
+        lock_fd = open(lock_file, 'w')
+        # 获取非阻塞互斥锁
+        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        
+        name = "[勿删]ACME定时强制更新"
+        res = mw.M("crontab").field("id, name").where("name=?", (name,)).find()
+        if res:
+            return True
+
+        cmd = "/root/.acme.sh/acme.sh --cron --force --standalone"
+        params = {
+            'name': name,
+            'type': 'day-n',
+            'week': "",
+            'where1': "15",
+            'hour': 4,
+            'minute': 15,
+            'save': "",
+            'backup_to': "",
+            'stype': "toShell",
+            'sname': '',
+            'sbody': cmd,
+            'url_address': '',
+            'attr':'',
+        }
+
+        crontab.instance().add(params)
+        return True
+        
+    except BlockingIOError:
+        # 锁已被其他进程持有，跳过或等待
+        return True
+    except Exception as e:
+        mw.writeFileLog(f"init_acme_cron error: {e}")
+        return False
+    finally:
+        # 释放锁
+        if lock_fd:
+            try:
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+                lock_fd.close()
+                # 删除锁文件
+                if os.path.exists(lock_file):
+                    os.remove(lock_file)
+            except:
+                pass
+
+def init_auto_update():
+    # 使用文件锁防止并发添加
+    lock_file = mw.getPanelDir() + '/logs/init_auto_update.lock'
+    lock_fd = None
+    
+    try:
+        # 创建锁文件
+        lock_fd = open(lock_file, 'w')
+        # 获取非阻塞互斥锁
+        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        
+        name = "[可删]面板自动更新"
+        res = mw.M("crontab").field("id, name").where("name=?", (name,)).find()
+        if res:
+            return True
+
+        cmd = "pm update"
+        params = {
+            'name': name,
+            'type': 'month',
+            'week': "",
+            'where1': "1",
+            'hour': 4,
+            'minute': 15,
+            'save': "",
+            'backup_to': "",
+            'stype': "toShell",
+            'sname': '',
+            'sbody': cmd,
+            'url_address': '',
+            'attr':'',
+        }
+
+        crontab.instance().add(params)
+        return True
+        
+    except BlockingIOError:
+        # 锁已被其他进程持有，跳过或等待
+        return True
+    except Exception as e:
+        mw.writeFileLog(f"init_auto_update error: {e}")
+        return False
+    finally:
+        # 释放锁
+        if lock_fd:
+            try:
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+                lock_fd.close()
+                # 删除锁文件
+                if os.path.exists(lock_file):
+                    os.remove(lock_file)
+            except:
+                pass
+
+# 识别linux计划任务
+def init_cron():
+    file = ''
+    cron_file = [
+        '/var/spool/cron/crontabs/root',
+        '/var/spool/cron/root',
+    ]
+    for i in cron_file:
+        if os.path.exists(i):
+            file = i
+
+    if file == "":
+        return True
+
+    with open(file) as f:
+        for line in f.readlines():
+            cron_line = line.strip()
+            if cron_line.startswith("#"):
+                continue
+
+            cron_expression = cron_line.split(maxsplit=5)  # 提取前 5 个字段（* * * * *）
+            command = cron_line.split(maxsplit=5)[5]  # 提取命令部分
+
+            # 面板计划任务过滤
+            if command.startswith("/www/server/cron"):
+                continue
+
+            if command.startswith("\"/root/.acme.sh\""):
+                # print(cron_expression, command)
+                info = cron_todb(cron_expression)
+
+                # print(info)
+
+                # add_dbdata = {}
+                # add_dbdata['name'] = "ACME"
+                # add_dbdata['type'] = data['type']
+                # add_dbdata['where1'] = data['where1']
+                # add_dbdata['where_hour'] = data['hour']
+                # add_dbdata['where_minute'] = data['minute']
+                # add_dbdata['save'] = ""
+                # add_dbdata['backup_to'] = ""
+                # add_dbdata['sname'] = ""
+                # add_dbdata['sbody'] = data['sbody']
+                # add_dbdata['stype'] = "toShell"
+                # add_dbdata['echo'] = command
+                # add_dbdata['url_address'] = ''
+
+                # thisdb.addCrontab(add_dbdata)
+
+            # print(command)
+
+    # cron_list = content.split("\n")
+    # print(cron_list)

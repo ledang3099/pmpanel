@@ -1,0 +1,872 @@
+/* ---------------------------------------------------------------------------------
+ * PM-Linux面板 主题样式
+ * 在原有 site.css 之上覆盖: 侧边栏、卡片、按钮、表格、表单、弹窗、登录页
+ * Licensed under the Apache License 2.0. See LICENSE and NOTICE.
+ * --------------------------------------------------------------------------------- */
+
+:root {
+    --pm-primary: #20a53a;
+    --pm-primary-hover: #1b8f32;
+    --pm-primary-soft: #e8f6eb;
+    --pm-danger: #ef4444;
+    --pm-warning: #f59e0b;
+    --pm-info: #3b82f6;
+
+    --pm-sidebar-bg: #1e2430;
+    --pm-sidebar-bg-2: #171c26;
+    --pm-sidebar-text: #aab2c0;
+    --pm-sidebar-text-active: #ffffff;
+    --pm-sidebar-hover: rgba(255, 255, 255, .06);
+
+    --pm-bg: #f2f4f7;
+    --pm-card: #ffffff;
+    --pm-text: #1f2937;
+    --pm-text-2: #4b5563;
+    --pm-muted: #8a94a6;
+    --pm-border: #e6e9ef;
+    --pm-border-strong: #d5dae3;
+    --pm-table-head: #f7f8fa;
+    --pm-row-hover: #f8fafc;
+
+    --pm-radius: 8px;
+    --pm-radius-sm: 4px;
+    --pm-shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .04);
+    --pm-shadow-lg: 0 12px 32px rgba(16, 24, 40, .16);
+    --pm-sidebar-w: 200px;
+    --pm-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ------------------------------- 基础 -------------------------------------------- */
+
+html, body {
+    background: var(--pm-bg) !important;
+    color: var(--pm-text);
+    font-family: var(--pm-font);
+    -webkit-font-smoothing: antialiased;
+}
+
+.bge6, .bt-warp {
+    background: var(--pm-bg) !important;
+}
+
+a.btlink, .btlink {
+    color: var(--pm-primary);
+}
+
+a.btlink:hover, .btlink:hover {
+    color: var(--pm-primary-hover);
+}
+
+::selection {
+    background: var(--pm-primary-soft);
+}
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #c7cdd8; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #aeb6c4; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ------------------------------- 侧边栏 ------------------------------------------ */
+
+.sidebar-scroll {
+    width: var(--pm-sidebar-w) !important;
+    background: var(--pm-sidebar-bg) !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0;
+    bottom: 0;
+    height: 100% !important;
+    box-shadow: 1px 0 0 rgba(0, 0, 0, .15);
+    transition: transform .25s ease;
+}
+
+.sidebar-auto {
+    margin-right: 0 !important;
+    display: flex;
+    flex-direction: column;
+}
+
+.pm-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 60px;
+    padding: 0 18px;
+    background: var(--pm-sidebar-bg-2);
+    color: #fff;
+    text-decoration: none !important;
+    flex-shrink: 0;
+}
+
+.pm-brand:hover, .pm-brand:focus { color: #fff; }
+
+.pm-brand-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #2bc24b 0%, #1a8a30 100%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .5px;
+    color: #fff;
+    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .15);
+}
+
+.pm-brand-name {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: .3px;
+}
+
+.pm-brand-name small {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--pm-sidebar-text);
+    letter-spacing: 0;
+    margin-top: 1px;
+}
+
+/* 服务器IP + 任务数 */
+.sidebar-auto .mypcip {
+    margin: 10px 12px 6px;
+    width: auto;
+    padding: 0 10px;
+    border-radius: var(--pm-radius-sm);
+    background: rgba(255, 255, 255, .04);
+    line-height: 36px;
+    height: 36px;
+}
+
+.sidebar-auto .mypcip:hover {
+    background: rgba(255, 255, 255, .08) !important;
+}
+
+.sidebar-auto .mypcip span {
+    background: none !important;
+    padding-left: 0 !important;
+    line-height: 36px !important;
+    color: var(--pm-sidebar-text) !important;
+    font-size: 12px !important;
+    max-width: 120px;
+}
+
+.sidebar-auto .mypcip span:before {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--pm-primary);
+    box-shadow: 0 0 0 3px rgba(32, 165, 58, .2);
+    margin-right: 9px;
+    vertical-align: 1px;
+}
+
+.sidebar-auto .task {
+    top: 18px !important;
+    right: 22px !important;
+    min-width: 20px;
+    width: auto !important;
+    padding: 0 5px;
+    height: 18px !important;
+    line-height: 18px !important;
+    font-size: 11px !important;
+    border-radius: 9px !important;
+    background: var(--pm-warning) !important;
+    color: #fff !important;
+    position: absolute;
+}
+
+.sidebar-auto .menu {
+    background: transparent !important;
+    padding: 6px 10px 10px;
+    margin: 0;
+}
+
+.menu li {
+    margin-bottom: 2px !important;
+}
+
+.menu li a {
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px !important;
+    line-height: 40px !important;
+    height: 40px;
+    padding: 0 12px !important;
+    border-left: 0 !important;
+    border-radius: 6px;
+    color: var(--pm-sidebar-text) !important;
+    background-image: none !important;
+    background-color: transparent !important;
+    text-decoration: none !important;
+    transition: background-color .15s ease, color .15s ease;
+}
+
+.menu li a:hover {
+    background-color: var(--pm-sidebar-hover) !important;
+    color: var(--pm-sidebar-text-active) !important;
+}
+
+.menu li.current a {
+    background-color: var(--pm-primary) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgba(32, 165, 58, .28);
+}
+
+.menu li a .pm-ico {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    opacity: .9;
+}
+
+.menu li a .pm-ico svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.menu .softnum {
+    left: auto !important;
+    right: 12px !important;
+    top: 11px !important;
+    border-radius: 9px !important;
+    height: 18px !important;
+    line-height: 18px !important;
+    font-size: 11px !important;
+    background: var(--pm-warning) !important;
+}
+
+.menu li.pm-menu-sep {
+    height: 1px;
+    margin: 10px 4px !important;
+    background: rgba(255, 255, 255, .07);
+}
+
+/* 面板收藏 */
+#newbtpc .mypcip {
+    margin: 2px 12px;
+}
+
+.btpc-plus {
+    margin: 6px 12px 14px;
+    padding-left: 0 !important;
+    text-align: center;
+    line-height: 34px !important;
+    font-size: 20px !important;
+    border: 1px dashed rgba(255, 255, 255, .15);
+    border-radius: 6px;
+    color: var(--pm-sidebar-text) !important;
+}
+
+.btpc-plus:hover {
+    background: var(--pm-sidebar-hover) !important;
+    border-color: var(--pm-primary);
+    color: #fff !important;
+}
+
+/* ------------------------------- 主内容区 ---------------------------------------- */
+
+.main-content {
+    margin-left: var(--pm-sidebar-w) !important;
+    padding: 16px 20px 64px !important;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+.main-content > .container-fluid {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+/* 卡片 */
+.bgw,
+.pos-box,
+.index-pos-box,
+.conter-box,
+.setbox,
+.bt-box,
+.server .box,
+.main-content .row > div > .bgw {
+    background: var(--pm-card) !important;
+    border-radius: var(--pm-radius) !important;
+    box-shadow: var(--pm-shadow) !important;
+    border: 1px solid var(--pm-border);
+}
+
+.pos-box {
+    height: 54px !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: 14px;
+    margin-bottom: 16px !important;
+}
+
+.pos-box .position,
+.index-pos-box .position {
+    color: var(--pm-text-2);
+    font-size: 14px !important;
+}
+
+.pos-box .position a {
+    color: var(--pm-muted);
+}
+
+.pos-box .position a:hover {
+    color: var(--pm-primary);
+}
+
+.title-c,
+.bgw > .title,
+.bgw .title,
+.setbox .title {
+    color: var(--pm-text) !important;
+    font-weight: 600;
+    font-size: 15px !important;
+    border-bottom: 1px solid var(--pm-border) !important;
+}
+
+.mtb15 { margin-top: 16px !important; margin-bottom: 16px !important; }
+
+/* 页脚 */
+.footer {
+    position: absolute !important;
+    bottom: 0;
+    left: var(--pm-sidebar-w);
+    right: 0;
+    width: auto !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border-top: 0 !important;
+    color: var(--pm-muted) !important;
+    font-size: 12px;
+    line-height: 44px !important;
+    height: 44px;
+    text-align: center;
+}
+
+html, body, .bt-warp {
+    min-height: 100vh;
+}
+
+/* ------------------------------- 按钮 -------------------------------------------- */
+
+.btn {
+    border-radius: var(--pm-radius-sm) !important;
+    font-size: 13px;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+    box-shadow: none !important;
+}
+
+.btn-success,
+.btn-success:focus {
+    background-color: var(--pm-primary) !important;
+    border-color: var(--pm-primary) !important;
+    color: #fff !important;
+}
+
+.btn-success:hover,
+.btn-success:active,
+.btn-success.active {
+    background-color: var(--pm-primary-hover) !important;
+    border-color: var(--pm-primary-hover) !important;
+}
+
+.btn-default {
+    background: #fff !important;
+    border-color: var(--pm-border-strong) !important;
+    color: var(--pm-text-2) !important;
+}
+
+.btn-default:hover,
+.btn-default:focus {
+    border-color: var(--pm-primary) !important;
+    color: var(--pm-primary) !important;
+    background: #fff !important;
+}
+
+.btn-danger {
+    background-color: var(--pm-danger) !important;
+    border-color: var(--pm-danger) !important;
+}
+
+.btn:focus-visible {
+    outline: 2px solid rgba(32, 165, 58, .45) !important;
+    outline-offset: 1px;
+}
+
+/* ------------------------------- 表单 -------------------------------------------- */
+
+.bt-input-text,
+.form-control,
+.main-content input[type="text"],
+.main-content input[type="password"],
+.main-content input[type="number"],
+.main-content select,
+.main-content textarea,
+.layui-layer input[type="text"],
+.layui-layer input[type="password"],
+.layui-layer input[type="number"],
+.layui-layer select,
+.layui-layer textarea {
+    border: 1px solid var(--pm-border-strong) !important;
+    border-radius: var(--pm-radius-sm) !important;
+    box-shadow: none !important;
+    transition: border-color .15s ease, box-shadow .15s ease;
+    color: var(--pm-text);
+}
+
+.bt-input-text:focus,
+.form-control:focus,
+.main-content input:focus,
+.main-content select:focus,
+.main-content textarea:focus,
+.layui-layer input:focus,
+.layui-layer select:focus,
+.layui-layer textarea:focus {
+    border-color: var(--pm-primary) !important;
+    box-shadow: 0 0 0 3px rgba(32, 165, 58, .14) !important;
+    outline: none;
+}
+
+/* 搜索框 */
+.search-bar,
+.pos-box .search {
+    border-radius: var(--pm-radius-sm);
+    overflow: hidden;
+}
+
+/* ------------------------------- 表格 -------------------------------------------- */
+
+.table,
+.divtable .table {
+    background: #fff;
+    border-color: var(--pm-border) !important;
+}
+
+.divtable,
+.tablescroll {
+    border-radius: var(--pm-radius-sm);
+}
+
+.table > thead > tr > th,
+.table > thead > tr > td {
+    background: var(--pm-table-head) !important;
+    color: var(--pm-text-2) !important;
+    font-weight: 500;
+    border-bottom: 1px solid var(--pm-border) !important;
+    border-top: 0 !important;
+}
+
+.table > tbody > tr > td {
+    border-top: 1px solid var(--pm-border) !important;
+    color: var(--pm-text);
+    vertical-align: middle !important;
+}
+
+.table-hover > tbody > tr:hover,
+.table > tbody > tr:hover {
+    background-color: var(--pm-row-hover) !important;
+}
+
+.table-bordered,
+.table-bordered > thead > tr > th,
+.table-bordered > tbody > tr > td {
+    border-color: var(--pm-border) !important;
+}
+
+/* 分页 */
+.page a,
+.page span {
+    border-radius: var(--pm-radius-sm);
+    border-color: var(--pm-border) !important;
+    margin-left: 4px;
+}
+
+.page .Pcurrent,
+.page span.Pcurrent,
+.page a:hover {
+    background: var(--pm-primary) !important;
+    border-color: var(--pm-primary) !important;
+    color: #fff !important;
+}
+
+/* 标签页 */
+.tab-nav,
+.soft-man-menu,
+.tab-list {
+    border-bottom-color: var(--pm-border) !important;
+}
+
+.tab-nav span.on,
+.tab-nav .on,
+.tab-list .active,
+.SoftMenu .on {
+    color: var(--pm-primary) !important;
+    border-bottom-color: var(--pm-primary) !important;
+}
+
+/* 提示条 */
+.alert,
+.tips,
+.bt-alert {
+    border-radius: var(--pm-radius-sm) !important;
+}
+
+/* ------------------------------- 首页仪表盘 -------------------------------------- */
+
+.index-pos-box {
+    height: 54px;
+    line-height: 54px;
+    margin-bottom: 16px;
+}
+
+.index-pos-box .position {
+    line-height: 54px !important;
+}
+
+.circle,
+.conter-box .circle {
+    border-color: #e9edf2 !important;
+}
+
+.cicle .mask .text,
+.circle .text {
+    color: var(--pm-primary);
+}
+
+/* ------------------------------- 弹窗(layer) ------------------------------------- */
+
+.layui-layer {
+    border-radius: var(--pm-radius) !important;
+    box-shadow: var(--pm-shadow-lg) !important;
+}
+
+.layui-layer-page .layui-layer-content,
+.layui-layer-iframe iframe {
+    border-radius: 0 0 var(--pm-radius) var(--pm-radius);
+}
+
+.layui-layer-page .layui-layer-content {
+    overflow-x: hidden;
+}
+
+.layui-layer-title {
+    background: #fff !important;
+    border-bottom: 1px solid var(--pm-border) !important;
+    color: var(--pm-text) !important;
+    font-weight: 600;
+    font-size: 15px !important;
+    height: 48px !important;
+    line-height: 48px !important;
+    border-radius: var(--pm-radius) var(--pm-radius) 0 0;
+}
+
+.layui-layer-btn a {
+    border-radius: var(--pm-radius-sm) !important;
+}
+
+.layui-layer-btn .layui-layer-btn0 {
+    background: var(--pm-primary) !important;
+    border-color: var(--pm-primary) !important;
+}
+
+.layui-layer-dialog .layui-layer-content {
+    color: var(--pm-text);
+}
+
+.layui-layer-shade {
+    background-color: rgba(15, 23, 42, .55) !important;
+}
+
+.layui-layer-msg {
+    border-radius: var(--pm-radius) !important;
+    border: 0 !important;
+}
+
+/* ------------------------------- 顶部移动端条 ------------------------------------ */
+
+.pm-topbar {
+    display: none;
+}
+
+.pm-sidebar-mask {
+    display: none;
+}
+
+@media screen and (max-width: 980px) {
+    :root { --pm-sidebar-w: 0px; }
+
+    .sidebar-scroll {
+        width: 220px !important;
+        transform: translateX(-100%);
+        z-index: 1001 !important;
+    }
+
+    body.pm-nav-open .sidebar-scroll {
+        transform: translateX(0);
+    }
+
+    body.pm-nav-open .pm-sidebar-mask {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, .45);
+        z-index: 1000;
+    }
+
+    .pm-topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        height: 52px;
+        padding: 0 16px;
+        background: var(--pm-sidebar-bg);
+        color: #fff;
+    }
+
+    .pm-topbar .pm-burger {
+        background: none;
+        border: 0;
+        color: #fff;
+        padding: 6px;
+        margin-left: -6px;
+        cursor: pointer;
+    }
+
+    .pm-topbar .pm-burger svg {
+        width: 22px;
+        height: 22px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+    }
+
+    .pm-topbar .pm-brand-mark {
+        width: 26px;
+        height: 26px;
+        font-size: 11px;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+        padding: 12px 12px 56px !important;
+    }
+
+    .footer {
+        left: 0;
+    }
+
+    .pos-box {
+        height: auto !important;
+        min-height: 54px;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px 12px !important;
+    }
+
+    .divtable,
+    .tablescroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* ------------------------------- 登录页 ------------------------------------------ */
+
+body.pm-login {
+    min-height: 100vh;
+    background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(32, 165, 58, .25), transparent 60%),
+        radial-gradient(900px 500px at 110% 110%, rgba(59, 130, 246, .18), transparent 60%),
+        #151a23 !important;
+    font-family: var(--pm-font);
+}
+
+body.pm-login .main .login {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0 !important;
+    width: 400px;
+    max-width: calc(100vw - 32px);
+    height: auto !important;
+    box-sizing: border-box;
+    padding: 36px 36px 28px !important;
+    border-radius: 14px !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+}
+
+body.pm-login .pm-login-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+body.pm-login .pm-login-brand .pm-brand-mark {
+    width: 40px;
+    height: 40px;
+    font-size: 15px;
+    border-radius: 10px;
+}
+
+body.pm-login .rlogo {
+    margin: 0 !important;
+    height: auto !important;
+    font-size: 22px !important;
+    font-weight: 600;
+    color: var(--pm-text) !important;
+}
+
+body.pm-login .pm-login-sub {
+    text-align: center;
+    color: var(--pm-muted);
+    font-size: 13px;
+    margin: 0 0 26px;
+}
+
+body.pm-login .main .login .line {
+    height: auto !important;
+    margin-bottom: 16px !important;
+    line-height: normal !important;
+}
+
+body.pm-login .main .login .line .inputtxt {
+    width: 100% !important;
+    height: 44px !important;
+    line-height: 44px !important;
+    box-sizing: border-box;
+    padding: 0 14px !important;
+    border: 1px solid var(--pm-border-strong) !important;
+    border-radius: 8px !important;
+    font-size: 14px;
+    float: none !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+body.pm-login .main .login .line .inputtxt:focus {
+    border-color: var(--pm-primary) !important;
+    box-shadow: 0 0 0 3px rgba(32, 165, 58, .15);
+    outline: none;
+}
+
+body.pm-login .main .login .yzm {
+    display: flex !important;
+    align-items: center;
+    gap: 10px;
+}
+
+body.pm-login .main .login .yzm[style*="display:none"],
+body.pm-login .main .login .yzm[style*="display: none"] {
+    display: none !important;
+}
+
+body.pm-login .main .login .yzm .inputtxt {
+    flex: 1;
+    width: auto !important;
+}
+
+body.pm-login #mw_yzm img {
+    border-radius: 8px;
+    height: 44px !important;
+    border-color: var(--pm-border-strong) !important;
+    cursor: pointer;
+}
+
+body.pm-login .login_btn input {
+    width: 100% !important;
+    height: 44px !important;
+    border-radius: 8px !important;
+    background: var(--pm-primary) !important;
+    border: 0 !important;
+    color: #fff;
+    font-size: 15px !important;
+    font-weight: 500;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: background-color .15s ease, transform .05s ease;
+}
+
+body.pm-login .login_btn input:hover {
+    background: var(--pm-primary-hover) !important;
+}
+
+body.pm-login .login_btn input:active {
+    transform: translateY(1px);
+}
+
+body.pm-login #error {
+    top: 0 !important;
+    margin: -6px 0 10px;
+    font-size: 13px;
+    color: var(--pm-danger) !important;
+}
+
+body.pm-login .pm-login-help {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--pm-muted);
+}
+
+body.pm-login .pm-login-help code {
+    background: #f3f4f6;
+    color: var(--pm-text-2);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 12px;
+}
+
+body.pm-login .Validform_checktip {
+    display: none;
+}
+
+/* 安全入口/关闭页 */
+body.pm-plain {
+    background: var(--pm-bg) !important;
+}
+
+/* 覆盖 login.css 中旧的移动端样式 */
+@media screen and (max-width: 640px) {
+    body.pm-login .main .login {
+        background-color: #fff !important;
+        border-radius: 14px !important;
+        width: calc(100vw - 32px) !important;
+        padding: 28px 22px 22px !important;
+    }
+
+    body.pm-login .main .login .rlogo {
+        background: none !important;
+        color: var(--pm-text) !important;
+        height: auto !important;
+        line-height: normal !important;
+        margin: 0 !important;
+        font-size: 20px !important;
+    }
+
+    body.pm-login .main .login .yzm .inputtxt {
+        width: auto !important;
+    }
+}

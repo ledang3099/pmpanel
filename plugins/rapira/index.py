@@ -1,0 +1,578 @@
+# coding:utf-8
+
+import sys
+import io
+import os
+import time
+import re
+import json
+import shutil
+
+try:
+    import tomllib
+except ImportError:
+    print(str(ImportError.Error()))
+    import tomli as tomllib
+
+
+web_dir = os.getcwd() + "/web"
+if os.path.exists(web_dir):
+    sys.path.append(web_dir)
+    os.chdir(web_dir)
+
+import core.mw as mw
+
+app_debug = False
+if mw.isAppleSystem():
+    app_debug = True
+
+
+def getPluginName():
+    return 'rapira'
+
+
+def getPluginDir():
+    return mw.getPluginDir() + '/' + getPluginName()
+
+
+def getServerDir():
+    return mw.getServerDir() + '/' + getPluginName()
+
+
+def getInitDFile(version):
+    current_os = mw.getOs()
+    if current_os == 'darwin':
+        return '/tmp/' + getPluginName()
+
+    if current_os.startswith('freebsd'):
+        return '/etc/rc.d/' + getPluginName()
+    return '/etc/init.d/' + getPluginName() + version
+
+
+def getArgs():
+    args = sys.argv[3:]
+    tmp = {}
+    args_len = len(args)
+
+    if args_len == 1:
+        t = args[0].strip('{').strip('}')
+        if t.strip() == '':
+            tmp = []
+        else:
+            t = t.split(':', 1)
+            tmp[t[0]] = t[1]
+    elif args_len > 1:
+        for i in range(len(args)):
+            t = args[i].split(':')
+            tmp[t[0]] = t[1]
+    return tmp
+
+
+def checkArgs(data, ck=[]):
+    for i in range(len(ck)):
+        if not ck[i] in data:
+            return (False, mw.returnJson(False, '参数:(' + ck[i] + ')没有!'))
+    return (True, mw.returnJson(True, 'ok'))
+
+
+def getConf(version):
+    path = getServerDir() + '/' + version + '/rapira.toml'
+    return path
+
+def getConfIni(version):
+    path = getServerDir() + '/' + version + '/php.ini'
+    return path
+
+
+def status_progress(version):
+    # ps -ef|grep 'php/81' |grep -v grep | grep -v python | awk '{print $2}
+    cmd = "ps -ef|grep 'rapira/" + version + \
+        "' |grep -v grep | grep -v python | awk '{print $2}'"
+    data = mw.execShell(cmd)
+    if data[0] == '':
+        return 'stop'
+    return 'start'
+
+
+def status(version):
+    '''
+    sock文件判断是否启动
+    '''
+    return status_progress(version)
+
+
+def contentReplace(content, version):
+    service_path = mw.getServerDir()
+    content = content.replace('{$ROOT_PATH}', mw.getFatherDir())
+    content = content.replace('{$SERVER_PATH}', service_path)
+    content = content.replace('{$VERSION}', version)
+    content = content.replace('{$LOCAL_IP}', mw.getLocalIp())
+    content = content.replace('{$SSL_CRT}', mw.getSslCrt())
+    return content
+
+
+def phpPrependFile(version):
+    app_start = getServerDir() + '/app_start.php'
+    if not os.path.exists(app_start):
+        tpl = getPluginDir() + '/conf/app_start.php'
+        content = mw.readFile(tpl)
+        content = contentReplace(content, version)
+        mw.writeFile(app_start, content)
+
+
+
+def makePhpIni(version):
+    dst_ini = getConfIni(version)
+    if not os.path.exists(dst_ini):
+        src_ini = getPluginDir() + '/conf/php' + version[0:1] + '.ini'
+        # shutil.copyfile(s_ini, d_ini)
+        content = mw.readFile(src_ini)
+        content = contentReplace(content, version)
+        mw.writeFile(dst_ini, content)
+
+
+def commonReplace(content,version):
+    service_path = mw.getServerDir()
+    content = content.replace('{$VERSION}', version)
+    content = content.replace('{$SERVER_PATH}', service_path)
+    return content
+
+def initReplace(version):
+    makePhpIni(version)
+
+    initD_path = getServerDir() + '/init.d'
+    if not os.path.exists(initD_path):
+        os.mkdir(initD_path)
+
+    file_bin = initD_path + '/rapira' + version
+    if not os.path.exists(file_bin):
+        file_tpl = getPluginDir() + '/init.d/rapira.tpl'
+        content = mw.readFile(file_tpl)
+        content = contentReplace(content, version)
+
+        mw.writeFile(file_bin, content)
+        mw.execShell('chmod +x ' + file_bin)
+
+    toml_file_tpl = getPluginDir()+"/conf/rapira.toml"
+    toml_file = getServerDir()+"/"+version+"/rapira.toml"
+    if not os.path.exists(toml_file):
+        content = mw.readFile(toml_file_tpl)
+        content = commonReplace(content, version)
+        mw.writeFile(toml_file,content)
+
+    # 模版例子
+    exp_ds_file_tpl = getPluginDir()+"/exp/dispatcher.php"
+    exp_ds_file = getServerDir()+"/"+version+"/dispatcher.php"
+    if not os.path.exists(exp_ds_file):
+        content = mw.readFile(exp_ds_file_tpl)
+        mw.writeFile(exp_ds_file,content)
+
+    exp_ds_file_tpl = getPluginDir()+"/exp/classic.php"
+    exp_ds_file = getServerDir()+"/"+version+"/classic.php"
+    if not os.path.exists(exp_ds_file):
+        content = mw.readFile(exp_ds_file_tpl)
+        mw.writeFile(exp_ds_file,content)
+
+    exp_ds_file_tpl = getPluginDir()+"/exp/worker.php"
+    exp_ds_file = getServerDir()+"/"+version+"/worker.php"
+    if not os.path.exists(exp_ds_file):
+        content = mw.readFile(exp_ds_file_tpl)
+        mw.writeFile(exp_ds_file,content)
+    # 模版例子 end
+
+    session_path = getServerDir() + '/tmp/session'
+    if not os.path.exists(session_path):
+        mw.execShell('mkdir -p ' + session_path)
+        mw.execShell('chown -R www:www ' + session_path)
+
+    upload_path = getServerDir() + '/tmp/upload'
+    if not os.path.exists(upload_path):
+        mw.execShell('mkdir -p ' + upload_path)
+        mw.execShell('chown -R www:www ' + upload_path)
+
+    # systemd
+    systemDir = mw.systemdCfgDir()
+    systemService = systemDir + '/rapira' + version + '.service'
+    if os.path.exists(systemDir) and not os.path.exists(systemService):
+        systemServiceTpl = getPluginDir() + '/init.d/rapira.service.tpl'
+        se_content = mw.readFile(systemServiceTpl)
+        se_content = commonReplace(se_content, version)
+        mw.writeFile(systemService, se_content)
+        mw.execShell('systemctl daemon-reload')
+
+    return file_bin
+
+
+def phpOp(version, method):
+    file = initReplace(version)
+
+    current_os = mw.getOs()
+    if current_os == "darwin":
+        data = mw.execShell(file + ' ' + method)
+        if data[1] == '':
+            return 'ok'
+        return data[1]
+
+    if current_os.startswith("freebsd"):
+        data = mw.execShell('service rapira' + version + ' ' + method)
+        if data[1] == '':
+            return 'ok'
+        return data[1]
+
+    data = mw.execShell('systemctl ' + method + ' rapira' + version)
+    if data[1] == '':
+        return 'ok'
+    return data[1]
+
+
+def start(version):
+    return phpOp(version, 'start')
+
+
+def stop(version):
+    status = phpOp(version, 'stop')
+    return status
+
+
+def restart(version):
+    return phpOp(version, 'restart')
+
+
+def reload(version):
+    return phpOp(version, 'reload')
+
+
+def initdStatus(version):
+    current_os = mw.getOs()
+    if current_os == 'darwin':
+        return "Apple Computer does not support"
+
+    if current_os.startswith('freebsd'):
+        initd_bin = getInitDFile(version)
+        if os.path.exists(initd_bin):
+            return 'ok'
+
+    shell_cmd = 'systemctl status rapira' + version + ' | grep loaded | grep "enabled;"'
+    data = mw.execShell(shell_cmd)
+    if data[0] == '':
+        return 'fail'
+    return 'ok'
+
+
+def initdInstall(version):
+    current_os = mw.getOs()
+    if current_os == 'darwin':
+        return "Apple Computer does not support"
+
+    if current_os.startswith('freebsd'):
+        import shutil
+        source_bin = initReplace(version)
+        initd_bin = getInitDFile(version)
+        shutil.copyfile(source_bin, initd_bin)
+        mw.execShell('chmod +x ' + initd_bin)
+        return 'ok'
+
+    mw.execShell('systemctl enable rapira' + version)
+    return 'ok'
+
+
+def initdUinstall(version):
+    current_os = mw.getOs()
+    if current_os == 'darwin':
+        return "Apple Computer does not support"
+
+    if current_os.startswith('freebsd'):
+        initd_bin = getInitDFile(version)
+        os.remove(initd_bin)
+        return 'ok'
+
+    mw.execShell('systemctl disable rapira' + version)
+    return 'ok'
+
+
+def rapiraLog(version):
+    cmd = "journalctl -u rapira"+version+" -n 15 --no-pager"
+    data = mw.execShell(cmd)
+    return data[0]
+
+def configTpl():
+    path = getPluginDir() + '/tpl'
+    pathFile = os.listdir(path)
+    tmp = []
+    for one in pathFile:
+        file = path + '/' + one
+        tmp.append(file)
+    return mw.getJson(tmp)
+
+def readConfigTpl(version):
+    args = getArgs()
+    data = checkArgs(args, ['file'])
+    if not data[0]:
+        return data[1]
+
+    content = mw.readFile(args['file'])
+    content = contentReplace(content,version)
+    return mw.returnJson(True, 'ok', content)
+
+def getPhpConfArgs(version):
+    phpini = mw.readFile(getConf(version))
+    data = tomllib.loads(phpini)
+    return data
+
+def getPhpConf(version):
+    data = getPhpConfArgs(version)
+    return mw.getJson(data)
+
+
+def getRapiraAddress(version):
+    data = getPhpConfArgs(version)
+    return data["observability"]["listen"]
+
+
+def getRapiraStatus(version):
+    stat = status(version)
+    if stat == 'stop':
+        return mw.returnJson(False, 'rapira[' + version + ']未启动!!!')
+
+    args = getArgs()
+    addr = getRapiraAddress(version)
+    data = mw.httpGet("http://"+addr+"/metrics")
+    return data
+
+def getLimitConf(version):
+    fileini = getConfIni(version)
+    phpini = mw.readFile(fileini)
+
+    # print fileini, filefpm
+    data = {}
+    try:
+        rep = r"upload_max_filesize\s*=\s*([0-9]+)M"
+        tmp = re.search(rep, phpini).groups()
+        data['max'] = tmp[0]
+    except:
+        data['max'] = '50'
+
+    try:
+        rep = r"\n;*\s*cgi\.fix_pathinfo\s*=\s*([0-9]+)\s*\n"
+        tmp = re.search(rep, phpini).groups()
+
+        if tmp[0] == '1':
+            data['pathinfo'] = True
+        else:
+            data['pathinfo'] = False
+    except:
+        data['pathinfo'] = False
+
+    return mw.getJson(data)
+
+
+def getDisableFunc(version):
+    filename = getConfIni(version)
+    if not os.path.exists(filename):
+        return mw.returnJson(False, '指定PHP版本不存在!')
+
+    phpini = mw.readFile(filename)
+    data = {}
+    rep = r"disable_functions\s*=\s{0,1}(.*)\n"
+    tmp = re.search(rep, phpini).groups()
+    data['disable_functions'] = tmp[0]
+    return mw.getJson(data)
+
+
+def setDisableFunc(version):
+    filename = getConfIni(version)
+    if not os.path.exists(filename):
+        return mw.returnJson(False, '指定PHP版本不存在!')
+
+    args = getArgs()
+    disable_functions = args['disable_functions']
+
+    phpini = mw.readFile(filename)
+    rep = r"disable_functions\s*=\s*.*\n"
+    phpini = re.sub(rep, 'disable_functions = ' +
+                    disable_functions + "\n", phpini)
+
+    msg = mw.getInfo('修改PHP-{1}的禁用函数为[{2}]', (version, disable_functions,))
+    mw.writeLog('插件管理[PHP]', msg)
+    mw.writeFile(filename, phpini)
+    reload(version)
+    return mw.returnJson(True, '设置成功!')
+
+
+def getPhpinfo(version):
+    stat = status(version)
+    if stat == 'stop':
+        return 'PHP[' + version + ']未启动,不可访问!!!'
+
+    sock_file = getFpmAddress(version)
+    root_dir = mw.getFatherDir() + '/phpinfo'
+
+    mw.execShell("rm -rf " + root_dir)
+    mw.execShell("mkdir -p " + root_dir)
+    mw.writeFile(root_dir + '/phpinfo.php', '<?php phpinfo(); ?>')
+    sock_data = mw.requestFcgiPHP(sock_file, '/phpinfo.php', root_dir)
+    os.system("rm -rf " + root_dir)
+    phpinfo = str(sock_data, encoding='utf-8')
+    return phpinfo
+
+
+def get_php_info(args):
+    return getPhpinfo(args['version'])
+
+
+def libConfCommon(version):
+    fname = getConfIni(version)
+    if not os.path.exists(fname):
+        return mw.returnJson(False, '指定PHP版本不存在!')
+
+    phpini = mw.readFile(fname)
+
+    libpath = getPluginDir() + '/versions/phplib.conf'
+    phplib = json.loads(mw.readFile(libpath))
+
+    libs = []
+    tasks = mw.M('tasks').where("status!=?", ('1',)).field('status,name').select()
+    for lib in phplib:
+        lib['task'] = '1'
+        for task in tasks:
+            tmp = mw.getStrBetween('[', ']', task['name'])
+            if not tmp:
+                continue
+            tmp1 = tmp.split('-')
+            if tmp1[0].lower() == lib['name'].lower():
+                lib['task'] = task['status']
+                lib['phpversions'] = []
+                lib['phpversions'].append(tmp1[1])
+        if phpini.find(lib['check']) == -1:
+            lib['status'] = False
+        else:
+            lib['status'] = True
+        libs.append(lib)
+    return libs
+
+
+def get_lib_conf(data):
+    libs = libConfCommon(data['version'])
+    # print(libs)
+    return mw.returnData(True, 'OK!', libs)
+
+
+def getLibConf(version):
+    libs = libConfCommon(version)
+    return mw.returnJson(True, 'OK!', libs)
+
+
+def installLib(version):
+    args = getArgs()
+    data = checkArgs(args, ['name'])
+    if not data[0]:
+        return data[1]
+
+    name = args['name']
+    cmd = "cd " + getPluginDir() + "/versions && /bin/bash  common.sh " + version + ' install ' + name
+    print(cmd)
+    install_name = '安装[' + name + '-' + version + ']'
+    import thisdb
+    thisdb.addTask(name=install_name,cmd=cmd)
+
+    mw.triggerTask()
+    return mw.returnJson(True, '已将下载任务添加到队列!')
+
+
+def uninstallLib(version):
+    args = getArgs()
+    data = checkArgs(args, ['name'])
+    if not data[0]:
+        return data[1]
+
+    name = args['name']
+    execstr = "cd " + getPluginDir() + "/versions && /bin/bash  common.sh " + version + ' uninstall ' + name
+
+    data = mw.execShell(execstr)
+    # data[0] == '' and
+    if data[1] == '':
+        return mw.returnJson(True, '已经卸载成功!')
+    else:
+        return mw.returnJson(False, '卸载信息![通道0]:' + data[0] + "[通道0]:" + data[1])
+
+
+def getConfAppStart():
+    pstart = mw.getServerDir() + '/rapira/app_start.php'
+    return pstart
+
+def opcacheBlacklistFile():
+    op_bl = mw.getServerDir() + '/rapira/opcache-blacklist.txt'
+    return op_bl
+
+
+def installPreInspection(version):
+    return 'ok'
+
+
+if __name__ == "__main__":
+
+    if len(sys.argv) < 3:
+        print('missing parameters')
+        exit(0)
+
+    func = sys.argv[1]
+    version = sys.argv[2]
+
+    if func == 'status':
+        print(status(version))
+    elif func == 'start':
+        print(start(version))
+    elif func == 'stop':
+        print(stop(version))
+    elif func == 'restart':
+        print(restart(version))
+    elif func == 'reload':
+        print(reload(version))
+    elif func == 'install_pre_inspection':
+        print(installPreInspection(version))
+    elif func == 'initd_status':
+        print(initdStatus(version))
+    elif func == 'initd_install':
+        print(initdInstall(version))
+    elif func == 'initd_uninstall':
+        print(initdUinstall(version))
+    elif func == 'rapira_log':
+        print(rapiraLog(version))
+    elif func == 'config_tpl':
+        print(configTpl())
+    elif func == 'read_config_tpl':
+        print(readConfigTpl(version))
+    elif func == 'php_conf':
+        print(getConfIni(version))
+    elif func == 'conf':
+        print(getConf(version))
+    elif func == 'app_start':
+        print(getConfAppStart())
+    elif func == 'opcache_blacklist_file':
+        print(opcacheBlacklistFile())
+    elif func == 'get_php_conf':
+        print(getPhpConf(version))
+    elif func == 'submit_php_conf':
+        print(submitPhpConf(version))
+    elif func == 'get_limit_conf':
+        print(getLimitConf(version))
+    elif func == 'set_max_time':
+        print(setMaxTime(version))
+    elif func == 'set_max_size':
+        print(setMaxSize(version))
+    elif func == 'get_rapira_status':
+        print(getRapiraStatus(version))
+    elif func == 'get_disable_func':
+        print(getDisableFunc(version))
+    elif func == 'set_disable_func':
+        print(setDisableFunc(version))
+    elif func == 'get_phpinfo':
+        print(getPhpinfo(version))
+    elif func == 'get_lib_conf':
+        print(getLibConf(version))
+    elif func == 'install_lib':
+        print(installLib(version))
+    elif func == 'uninstall_lib':
+        print(uninstallLib(version))
+    else:
+        print("fail")

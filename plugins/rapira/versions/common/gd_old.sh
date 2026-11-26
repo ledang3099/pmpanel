@@ -1,0 +1,152 @@
+#!/bin/bash
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin:/opt/homebrew/bin
+export PATH=$PATH:/opt/homebrew/bin
+
+curPath=`pwd`
+
+rootPath=$(dirname "$curPath")
+rootPath=$(dirname "$rootPath")
+rootPath=$(dirname "$rootPath")
+rootPath=$(dirname "$rootPath")
+serverPath=$(dirname "$rootPath")
+sourcePath=${serverPath}/source/rapira
+SYS_ARCH=`arch`
+actionType=$1
+version=$2
+
+LIBNAME=gd
+LIBV=0
+
+bash ${rootPath}/scripts/getos.sh
+OSNAME=`cat ${rootPath}/data/osname.pl`
+OSNAME_ID=`cat /etc/*-release | grep VERSION_ID | awk -F = '{print $2}' | awk -F "\"" '{print $2}'`
+
+
+# if [ "$version" -lt "74" ];then
+# 	echo "not need!"
+# 	exit 1
+# fi
+
+
+LIB_PATH_NAME=lib/php
+if [ -d $serverPath/rapira/${version}/link/lib64 ];then
+	LIB_PATH_NAME=lib64
+fi
+
+NON_ZTS_FILENAME=`ls $serverPath/rapira/${version}/link/${LIB_PATH_NAME}/extensions | grep no-debug-non-zts`
+extFile=$serverPath/rapira/${version}/link/${LIB_PATH_NAME}/extensions/${NON_ZTS_FILENAME}/${LIBNAME}.so
+
+sysName=`uname`
+if [ "$sysName" = "Darwin" ];then
+	BAK='_bak'
+else
+	BAK=''
+fi
+
+
+phpini=$serverPath/rapira/$version/php.ini
+
+Install_lib()
+{
+
+	isInstall=`cat ${phpini}|grep "${LIBNAME}.so"`
+	if [ "${isInstall}" != "" ];then
+		echo "php-$version 已安装${LIBNAME},请选择其它版本!"
+		return
+	fi
+
+	cd ${rootPath}/plugins/php/lib && /bin/bash freetype_old.sh
+	
+	if [ ! -f "$extFile" ];then
+
+		if [ ! -d $sourcePath/php${version}/ext ];then
+			cd ${rootPath}/plugins/rapira && /bin/bash ${rootPath}/plugins/rapira/versions/${version}/install.sh install 
+		fi
+		
+		cd $sourcePath/php${version}/ext/${LIBNAME}
+		
+		$serverPath/rapira/$version/link/bin/phpize
+
+		OPTIONS=""
+		if [ "${SYS_ARCH}" = "aarch64" ] && [ "$version" -lt "56" ];then
+			OPTIONS="$OPTIONS --build=aarch64-unknown-linux-gnu --host=aarch64-unknown-linux-gnu"
+		fi
+
+		if [ "$version" -lt "55" ];then
+			echo "not need xmp"
+		else
+			OPTIONS="$OPTIONS --with-xpm-dir"
+		fi
+
+
+		if [ ! -d ${serverPath}/lib/freetype_old ];then
+			echo "freetype_old not install , check!!"
+			return
+		fi
+
+		find_ft2=`pkg-config --list-all | grep freetype2`
+		if [ "$find_ft2" != "" ];then
+			OPTIONS="$OPTIONS --with-freetype-dir=${serverPath}/lib/freetype_old"
+		fi
+
+		#--with-xpm
+		# =${serverPath}/lib/freetype_old
+		# =/usr/lib
+		./configure --with-php-config=$serverPath/rapira/$version/link/bin/php-config \
+		$OPTIONS \
+		--with-gd \
+		--with-jpeg-dir \
+		--with-png-dir \
+		--with-webp-dir \
+		--with-zlib-dir \
+		--enable-gd-jis-conv \
+		# --enable-gd-native-ttf
+		make clean && make && make install && make clean
+		
+		if [ -d $sourcePath/php${version} ];then
+			cd ${sourcePath} && rm -rf $sourcePath/php${version}
+		fi
+	fi
+
+	if [ ! -f "$extFile" ];then
+		echo "ERROR!"
+		return
+	fi
+
+    echo "" >> $phpini
+	echo "[${LIBNAME}]" >> $phpini
+	echo "extension=${LIBNAME}.so" >> $phpini
+	
+	cd  ${curPath} && bash ${rootPath}/plugins/rapira/versions/lib.sh $version restart
+	echo '==========================================================='
+	echo 'successful!'
+}
+
+
+Uninstall_lib()
+{
+	if [ ! -f "$serverPath/rapira/$version/link/bin/php-config" ];then
+		echo "php-$version 未安装,请选择其它版本!"
+		return
+	fi
+	
+	if [ ! -f "$extFile" ];then
+		echo "php-$version 未安装${LIBNAME},请选择其它版本!"
+		return
+	fi
+	
+	sed -i $BAK "/${LIBNAME}.so/d" $phpini
+	sed -i $BAK "/${LIBNAME}/d" $phpini
+		
+	rm -f $extFile
+	cd  ${curPath} && bash ${rootPath}/plugins/rapira/versions/lib.sh $version restart
+	echo '==============================================='
+	echo 'successful!'
+}
+
+
+if [ "$actionType" = 'install' ];then
+	Install_lib
+elif [ "$actionType" = 'uninstall' ];then
+	Uninstall_lib
+fi

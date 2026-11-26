@@ -1,0 +1,182 @@
+#!/bin/bash
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin:/opt/homebrew/bin
+export PATH=$PATH:/opt/homebrew/bin
+
+action=${1}
+
+curPath=`pwd`
+rootPath=$(dirname "$curPath")
+rootPath=$(dirname "$rootPath")
+serverPath=$(dirname "$rootPath")
+sourcePath=${serverPath}/source
+sysName=`uname`
+
+version=7.4.33
+PHP_VER=74
+md5_file_ok=924846abf93bc613815c55dd3f5809377813ac62a9ec4eb3778675b82a27b927
+Install_php()
+{
+#------------------------ install start ------------------------------------#
+echo "安装php-${version} ..."
+mkdir -p $sourcePath/php
+mkdir -p $serverPath/php
+
+# cd /Users/dev/Desktop/pmdev/server/pmpanel/plugins/php/lib && /bin/bash libzip.sh
+# cd /www/server/pmpanel/plugins/php/lib && /bin/bash libzip.sh
+cd ${rootPath}/plugins/php/lib && /bin/bash freetype_new.sh
+cd ${rootPath}/plugins/php/lib && /bin/bash zlib.sh
+cd ${rootPath}/plugins/php/lib && /bin/bash libzip.sh
+
+# redat ge 8
+which yum
+if [ "$?" = "0" ];then
+	cd ${rootPath}/plugins/php/lib && /bin/bash oniguruma.sh
+fi
+
+if [ ! -d $sourcePath/php/php${PHP_VER} ];then
+
+	# ----------------------------------------------------------------------- #
+	# 中国优化安装
+	cn=$(curl -fsSL -m 10 -s http://ipinfo.io/json | grep "\"country\": \"CN\"")
+	LOCAL_ADDR=common
+	if [ ! -z "$cn" ] || [ "$?" = "0" ] ;then
+		LOCAL_ADDR=cn
+	fi
+
+	if [ "$LOCAL_ADDR" = "cn" ];then
+		if [ ! -f $sourcePath/php/php-${version}.tar.xz ];then
+			wget --no-check-certificate -O $sourcePath/php/php-${version}.tar.xz https://mirrors.nju.edu.cn/php/php-${version}.tar.xz
+		fi
+	fi
+	# ----------------------------------------------------------------------- #
+	
+	if [ ! -f $sourcePath/php/php-${version}.tar.xz ];then
+		wget --no-check-certificate -O $sourcePath/php/php-${version}.tar.xz https://museum.php.net/php7/php-${version}.tar.xz
+	fi
+
+	#检测文件是否损坏.
+	if [ -f $sourcePath/php/php-${version}.tar.xz ];then
+		md5_file=`sha256sum $sourcePath/php/php-${version}.tar.xz  | awk '{print $1}'`
+		if [ "${md5_file}" != "${md5_file_ok}" ]; then
+			echo "PHP${version} 下载文件不完整,重新安装"
+			rm -rf $sourcePath/php/php-${version}.tar.xz
+			exit
+		fi
+	fi
+	
+	cd $sourcePath/php && tar -Jxf $sourcePath/php/php-${version}.tar.xz
+	mv $sourcePath/php/php-${version} $sourcePath/php/php${PHP_VER}
+fi
+
+if [ ! -d $sourcePath/php/php${PHP_VER} ];then
+	rm -rf $sourcePath/php/php-${version}.tar.xz
+	echo "reinstall php${version}"
+	exit 1
+fi
+
+cd $sourcePath/php/php${PHP_VER}
+
+OPTIONS='--without-iconv'
+# if [ $sysName = 'Darwin' ]; then
+# 	OPTIONS="${OPTIONS} --with-external-pcre=$(brew --prefix pcre2)"
+# fi
+
+IS_64BIT=`getconf LONG_BIT`
+if [ "$IS_64BIT" = "64" ];then
+	OPTIONS="${OPTIONS} --with-libdir=lib64"
+fi
+
+# ----- cpu start ------
+if [ -z "${cpuCore}" ]; then
+	cpuCore="1"
+fi
+
+if [ -f /proc/cpuinfo ];then
+	cpuCore=`cat /proc/cpuinfo | grep "processor" | wc -l`
+fi
+
+MEM_INFO=$(which free > /dev/null && free -m|grep Mem|awk '{printf("%.f",($2)/1024)}')
+if [ "${cpuCore}" != "1" ] && [ "${MEM_INFO}" != "0" ];then
+    if [ "${cpuCore}" -gt "${MEM_INFO}" ];then
+        cpuCore="${MEM_INFO}"
+    fi
+else
+    cpuCore="1"
+fi
+
+if [ "$cpuCore" -gt "2" ];then
+	cpuCore=`echo "$cpuCore" | awk '{printf("%.f",($1)*0.8)}'`
+else
+	cpuCore="1"
+fi
+# ----- cpu end ------
+
+if [ "$sysName" = "Darwin" ];then
+	LIB_DEPEND_DIR=`brew --prefix openssl@3`
+	OPTIONS="$OPTIONS --with-openssl=$LIB_DEPEND_DIR"
+	export PKG_CONFIG_PATH=$LIB_DEPEND_DIR/lib/pkgconfig
+	export OPENSSL_CFLAGS="-I${LIB_DEPEND_DIR}/include"
+	export OPENSSL_LIBS="-L/${LIB_DEPEND_DIR}/lib -lssl -lcrypto -lz"
+else
+	cd ${rootPath}/plugins/php/lib && /bin/bash openssl_10.sh
+	export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$serverPath/lib/openssl10/lib/pkgconfig
+	OPTIONS="$OPTIONS --with-openssl"
+fi
+
+if [ ! -d $serverPath/php/${PHP_VER} ] || [ "$action" == "upgrade" ];then
+
+	# curl -L -o 7.4-CVE-2026-109618-109619.patch  "https://github.com/php/php-src/compare/php-7.4.33...PHP-7.4-CVE-2026-109618-109619.patch"
+
+	# cd /www/server/source/php/php74 && patch -p1 --dry-run < /www/server/pmpanel/plugins/php/versions/74/cve/7.4-CVE-2026-109618-109619.patch
+
+	# cd $sourcePath/php/php${PHP_VER} && patch -p1 --dry-run < ${rootPath}/plugins/php/versions/74/cve/7.4-CVE-2026-109618-109619.patch
+	cd $sourcePath/php/php${PHP_VER} && patch -p1 < ${rootPath}/plugins/php/versions/74/cve/7.4-CVE-2026-109618-109619.patch
+	cd $sourcePath/php/php${PHP_VER} && make clean
+	./configure \
+	--prefix=$serverPath/php/${PHP_VER} \
+	--exec-prefix=$serverPath/php/${PHP_VER} \
+	--with-config-file-path=$serverPath/php/${PHP_VER}/etc \
+	--enable-mysqlnd \
+	--with-mysql=mysqlnd \
+	--with-mysqli=mysqlnd \
+	--with-pdo-mysql=mysqlnd \
+	--enable-ftp \
+	--enable-mbstring \
+	--enable-sockets \
+	--enable-simplexml \
+	--enable-soap \
+	--enable-posix \
+	--enable-sysvmsg \
+	--enable-sysvsem \
+	--enable-sysvshm \
+	--disable-intl \
+	--disable-fileinfo \
+	$OPTIONS \
+	--enable-fpm
+	make clean && make -j${cpuCore} && make install && make clean
+
+	
+	if [ "$?" == "0" ];then
+		echo "安装php-${version}成功"
+	else
+		echo "安装php-${version}异常"
+	fi
+	rm -rf $sourcePath/php/php${PHP_VER}
+fi 
+#------------------------ install end ------------------------------------#
+}
+
+Uninstall_php()
+{
+	$serverPath/php/init.d/php${PHP_VER} stop
+	rm -rf $serverPath/php/${PHP_VER}
+	echo "卸载php-${version}..."
+}
+
+if [ "${1}" = 'install' ] || [ "$action" = "upgrade" ];then
+	Install_php
+elif [ "${1}" = 'uninstall' ];then
+	Uninstall_php
+else
+	echo "OPTIONS ERROR"
+fi

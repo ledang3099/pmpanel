@@ -1,0 +1,13 @@
+pmpanel
+Copyright (c) pmpanel contributors
+
+This product is a modified version of mdserver-web
+(https://github.com/midoks/mdserver-web),
+Copyright (c) 2018 midoks, licensed under the Apache License, Version 2.0.
+
+Modifications made in pmpanel include, among others: renaming of the
+product, install paths and system command, security fixes, and a
+rebuilt user interface. See the git history for details.
+
+Third-party components bundled under web/static and plugins/ keep their
+own licenses and copyright notices.

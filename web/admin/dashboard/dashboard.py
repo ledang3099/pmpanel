@@ -1,0 +1,115 @@
+# coding:utf-8
+
+# ---------------------------------------------------------------------------------
+# PM-Linux面板
+# ---------------------------------------------------------------------------------
+# Licensed under the Apache License 2.0. See LICENSE and NOTICE.
+# ---------------------------------------------------------------------------------
+
+import io
+import time
+import base64
+import json
+import os
+import sys
+
+from flask import Blueprint, render_template
+from flask import make_response
+from flask import redirect
+from flask import Response
+from flask import request,g
+
+from admin.common import isLogined
+from admin.user_login_check import panel_login_required
+from admin import cache,session
+
+import core.mw as mw
+import thisdb
+
+
+blueprint = Blueprint('dashboard', __name__, url_prefix='/', template_folder='../../templates')
+@blueprint.route('/', endpoint='index', methods=['GET'])
+@panel_login_required
+def index():
+    name = thisdb.getOption('template', default='default')
+    return render_template('%s/index.html' % name)
+
+# 安全路径
+@blueprint.route('/<path>',endpoint='admin_safe_path',methods=['GET'])
+def admin_safe_path(path):
+    # 面板收藏的快捷登录: 与 /do_login 使用相同的IP限流, 开启两步验证时禁用
+    login = request.args.get('login', '')
+    if login != '':
+        import utils.security as security
+        from admin import cache
+        ip = mw.getClientIp()
+        try:
+            two_step = thisdb.getOptionByJson('two_step_verification', default={'open': False})
+            if two_step['open'] or security.login_is_locked(cache, ip):
+                return redirect('/')
+
+            login_str = base64.b64decode(login).decode('utf-8')
+            data = json.loads(login_str)
+
+            time_now = time.time() * 1000
+            if abs(time_now - float(data['time'])) > 2000:
+                return redirect('/')
+
+            info = thisdb.getUserByName(str(data['username']))
+            if info is None or not thisdb.checkUserPassword(info, str(data['password'])):
+                security.login_record_fail(cache, ip)
+                return redirect('/')
+
+            security.login_reset(cache, ip)
+            session.clear()
+            session['login'] = True
+            session['username'] = info['name']
+            session['overdue'] = int(time.time()) + 7 * 24 * 60 * 60
+
+            thisdb.updateUserLoginTime()
+            return redirect('/')
+        except Exception as e:
+            return redirect('/')
+
+    db_path = thisdb.getOption('admin_path')
+    name = thisdb.getOption('template', default='default')
+    if isLogined():
+       return redirect('/')
+    if db_path == path:
+        return render_template('%s/login.html' % name)
+
+    unauthorized_status = thisdb.getOption('unauthorized_status')
+    if unauthorized_status == '0':
+        return render_template('%s/path.html' % name)
+    return Response(status=int(unauthorized_status))
+
+# 仅针对webhook插件
+@blueprint.route("/hook", methods=['POST', 'GET'])
+def webhook():
+    # 兼容获取关键数据
+    access_key = request.args.get('access_key', '').strip()
+    if access_key == '':
+        access_key = request.form.get('access_key', '').strip()
+
+    params = request.args.get('params', '').strip()
+    if params == '':
+        params = request.form.get('params', '').strip()
+
+    input_args = {
+        'access_key': access_key,
+        'params': params,
+    }
+
+    wh_install_path = mw.getServerDir() + '/webhook'
+    if not os.path.exists(wh_install_path):
+        return mw.returnData(False, '请先安装WebHook插件!')
+
+    package = mw.getPanelDir() + "/plugins/webhook"
+    if not package in sys.path:
+        sys.path.append(package)
+        
+    try:
+        import webhook_index
+        return webhook_index.runShellArgs(input_args)
+    except Exception as e:
+        return str(e)

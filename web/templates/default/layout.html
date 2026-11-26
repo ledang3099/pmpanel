@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="renderer" content="webkit">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{data['title']}}</title>
+<link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon" />
+<link href="/static/bootstrap-3.3.5/css/bootstrap.min.css?v={{config.version}}" rel="stylesheet">
+<link href="/static/css/site.css?v={{config.version}}" rel="stylesheet">
+<link href="/static/css/pm-theme.css?v={{config.version}}" rel="stylesheet">
+<link href="/static/codemirror/lib/codemirror.css?v={{config.version}}" rel="stylesheet">
+<script src="/static/language/Simplified_Chinese/lan.js?v={{config.version}}"></script>
+<!--[if lte IE 9]>
+	<script src="/static/js/requestAnimationFrame.js"></script>
+<![endif]-->
+
+
+{% for menu in data['hook_menu'] %}
+{% if menu['css_path'] and data['hook_tag'] == menu['name'] %}
+<!-- 加载插件css -->
+<link href="/plugins/file?name={{menu['name']}}&v={{config.version}}&f={{menu['css_path']}}" rel="stylesheet" />
+{% endif %}
+{% endfor %}
+
+<!-- 全局静态HOOK -->
+{% for menu in data['hook_global_static'] %}
+{% if menu['css_path'] %}
+<link href="/plugins/file?name={{menu['name']}}&v={{config.version}}&f={{menu['css_path']}}" rel="stylesheet" />
+{% endif %}
+{% endfor %}
+</head>
+
+<body>
+    <div class="bt-warp bge6">
+        <div id="container" class="container-fluid">
+            <!-- 移动端顶部条 -->
+            <div class="pm-topbar">
+                <button type="button" class="pm-burger" aria-label="菜单" onclick="document.body.classList.toggle('pm-nav-open')">
+                    <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+                <span class="pm-brand-mark">PM</span><span>{{data['title']}}</span>
+            </div>
+            <div class="pm-sidebar-mask" onclick="document.body.classList.remove('pm-nav-open')"></div>
+            <div class="sidebar-scroll">
+                <div class="sidebar-auto">
+                    <a class="pm-brand" href="/">
+                        <span class="pm-brand-mark">PM</span>
+                        <span class="pm-brand-name">{{data['title']}}<small>Linux 服务器管理面板</small></span>
+                    </a>
+                    <div style="position:relative">
+                        <div id="task" class="task cw" onclick="messageBox();" title="任务队列"></div>
+                        <h3 class="mypcip"><span class="f14 cw">{{data['ip']}}</span></h3>
+                    </div>
+                    <ul class="menu">
+                        <li id="memuA"><a class="menu_home" href="/"><span class="pm-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-6h4v6"/></svg></span><span>首页</span></a></li>
+                        <li id="memuAsite"><a class="menu_web" href="/site/index"><span class="pm-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"/></svg></span><span>网站</span></a></li>
+                        <li id="memuAmonitor"><a class="menu_control" href="/monitor/index"><span class="pm-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></span><span>监控</span></a></li>
+                        <li id="memuAfirewall"><a class="menu_firewall" href="/firewall/index"><span class="pm-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.6 3.4 8.3 8 9 4.6-.7 8-4.4 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg></span><span>安全</span></a></li>
+                        <li id="memuAfiles"><a class="menu_folder" href="/files/index"><span class="pm-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></span><span>文件</span></a></li>
+                        <li id="memuAlogs"><a class="menu_logs" href="/logs/index"><span class="pm-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M10 13h6M10 17h6"/></svg></span><span>日志</span></a></li>
+                        <li id="memuAcrontab"><a class="menu_day" href="/crontab/index"><span class="pm-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span>计划任务</span></a></li>
+                        <!-- 插件设置的菜单 -->
+                        {% for menu in data['hook_menu'] %}
+                        <li id="memuAplugins_{{menu['name']}}">
+                            <a class="menu_plugin_{{menu['name']}}" href="/plugins/menu?tag={{menu['name']}}"><span class="pm-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v4M15 3v4"/><rect x="6" y="7" width="12" height="7" rx="2"/><path d="M12 14v4a3 3 0 0 1-3 3"/></svg></span><span>{{menu['title']}}</span></a>
+                        </li>
+                        {% endfor %}
+                        <li class="pm-menu-sep"></li>
+                        <li id="memuAsoft"><a class="menu_soft" href="/soft/index"><span class="pm-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></span><span>软件管理</span></a><span class="softnum">1</span></li>
+                        <li id="memuAsetting"><a class="menu_set" href="/setting/index"><span class="pm-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span><span>面板设置</span></a></li>
+                        <li><a class="menu_exit" href="javascript:;" id="signout"><span class="pm-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg></span><span>退出</span></a></li>
+                    </ul>
+                    <div id="newbtpc"></div>
+                    <div class="btpc-plus" onclick="bindPanel(0,'b')" title="添加面板收藏">+</div>
+                </div>
+            </div>
+            <button style="display: none;" id="mw_copys" class="mw_copy" data-clipboard-text=""></button>
+            <link rel="stylesheet" href="/static/build/xterm.css?v={{config.version}}">
+            <link rel="stylesheet" href="/static/build/addons/fullscreen/fullscreen.css?v={{config.version}}">
+            <script src="/static/js/jquery-1.10.2.min.js"></script>
+            <script src="/static/js/jquery.cookie-1.4.1.min.js"></script>
+            <script src="/static/js/bootstrap.min.js"></script>
+            <script src="/static/layer/layer.js"></script>
+            <script src="/static/js/jquery.fly.min.js"></script>
+            <script src="/static/js/clipboard.min.js"></script>
+            <script src="/static/build/xterm.js"></script>
+            <script src="/static/build/addons/attach/attach.js"></script>
+            <script src="/static/build/addons/fit/fit.js"></script>
+            <script src="/static/build/addons/fullscreen/fullscreen.js"></script>
+            <script src="/static/js/socket.io.min.js"></script>
+            <script src="/static/build/addons/winptyCompat/winptyCompat.js"></script>
+            <script src="/static/js/term-websocketio.js"></script>
+            <script src="/static/app/upload.js?v={{config.version}}"></script>
+            <script src="/static/app/public.js?v={{config.version}}"></script>
+            <script src="/static/js/echarts.min.js"></script>
+            <!-- <script src="//cdn.jsdelivr.net/gh/ledang3099/pmpanel@latest/route/static/js/echarts.min.js"></script> -->
+            <!-- <script src="//unpkg.com/echarts@5.4.3/dist/echarts.min.js"></script> -->
+            
+            <script src="/static/js/jquery.dragsort-0.5.2.min.js"></script>
+            <script src="/static/js/jquery-qrcode-0.18.0.min.js?v={{config.version}}"></script>
+            <script src="/static/js/xm-select.js"></script>
+            
+            {% block content %}{% endblock %}
+            <div class="footer bgw">pmpanel &copy; Linux面板 (<a class="btlink" target="_blank" rel="noopener noreferrer" href="//github.com/ledang3099/pmpanel">源码</a>)</div>
+        </div>
+    </div>
+</body>
+
+<script type="text/javascript">
+
+(function ($) {
+    $.getUrlParam = function (name) {
+        var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)");
+        var r = window.location.search.substr(1).match(reg);
+        if (r != null) return unescape(r[2]); return null;
+    }
+})(jQuery);
+
+
+
+var thisPath = window.location.pathname.trim()+window.location.search;
+if (thisPath.indexOf('?')>-1){
+    var tag = $.getUrlParam('tag');
+    if(tag != undefined){
+        $('#memuAplugins_'+tag).addClass('current');
+    } else {
+        var pathArr = window.location.pathname.substring(1).split('/');
+        $('#memuA'+pathArr[0]).addClass('current');
+    }
+} else{
+    if(thisPath != '/'){
+        var pathArr = thisPath.substring(1).split('/');
+        $('#memuA'+pathArr[0]).addClass('current');
+    } else{
+        $('#memuA').addClass('current');
+    }
+}
+</script>
+<script src="/static/codemirror/lib/codemirror.js?v={{config.version}}"></script>
+<script src="/static/codemirror/addon/edit/editAll.js?v={{config.version}}"></script>
+<script src="/static/codemirror/mode/modeAll.js?v={{config.version}}"></script>
+<script src="/static/codemirror/addon/dialog/dialog.js?v={{config.version}}"></script>
+<script src="/static/codemirror/addon/search/search.js?v={{config.version}}"></script>
+<script src="/static/codemirror/addon/scroll/annotatescrollbar.js?v={{config.version}}"></script>
+<script src="/static/laydate/laydate.js?v={{config.version}}"></script>
+
+{% for menu in data['hook_menu'] %}
+{% if menu['js_path'] and data['hook_tag'] == menu['name'] %}
+<script src="/plugins/file?name={{menu['name']}}&f={{menu['js_path']}}&v={{config.version}}"></script>
+{% endif %}
+{% endfor %}
+
+<!-- 全局静态HOOK -->
+{% for menu in data['hook_global_static'] %}
+{% if menu['js_path'] %}
+<script src="/plugins/file?name={{menu['name']}}&f={{menu['js_path']}}&v={{config.version}}"></script>
+{% endif %}
+{% endfor %}
+
+
+
+
+</html>

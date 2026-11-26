@@ -1,0 +1,2113 @@
+# coding:utf-8
+
+import sys
+import io
+import os
+import time
+import re
+import json
+import datetime
+import yaml
+
+web_dir = os.getcwd() + "/web"
+if os.path.exists(web_dir):
+    sys.path.append(web_dir)
+    os.chdir(web_dir)
+
+import core.mw as mw
+
+app_debug = False
+if mw.isAppleSystem():
+    app_debug = True
+
+
+# /usr/lib/systemd/system/mongod.service
+
+# python3 /www/server/pmpanel/plugins/mongodb/index.py repl_init 
+# python3 /www/server/pmpanel/plugins/mongodb/index.py run_repl_info
+# python3 /www/server/pmpanel/plugins/mongodb/index.py test_data
+# python3 /www/server/pmpanel/plugins/mongodb/index.py run_info
+
+def getPluginName():
+    return 'mongodb'
+
+
+def getPluginDir():
+    return mw.getPluginDir() + '/' + getPluginName()
+
+
+def getServerDir():
+    return mw.getServerDir() + '/' + getPluginName()
+
+
+def getBackupDir():
+    bk_path = mw.getBackupDir() + "/database/mongodb"
+    if not os.path.isdir(bk_path):
+        mw.execShell("mkdir -p {}".format(bk_path))
+    return bk_path
+
+
+def getImportDir():
+    import_path = mw.getBackupDir() + "/mongodb_import"
+    if not os.path.isdir(import_path):
+        mw.execShell("mkdir -p {}".format(import_path))
+    return import_path
+
+
+def getInitDFile():
+    if app_debug:
+        return '/tmp/' + getPluginName()
+    return '/etc/init.d/' + getPluginName()
+
+
+def getConf():
+    path = getServerDir() + "/mongodb.conf"
+    return path
+
+def getConfKey():
+    key = getServerDir() + "/mongodb.key"
+    return key
+
+def getConfTpl():
+    path = getPluginDir() + "/config/mongodb.conf"
+
+    ver_pl = getServerDir()+"/version.pl"
+    ver = mw.readFile(ver_pl)
+    if ver.startswith('3.0'):
+        path = getPluginDir() + "/config/mongodb3.conf"
+    return path
+
+def getConfigData():
+    cfg = getConf()
+    config_data = mw.readFile(cfg)
+    try:
+        config = yaml.safe_load(config_data)
+    except:
+        config = {
+            "systemLog": {
+                "destination": "file",
+                "logAppend": True,
+                "path": mw.getServerDir()+"/mongodb/log/mongodb.log"
+            },
+            "storage": {
+                "dbPath": mw.getServerDir()+"/mongodb/data",
+                "directoryPerDB": True,
+                "journal": {
+                    "enabled": True
+                }
+            },
+            "processManagement": {
+                "fork": True,
+                "pidFilePath": mw.getServerDir()+"/mongodb/log/mongodb.pid"
+            },
+            "net": {
+                "port": 27017,
+                "bindIp": "0.0.0.0"
+            },
+            "security": {
+                "authorization": "enabled",
+                "javascriptEnabled": False
+            }
+        }
+    return config
+
+def setConfig(config_data):
+    # t = status()
+    cfg = getConf()
+    try:
+        mw.writeFile(cfg, yaml.safe_dump(config_data))
+    except:
+        return False
+    return True
+
+def getInitDTpl():
+    path = getPluginDir() + "/init.d/" + getPluginName() + ".tpl"
+    return path
+
+
+def getConfIp():
+    data = getConfigData()
+    return data['net']['bindIp']
+
+def getConfLocalIp():
+    return '127.0.0.1'
+
+def getConfPort():
+    data = getConfigData()
+    return data['net']['port']
+    # file = getConf()
+    # content = mw.readFile(file)
+    # rep = 'port\s*=\s*(.*)'
+    # tmp = re.search(rep, content)
+    # return tmp.groups()[0].strip()
+
+def getConfAuth():
+    data = getConfigData()
+    return data['security']['authorization']
+    # file = getConf()
+    # content = mw.readFile(file)
+    # rep = 'auth\s*=\s*(.*)'
+    # tmp = re.search(rep, content)
+    # return tmp.groups()[0].strip()
+
+def getArgs():
+    args = sys.argv[2:]
+    tmp = {}
+
+    # 兼容前端传 {} / 空参数: 去掉花括号后为空的直接跳过, 避免 split 后越界
+    for arg in args:
+        arg = arg.strip().strip('{').strip('}').strip()
+        if arg == '':
+            continue
+        t = arg.split(':', 1)
+        if len(t) < 2:
+            continue
+        tmp[t[0]] = t[1]
+
+    return tmp
+
+def checkArgs(data, ck=[]):
+    for i in range(len(ck)):
+        if not ck[i] in data:
+            return (False, mw.returnJson(False, '参数:(' + ck[i] + ')没有!'))
+    return (True, mw.returnJson(True, 'ok'))
+
+def status():
+    cmd = "ps -ef|grep mongod |grep -v mongosh|grep -v grep | grep -v /Applications | grep -v python | grep -v pmpanel | awk '{print $2}'"
+    data = mw.execShell(cmd)
+    if data[0] == '':
+        return 'stop'
+    return 'start'
+
+def pSqliteDb(dbname='users'):
+    file = getServerDir() + '/mongodb.db'
+    name = 'mongodb'
+
+    sql_file = getPluginDir() + '/config/mongodb.sql'
+    import_sql = mw.readFile(sql_file)
+    # print(sql_file,import_sql)
+    md5_sql = mw.md5(import_sql)
+
+    import_sign = False
+    save_md5_file = getServerDir() + '/import_mongodb.md5'
+    if os.path.exists(save_md5_file):
+        save_md5_sql = mw.readFile(save_md5_file)
+        if save_md5_sql != md5_sql:
+            import_sign = True
+            mw.writeFile(save_md5_file, md5_sql)
+    else:
+        mw.writeFile(save_md5_file, md5_sql)
+
+    if not os.path.exists(file) or import_sql:
+        conn = mw.M(dbname).dbPos(getServerDir(), name)
+        csql_list = import_sql.split(';')
+        for index in range(len(csql_list)):
+            conn.execute(csql_list[index], ())
+
+    conn = mw.M(dbname).dbPos(getServerDir(), name)
+    return conn
+
+def newMongoClient(**kwargs):
+    '''兼容 pymongo 3.x/4.x:directConnection 仅 pymongo 4.0+ 支持'''
+    import pymongo
+    if getattr(pymongo, 'version_tuple', (3, 0))[0] < 4:
+        kwargs.pop('directConnection', None)
+    return pymongo.MongoClient(**kwargs)
+
+
+def mongoToolsBin(tool):
+    '''获取 mongo 客户端工具路径,4.4+ 的 mongodump/mongorestore 由 Database Tools 提供'''
+    path = getServerDir() + "/bin/" + tool
+    if os.path.exists(path):
+        return path
+    import shutil
+    return shutil.which(tool) or path
+
+
+def mongdbClientS():
+    import pymongo
+    port = getConfPort()
+    auth = getConfAuth()
+    ip = getConfLocalIp()
+    mg_root = pSqliteDb('config').where('id=?', (1,)).getField('mg_root')
+
+    if auth == 'disabled':
+        client = newMongoClient(host=ip, port=int(port), directConnection=True, serverSelectionTimeoutMS=5000)
+    else:
+        # print(auth,mg_root)
+        # 使用 admin 数据库进行认证，兼容 MongoDB 3.0
+        client = newMongoClient(host=ip, port=int(port), directConnection=True,
+                                     serverSelectionTimeoutMS=5000,
+                                     username='root', password=mg_root, authSource='admin')
+    return client
+
+def getMongoDBVersion():
+    '''获取MongoDB版本号'''
+    import pymongo
+    port = getConfPort()
+    ip = getConfLocalIp()
+    try:
+        # 先不使用认证连接
+        client = newMongoClient(host=ip, port=int(port), directConnection=True, serverSelectionTimeoutMS=5000)
+        db = client.admin
+        serverStatus = db.command('serverStatus')
+        version = serverStatus.get('version', '4.0')
+        client.close()
+        return version
+    except Exception as e:
+        # 如果无法获取版本，默认返回 4.0（新版本兼容模式）
+        return '4.0'
+
+def isMongoDB3x():
+    '''判断是否为MongoDB 3.x版本'''
+    version = getMongoDBVersion()
+    # 匹配 3.x 版本
+    if version.startswith('3.'):
+        return True
+    return False
+
+def mongdbClient():
+    import pymongo
+    port = getConfPort()
+    auth = getConfAuth()
+    ip = getConfLocalIp()
+    mg_root = pSqliteDb('config').where('id=?', (1,)).getField('mg_root')
+    
+    if auth == 'disabled':
+        client = newMongoClient(host=ip, port=int(port), directConnection=True, serverSelectionTimeoutMS=5000)
+    else:
+        # 根据MongoDB版本选择认证方式
+        if isMongoDB3x():
+            # MongoDB 3.x 使用 authSource 指定认证数据库
+            client = newMongoClient(host=ip, port=int(port), directConnection=True,
+                                         serverSelectionTimeoutMS=5000,
+                                         username='root', password=mg_root, authSource='admin')
+        else:
+            # MongoDB 4.x+ 默认在 admin 数据库认证
+            client = newMongoClient(host=ip, port=int(port), directConnection=True,
+                                         serverSelectionTimeoutMS=5000,
+                                         username='root', password=mg_root)
+    return client
+
+
+def initDreplace():
+
+    mg_key = getServerDir() + "/mongodb.key"
+    if not os.path.exists(mg_key):
+        mw.execShell("openssl rand -base64 756 >> "+mg_key)
+        mw.execShell("chmod 400 "+mg_key)
+
+    file_tpl = getInitDTpl()
+    service_path = mw.getServerDir()
+
+    initD_path = getServerDir() + '/init.d'
+    if not os.path.exists(initD_path):
+        os.mkdir(initD_path)
+    file_bin = initD_path + '/' + getPluginName()
+
+    logs_dir = getServerDir() + '/logs'
+    if not os.path.exists(logs_dir):
+        os.mkdir(logs_dir)
+
+    data_dir = getServerDir() + '/data'
+    if not os.path.exists(data_dir):
+        os.mkdir(data_dir)
+
+    install_ok = getServerDir() + "/install.lock"
+    if os.path.exists(install_ok):
+        return file_bin
+    mw.writeFile(install_ok, 'ok')
+
+    # initd replace
+    content = mw.readFile(file_tpl)
+    content = content.replace('{$SERVER_PATH}', service_path)
+    mw.writeFile(file_bin, content)
+    mw.execShell('chmod +x ' + file_bin)
+
+    # config replace
+    conf_content = mw.readFile(getConfTpl())
+    conf_content = conf_content.replace('{$SERVER_PATH}', service_path)
+    mw.writeFile(getServerDir() + '/mongodb.conf', conf_content)
+
+    # systemd
+    systemDir = mw.systemdCfgDir()
+    systemService = systemDir + '/mongodb.service'
+    systemServiceTpl = getPluginDir() + '/init.d/mongodb.service.tpl'
+    if os.path.exists(systemDir) and not os.path.exists(systemService):
+        service_path = mw.getServerDir()
+        se_content = mw.readFile(systemServiceTpl)
+        se_content = se_content.replace('{$SERVER_PATH}', service_path)
+        mw.writeFile(systemService, se_content)
+        mw.execShell('systemctl daemon-reload')
+
+    return file_bin
+
+
+def mgOp(method):
+    file = initDreplace()
+    if mw.isAppleSystem():
+        data = mw.execShell(file + ' ' + method)
+        # print(data)
+        if data[1] == '':
+            return 'ok'
+        return data[1]
+
+    data = mw.execShell('systemctl ' + method + ' ' + getPluginName())
+    if data[1] == '':
+        return 'ok'
+    return 'fail'
+
+
+def start():
+    mw.execShell('export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/www/server/lib/openssl11/lib')
+    return mgOp('start')
+
+
+def stop():
+    return mgOp('stop')
+
+
+def reload():
+    return mgOp('reload')
+
+
+def restart():
+    if os.path.exists("/tmp/mongodb-27017.sock"):
+        mw.execShell('rm -rf ' + "/tmp/mongodb-27017.sock")
+
+    cfg = getConfigData()
+    log_file = cfg['systemLog']['path']
+    if os.path.exists(log_file):
+        mw.writeFile(log_file,'')
+    return mgOp('restart')
+
+
+def getConfig():
+    t = status()
+    if t == 'stop':
+        return mw.returnJson(False,'未启动!')
+    d = getConfigData()
+    return mw.returnJson(True,'ok',d)
+
+def saveConfig():
+    d = getConfigData()
+    args = getArgs()
+    data = checkArgs(args, ['bind_ip','port','data_path','log','pid_file_path'])
+    if not data[0]:
+        return data[1]
+
+    d['net']['bindIp'] = args['bind_ip']
+    d['net']['port'] = int(args['port'])
+
+    d['storage']['dbPath'] = args['data_path']
+    d['systemLog']['path'] = args['log']
+    d['processManagement']['pidFilePath'] = args['pid_file_path']
+    setConfig(d)
+    restart()
+    return mw.returnJson(True,'设置成功')
+
+def initMgRoot(password='',force=0):
+    if force == 1:
+        d = getConfigData()
+        auth_t = d['security']['authorization']
+        d['security']['authorization'] = 'disabled'
+        setConfig(d)
+        restart()
+
+    client = mongdbClient()
+    db = client.admin
+    
+    db_all_rules = [
+        {'role': 'root', 'db': 'admin'},
+        {'role': 'clusterAdmin', 'db': 'admin'},
+        {'role': 'readAnyDatabase', 'db': 'admin'},
+        {'role': 'readWriteAnyDatabase', 'db': 'admin'},
+        {'role': 'userAdminAnyDatabase', 'db': 'admin'},
+        {'role': 'dbAdminAnyDatabase', 'db': 'admin'},
+        {'role': 'userAdmin', 'db': 'admin'},
+        {'role': 'dbAdmin', 'db': 'admin'}
+    ]
+
+    if password =='':
+        mg_pass = mw.getRandomString(8)
+    else:
+        mg_pass = _sanitize_str(password)
+
+    try:
+        db.command("createUser", "root", pwd=mg_pass, roles=db_all_rules)
+    except Exception as e:
+        if force == 0:
+            db.command("updateUser", "root", pwd=mg_pass, roles=db_all_rules)
+        else:
+            db.command('dropUser','root')
+            db.command("createUser", "root", pwd=mg_pass, roles=db_all_rules)
+    r = pSqliteDb('config').where('id=?', (1,)).save('mg_root',(mg_pass,))
+
+    if force == 1:
+        d['security']['authorization'] = auth_t
+        setConfig(d)
+        restart()
+    return True
+
+def initUserRoot():
+    d = getConfigData()
+    auth_t = d['security']['authorization']
+    d['security']['authorization'] = 'disabled'
+    setConfig(d)
+    restart()
+    time.sleep(1)
+
+    client = mongdbClient()
+    db = client.admin
+    
+    db_all_rules = [
+        {'role': 'root', 'db': 'admin'},
+        {'role': 'clusterAdmin', 'db': 'admin'},
+        {'role': 'readAnyDatabase', 'db': 'admin'},
+        {'role': 'readWriteAnyDatabase', 'db': 'admin'},
+        {'role': 'userAdminAnyDatabase', 'db': 'admin'},
+        {'role': 'dbAdminAnyDatabase', 'db': 'admin'},
+        {'role': 'userAdmin', 'db': 'admin'},
+        {'role': 'dbAdmin', 'db': 'admin'}
+    ]
+    # db.command("updateUser", "root", pwd=mg_pass, roles=db_all_rules)
+    mg_pass = mw.getRandomString(8)
+    try:
+        r1 = db.command("createUser", "root", pwd=mg_pass, roles=db_all_rules)
+        # print(r1)
+    except Exception as e:
+        # print(e)
+        r1 = db.command('dropUser','root')
+        r2 = db.command("createUser", "root", pwd=mg_pass, roles=db_all_rules)
+        # print(r1, r2)
+        
+    r = pSqliteDb('config').where('id=?', (1,)).save('mg_root',(mg_pass,))
+
+    d['security']['authorization'] = auth_t
+    setConfig(d)
+    restart()
+    return True
+
+def setConfigAuth():
+    init_db_root = getServerDir() + '/init_db_root.lock'
+    if not os.path.exists(init_db_root):
+        initUserRoot()
+        mw.writeFile(init_db_root,'ok')
+
+    d = getConfigData()
+    if d['security']['authorization'] == 'enabled':
+        d['security']['authorization'] = 'disabled'
+        del d['security']['keyFile']
+        setConfig(d)
+        restart()
+        return mw.returnJson(True,'关闭成功')
+    else:
+        d['security']['authorization'] = 'enabled'
+        d['security']['keyFile'] = getServerDir()+'/mongodb.key'
+        setConfig(d)
+        restart()
+        return mw.returnJson(True,'开启成功')
+
+def runInfo():
+    '''
+    cd /www/server/pmpanel && . bin/activate && python3 /www/server/pmpanel/plugins/mongodb/index.py run_info
+    '''
+    client = mongdbClient()
+    db = client.admin
+
+    try:
+        serverStatus = db.command('serverStatus')
+    except Exception as e:
+        return mw.returnJson(False, str(e))
+    
+
+    listDbs = client.list_database_names()
+
+    result = {}
+    result["host"] = serverStatus['host']
+    result["version"] = serverStatus['version']
+    result["uptime"] = serverStatus['uptime']
+    result['db_path'] = getServerDir() + "/data"
+    result["connections"] = serverStatus['connections']['current']
+    result["collections"] = len(listDbs)
+
+    pf = serverStatus['opcounters']
+    result['pf'] = pf
+    
+    return mw.getJson(result)
+
+
+def runDocInfo():    
+    client = mongdbClient()
+    db = client.admin
+    try:
+        db.command('serverStatus')
+        listDbs = client.list_database_names()
+        showDbList = []
+        result = {}
+        for x in range(len(listDbs)):
+            mongd = client[listDbs[x]]
+            stats = mongd.command({"dbstats": 1})
+            if 'operationTime' in stats:
+                del stats['operationTime']
+
+            if '$clusterTime' in stats:
+                del stats['$clusterTime']
+            showDbList.append(stats)
+
+        result["dbs"] = showDbList
+        return mw.getJson(result)
+    except Exception as e:
+        return mw.returnJson(False, str(e))
+
+def runReplInfo():
+    client = mongdbClient()
+    db = client.admin
+    result = {}
+    try:
+        serverStatus = db.command('serverStatus')
+    except Exception as e:
+        return mw.returnJson(False, str(e))
+
+    d = getConfigData()
+    if 'replication' in d and 'replSetName' in d['replication']:
+        result['repl_name'] = d['replication']['replSetName']
+
+    result['status'] = '无'
+    result['doc_name'] = '无'
+    if 'repl' in serverStatus:
+        repl = serverStatus['repl']
+        # print(repl)
+        result['status'] = '从'
+        if 'ismaster' in repl and repl['ismaster']:
+            result['status'] = '主'
+
+        if 'secondary' in repl and not repl['secondary']:
+            result['status'] = '主'
+
+        result['setName'] = mw.getDefault(repl,'setName', '') 
+        result['primary'] = mw.getDefault(repl,'primary', '') 
+        result['me'] = mw.getDefault(repl,'me', '') 
+
+        hosts = mw.getDefault(repl,'hosts', '') 
+        result['hosts'] = ','.join(hosts)
+
+    result['members'] = []
+    try:
+        members_list = []
+        replStatus = db.command('replSetGetStatus')
+        if 'members' in replStatus:
+            members = replStatus['members']
+            for m in members:
+                t = {}
+                t['name'] = m['name']
+                t['stateStr'] = m['stateStr']
+                t['uptime'] = m['uptime']
+                members_list.append(t)
+        result['members'] = members_list
+    except Exception as e:
+        pass
+        
+    return mw.returnJson(True, 'OK', result)
+
+def getDbList():
+    args = getArgs()
+    page = 1
+    page_size = 10
+    search = ''
+    data = {}
+    if 'page' in args:
+        page = int(args['page'])
+
+    if 'page_size' in args:
+        page_size = int(args['page_size'])
+
+    if 'search' in args:
+        search = args['search']
+
+    conn = pSqliteDb('databases')
+    limit = str((page - 1) * page_size) + ',' + str(page_size)
+    condition = ''
+    if not search == '':
+        condition = "name like '%" + search.replace("'", "''") + "%'"
+    field = 'id,name,username,password,accept,rw,ps,addtime'
+    clist = conn.where(condition, ()).field(
+        field).limit(limit).order('id desc').select()
+
+    for x in range(0, len(clist)):
+        dbname = clist[x]['name']
+        blist = getDbBackupListFunc(dbname)
+        clist[x]['is_backup'] = False
+        if len(blist) > 0:
+            clist[x]['is_backup'] = True
+
+    count = conn.where(condition, ()).count()
+    _page = {}
+    _page['count'] = count
+    _page['p'] = page
+    _page['row'] = page_size
+    _page['tojs'] = 'dbList'
+    data['page'] = mw.getPage(_page)
+    data['data'] = clist
+
+    info = {}
+    info['root_pwd'] = pSqliteDb('config').where('id=?', (1,)).getField('mg_root')
+    data['info'] = info
+    return mw.getJson(data)
+    # return mw.returnJson(True,'ok',data)
+
+def getTableList():
+    args = getArgs()
+    db_name = ""
+    if 'dbname' in args:
+        db_name = args['dbname']
+    elif 'name' in args:
+        db_name = args['name']
+    if db_name == "":
+        return mw.returnJson(-1, "table表不能为空")
+
+    try:
+        client = mongdbClient()
+        data = client[db_name].list_collection_names()
+    except Exception as e:
+        return mw.returnJson(-1, str(e))
+
+    table_list = []
+    for i in data:
+        table_list.append(i)
+
+    return mw.returnJson(0, "ok", table_list)
+
+def addDb():
+    t = status()
+    if t == 'stop':
+        return mw.returnJson(False,'未启动!')
+
+    client = mongdbClient()
+    db = client.admin
+
+    args = getArgs()
+    data = checkArgs(args, ['ps','name','db_user','password'])
+    if not data[0]:
+        return data[1]
+
+    data_name = args['name'].strip()
+    if not data_name:
+        return mw.returnJson(False, "数据库名不能为空！")
+
+    nameArr = ['admin', 'config', 'local']
+    if data_name in nameArr:
+        return mw.returnJson(False, "数据库名是保留名称!")
+
+    addTime = time.strftime('%Y-%m-%d %X', time.localtime())
+    username = ''
+    password = ''
+    # auth为true时如果__DB_USER为空则将它赋值为 root，用于开启本地认证后数据库用户为空的情况
+    auth_status = getConfAuth() == "enabled"  
+    
+    if auth_status:
+        data_name = args['name']
+        username = _sanitize_str(args['db_user'])
+        password = _sanitize_str(args['password'])
+    else:
+        username = data_name
+
+
+    client[data_name].zchat.insert_one({})
+    user_roles = [{'role': 'dbOwner', 'db': data_name}, {'role': 'userAdmin', 'db': data_name}]
+    if auth_status:
+        # db.command("dropUser", username)
+        db.command("createUser", username, pwd=password, roles=user_roles)
+
+    ps = args['ps']
+    if ps == '': 
+        ps = data_name
+
+    # 添加入SQLITE
+    pSqliteDb('databases').add('name,username,password,accept,ps,addtime', (data_name, username, password, '127.0.0.1', ps, addTime))
+    return mw.returnJson(True, '添加成功')
+
+
+def delDb():
+    client = mongdbClient()
+    db = client.admin
+    sqlite_db = pSqliteDb('databases')
+
+    args = getArgs()
+    data = checkArgs(args, ['id', 'name'])
+    if not data[0]:
+        return data[1]
+    try:
+        sid = args['id']
+        name = args['name']
+        find = sqlite_db.where("id=?", (sid,)).field('id,name,username,password,accept,ps,addtime').find()
+        accept = find['accept']
+        username = find['username']
+
+        client.drop_database(name)
+
+        try:
+            db.command('dropUser',username)
+        except Exception as e:
+            pass
+
+        # 删除SQLITE
+        sqlite_db.where("id=?", (sid,)).delete()
+        return mw.returnJson(True, '删除成功!')
+    except Exception as ex:
+        return mw.returnJson(False, '删除失败!' + str(ex))
+
+
+def delDbTable():
+    client = mongdbClient()
+    db = client.admin
+    sqlite_db = pSqliteDb('databases')
+
+    args = getArgs()
+    data = checkArgs(args, ['table_name', 'name'])
+    if not data[0]:
+        return data[1]
+
+    name = args['name']
+    table_name = args['table_name']
+
+    try:
+        cur_db = client[name]
+
+        # system.profile 是开启 profiling 后自动生成的系统集合，
+        # MongoDB 要求先关闭 profiling 才能删除，否则报
+        # IllegalOperation(code 20): turn off profiling before dropping system.profile collection
+        if table_name == 'system.profile':
+            cur_db.command('profile', 0)
+
+        cur_db[table_name].drop()
+
+        if table_name == 'system.profile':
+            return mw.returnJson(True, '删除成功!（已同时关闭该库的 profiling）')
+        return mw.returnJson(True, '删除成功!')
+    except Exception as ex:
+        return mw.returnJson(False, '删除失败!' + str(ex))
+
+def setRootPwd(version=''):
+    args = getArgs()
+    data = checkArgs(args, ['password'])
+    if not data[0]:
+        return data[1]
+
+    #强制修改
+    force = 0
+    if 'force' in args and args['force'] == '1':
+        force = 1
+
+    password = args['password']
+    try:
+        msg = ''
+        if force == 1:
+            msg = ',无须强制!'
+        initMgRoot(password, force)
+        return mw.returnJson(True, '数据库root密码修改成功!'+msg)
+    except Exception as ex:
+        return mw.returnJson(False, '修改错误:' + str(ex))
+
+def setUserPwd(version=''):
+
+    client = mongdbClient()
+    sqlite_db = pSqliteDb('databases')
+
+    args = getArgs()
+    data = checkArgs(args, ['password', 'name'])
+    if not data[0]:
+        return data[1]
+
+    newpassword = _sanitize_str(args['password'])
+    username = _sanitize_str(args['name'])
+    uid = args['id']
+    try:
+        name = sqlite_db.where('id=?', (uid,)).getField('name')
+        # 将用户创建在目标数据库中，而不是 admin 数据库
+        db = client[name]
+        user_roles = [{'role': 'dbOwner', 'db': name}, {'role': 'userAdmin', 'db': name}]
+
+        try:
+            db.command("updateUser", username, pwd=newpassword, roles=user_roles)
+        except Exception as e:
+            db.command("createUser", username, pwd=newpassword, roles=user_roles)
+
+        sqlite_db.where("id=?", (uid,)).setField('password', newpassword)
+        return mw.returnJson(True, mw.getInfo('修改数据库[{1}]密码成功!', (name,)))
+    except Exception as ex:
+        return mw.returnJson(False, mw.getInfo('修改数据库[{1}]密码失败[{2}]!', (name, str(ex),)))
+
+
+def syncGetDatabases():
+    client = mongdbClient()
+    sqlite_db = pSqliteDb('databases')
+    db = client.admin
+    data = client.admin.command({"listDatabases": 1})
+    nameArr = ['admin', 'config', 'local']
+    n = 0
+
+    for value in data['databases']:
+        vdb_name = value["name"]
+        b = False
+        for key in nameArr:
+            if vdb_name == key:
+                b = True
+                break
+        if b:
+            continue
+        if sqlite_db.where("name=?", (vdb_name,)).count() > 0:
+            continue
+
+        host = '127.0.0.1'
+        ps = vdb_name
+        addTime = time.strftime('%Y-%m-%d %X', time.localtime())
+        if sqlite_db.add('name,username,password,accept,ps,addtime', (vdb_name, vdb_name, '', host, ps, addTime)):
+            n += 1
+
+    msg = mw.getInfo('本次共从服务器获取了{1}个数据库!', (str(n),))
+    return mw.returnJson(True, msg)
+
+def setDbPs():
+    args = getArgs()
+    data = checkArgs(args, ['id', 'name', 'ps'])
+    if not data[0]:
+        return data[1]
+
+    ps = args['ps']
+    sid = args['id']
+    name = args['name']
+    try:
+        psdb = pSqliteDb('databases')
+        psdb.where("id=?", (sid,)).setField('ps', ps)
+        return mw.returnJson(True, mw.getInfo('修改数据库[{1}]备注成功!', (name,)))
+    except Exception as e:
+        return mw.returnJson(True, mw.getInfo('修改数据库[{1}]备注失败!', (name,)))
+
+
+def getDbInfo():
+    args = getArgs()
+    data = checkArgs(args, ['name'])
+    if not data[0]:
+        return data[1]
+
+    ret = {}
+
+    client = mongdbClient()
+
+    db_name = args['name']
+    db = client[db_name]
+
+    result = {}
+    t = db.command("dbStats")
+    # print(result)
+    result['collections'] = t['collections']
+    result['avgObjSize'] = t['avgObjSize']
+    result['dataSize'] = t['dataSize']
+    result['storageSize'] = t['storageSize']
+    result['indexSize'] = t['indexSize']
+
+    result["collection_list"] = []
+    for collection_name in db.list_collection_names():
+        collection = db.command("collStats", collection_name)
+        data = {
+            "collection_name": collection_name,
+            "count": collection.get("count"),  # 文档数
+            "size": collection.get("size"),  # 内存中的大小
+            "avg_obj_size": collection.get("avgObjSize"),  # 对象平均大小
+            "storage_size": collection.get("storageSize"),  # 存储大小
+            "capped": collection.get("capped"),
+            "nindexes": collection.get("nindexes"),  # 索引数
+            "total_index_size": collection.get("totalIndexSize"),  # 索引大小
+        }
+        result["collection_list"].append(data)
+    
+    return mw.returnJson(True,'ok', result)
+
+def _sanitize_str(val, default=''):
+    """清洗 MongoDB 命令中使用的字符串，确保是合法的 UTF-8 且不含空字节。"""
+    if val is None:
+        return default
+    if isinstance(val, bytes):
+        try:
+            val = val.decode('utf-8', errors='ignore')
+        except Exception:
+            return default
+    elif not isinstance(val, str):
+        val = str(val)
+    # 去掉所有空字节（MongoDB BSON string 禁止 \x00 嵌入）
+    val = val.replace('\x00', '')
+    # strip 前后空白与换行
+    val = val.strip()
+    return val
+
+
+def toDbBase(find):
+    client = mongdbClient()
+    data_name = find['name']
+    db = client[data_name]
+
+    db.zchat.insert_one({})
+    user_roles = [{'role': 'dbOwner', 'db': data_name}, {'role': 'userAdmin', 'db': data_name}]
+
+    username = _sanitize_str(find['username'])
+    password = _sanitize_str(find['password'])
+
+    # 用户名是必须的；密码可空（MongoDB 允许无密码用户）
+    if not username:
+        print("syncToDatabases: 跳过空用户名记录 name={}".format(data_name))
+        return -1
+
+    # 密码如果为空字符串，MongoDB 不允许 —— 生成一个临时随机密码
+    if not password:
+        password = mw.getRandomString(12)
+        # 回填到 SQLite
+        sqlite_db = pSqliteDb('databases')
+        sqlite_db.where("id=?", (find['id'],)).save('password', (password,))
+
+    # 将用户创建在目标数据库中，而不是 admin 数据库
+    try:
+        db.command("createUser", username, pwd=password, roles=user_roles)
+    except Exception as e:
+        # UserAlreadyExists (code 26) —— 尝试 updateUser
+        code = getattr(e, 'code', None)
+        if code == 26:
+            try:
+                db.command("updateUser", username, pwd=password, roles=user_roles)
+            except Exception as e2:
+                print("syncToDatabases updateUser {} failed: {}".format(username, e2))
+                return -1
+        else:
+            print("syncToDatabases createUser {} failed(code={}): {}".format(username, code, e))
+            return -1
+    return 1
+
+def syncToDatabases():
+    args = getArgs()
+    data = checkArgs(args, ['type', 'ids'])
+    if not data[0]:
+        return data[1]
+
+    stype = int(args['type'])
+    sqlite_db = pSqliteDb('databases')
+    n = 0
+
+    if stype == 0:
+        data = sqlite_db.field('id,name,username,password,accept').select()
+        for value in data:
+            result = toDbBase(value)
+            if result == 1:
+                n += 1
+    else:
+        data = json.loads(args['ids'])
+        for value in data:
+            find = sqlite_db.where("id=?", (value,)).field(
+                'id,name,username,password,accept').find()
+            # print find
+            result = toDbBase(find)
+            if result == 1:
+                n += 1
+    msg = mw.getInfo('本次共同步了{1}个数据库!', (str(n),))
+    return mw.returnJson(True, msg)
+
+
+def getAllRoleTpl():
+    mongo_role = {
+        # 数据库用户角色
+        "read": "读取数据(read)",
+        "readWrite": "读取和写入数据(readWrite)",
+        # 数据库管理角色
+        # "dbAdmin": "数据库管理员",
+        "dbOwner": "数据库所有者(dbOwner)",
+        "userAdmin": "用户管理员(userAdmin)",
+        # 集群管理角色
+        # "clusterAdmin": "集群管理员",
+        # "clusterManager": "集群管理器",
+        # "clusterMonitor": "集群监视器",
+        # "hostManager": "主机管理员",
+        # 备份和恢复角色
+        # "backup": "备份数据",
+        # "restore": "还原数据",
+        # 所有数据库角色
+        # "readAnyDatabase": "任意数据库读取",
+        # "readWriteAnyDatabase": "任意数据库读取和写入",
+        # "userAdminAnyDatabase": "任意数据库用户管理员",
+        # "dbAdminAnyDatabase": "任意数据库管理员",
+        # 超级用户角色
+        # "root": "超级管理员",
+        # 内部角色
+        # "__queryableBackup": "可查询备份",
+        # "__system": "系统角色",
+        # "enableSharding": "启用分片",
+    }
+    return mongo_role
+
+def getAllRole():
+    mongo_role = getAllRoleTpl()
+    client = mongdbClient()
+    db = client.admin
+
+    # 获取所有角色
+    role_data = db.command('rolesInfo', showBuiltinRoles=True)
+    result = []
+    for role in role_data["roles"]:
+        if mongo_role.get(role["role"]) is not None:
+            role["name"] = mongo_role.get(role["role"])
+            result.append(role)
+    return mw.returnJson(True, 'ok', result)
+
+def getDbAccess():
+    args = getArgs()
+    data = checkArgs(args, ['username'])
+    if not data[0]:
+        return data[1]
+
+    client = mongdbClient()
+    db = client.admin
+    username = args['username']
+    name = args.get('name', '')
+    mongo_role = getAllRoleTpl()
+
+    role_data = db.command('rolesInfo', showBuiltinRoles=True)
+    all_role_list = []
+    for role in role_data["roles"]:
+        if mongo_role.get(role["role"]) is not None:
+            role["name"] = mongo_role.get(role["role"])
+            all_role_list.append(role)
+
+    result = {
+        "user": username,
+        "db": name if name else username,
+        "roles": [],
+        "all_roles":all_role_list,
+    }
+
+    # 用户可能位于目标库(新版)或 admin 库(历史数据),需按顺序查找
+    user_data = {'users': []}
+    if name:
+        user_data = client[name].command('usersInfo', username)
+    if len(user_data.get("users", [])) == 0:
+        user_data = db.command('usersInfo', username)
+
+    if len(user_data.get("users", [])) != 0:
+        user = user_data["users"][0]
+        result["user"] = user.get("user", username)
+        result["db"] = user.get("db", result["db"])
+        result["roles"] = user.get("roles", [])
+
+    return mw.returnJson(True, 'ok', result)
+
+def setDbAccess():
+    args = getArgs()
+    data = checkArgs(args, ['username', 'select','name'])
+    if not data[0]:
+        return data[1]
+    username = args['username']
+    select = args['select']
+    name = args['name']
+
+    user_roles = []
+    select_role = select.split(',')
+    for role in select_role:
+        if not role:
+            continue
+        t = {}
+        t['role'] = role
+        t['db'] = name
+        user_roles.append(t)
+
+    client = mongdbClient()
+    # 在目标数据库中操作用户，而不是 admin 数据库
+    db = client[name]
+
+    # 兼容历史数据:用户可能创建在 admin 数据库中,需定位实际所在库
+    user_db = db
+    try:
+        if len(db.command('usersInfo', username).get('users', [])) == 0:
+            admin = client.admin
+            if len(admin.command('usersInfo', username).get('users', [])) != 0:
+                user_db = admin
+    except Exception:
+        pass
+
+    try:
+        user_db.command("updateUser", username, roles=user_roles)
+    except Exception:
+        # 用户不存在时 dropUser 同样会报错,忽略后直接创建
+        try:
+            user_db.command('dropUser', username)
+        except Exception:
+            pass
+        mg_pass = pSqliteDb('config').where('id=?', (1,)).getField('mg_root')
+        db.command("createUser", username, pwd=mg_pass, roles=user_roles)
+
+    return mw.returnJson(True, '设置成功!')
+
+def getReplConfigData():
+    import json
+    f = getServerDir()+'/repl.json'
+    if os.path.exists(f):
+        c = mw.readFile(f)
+        return json.loads(c)
+    else:
+        t = {}
+        t['name'] =  ''
+        t['nodes'] = []
+        mw.writeFile(f, mw.getJson(t))
+        return t
+
+def setReplConfigData(c):
+    import json
+    f = getServerDir()+'/repl.json'
+    mw.writeFile(f, mw.getJson(c))
+    return c
+
+def getReplConfig():
+    c = getReplConfigData()
+    return mw.returnJson(True, 'ok!', c)
+
+def replSetName():
+    args = getArgs()
+    data = checkArgs(args, ['name'])
+    if not data[0]:
+        return data[1]
+
+    c = getReplConfigData()
+    c['name'] =  args['name']
+    setReplConfigData(c)
+
+
+    d = getConfigData()
+    d['replication']['replSetName'] = args['name']
+    setConfig(d)
+    restart()
+
+    return mw.returnJson(True, '设置成功!')
+
+def replSetNode():
+    args = getArgs()
+    data = checkArgs(args, ['node','priority','arbiterOnly','votes','idx'])
+    if not data[0]:
+        return data[1]
+
+    c = getReplConfigData()
+    nodes = c['nodes']
+    add_node = args['node'].strip()
+    idx = int(args['idx'])
+
+    priority = -1
+    if 'priority' in  args:
+        priority = args['priority'].strip()
+
+    priority = int(priority)
+    if priority<0 or priority>100:
+        return mw.returnJson(False, 'priority应该在[0-100]之间!')
+
+    arbiterOnly = 0
+    if 'arbiterOnly' in  args:
+        arbiterOnly = args['arbiterOnly'].strip()
+    arbiterOnly = int(arbiterOnly)
+
+    votes = 1
+    if 'votes' in  args:
+        votes = args['votes']
+    votes = int(votes)
+
+    # 编辑状态
+    if idx>-1:
+        for i in range(len(nodes)):
+            if i == idx:
+                nodes[i]['host'] = add_node
+                nodes[i]['priority'] = priority
+                nodes[i]['votes'] = votes
+                nodes[i]['arbiterOnly'] = arbiterOnly
+        c['nodes'] = nodes
+        setReplConfigData(c)
+        return mw.returnJson(True, '编辑成功!')
+
+    is_have = False
+    for x in nodes:
+        if x['host'] == add_node:
+            is_have = True
+
+    if is_have:
+        return mw.returnJson(False, add_node+',节点已经存在!')
+
+    t = {}
+    t['host'] = add_node
+    t['priority'] = priority
+    t['votes'] = votes
+    t['arbiterOnly'] = arbiterOnly
+
+    nodes.append(t)
+    c['nodes'] = nodes
+    setReplConfigData(c)
+    return mw.returnJson(True, '添加成功!')
+
+
+def delReplNode():
+    args = getArgs()
+    data = checkArgs(args, ['node'])
+    if not data[0]:
+        return data[1]
+
+    c = getReplConfigData()
+    nodes = c['nodes']
+    del_node = args['node'].strip()
+
+    filter_nodes = []; 
+    for x in nodes:
+        if x['host'] != del_node:
+            filter_nodes.append(x)
+    
+    c['nodes'] = filter_nodes
+    setReplConfigData(c)
+
+    return mw.returnJson(True, '删除节点'+args['node']+'成功!')
+
+
+def replInit():
+    c = getReplConfigData()
+
+    name = c['name']
+    nodes = c['nodes']
+
+    if name == '':
+        return mw.returnJson(False, '副本名不能为空!')
+
+    # d = getConfigData()
+    # d['replication']['replSetName'] = name
+    # setConfig(d)
+    # restart()
+
+    if len(nodes) == 0:
+        return mw.returnJson(False, '节点不能为空!')
+
+    cfg_node = []
+
+    now_time_t = int(time.time())
+
+    for x in range(len(nodes)):
+        n = nodes[x]
+        t = {}
+        t['_id'] = x
+        t['host'] = n['host']
+        if 'priority' in n:
+            t['priority'] = int(n['priority'])
+
+        if 'votes' in n:
+            t['votes'] = int(n['votes'])
+
+        if 'arbiterOnly' in n and n['arbiterOnly'] == 1:
+            t['arbiterOnly'] = True
+
+        cfg_node.append(t)
+
+    # print(cfg_node)
+    # return mw.returnJson(False, '设置副本成功!')
+
+    config = {
+        '_id': name,
+        'members': cfg_node
+    }
+
+    client = mongdbClient()
+    try:
+        client.admin.command('replSetInitiate',config)
+    except Exception as e:
+        info = str(e).split(',')
+        # print(info)
+        if info[0] == 'already initialized':
+            config['version'] = int(now_time_t)
+            try:
+                client.admin.command('replSetReconfig',config,force=True,maxTimeMS=10)
+            except Exception as e:
+                return mw.returnJson(False, str(e))
+            
+            return mw.returnJson(True, '重置副本同步成功!')
+        return mw.returnJson(False, str(e))
+
+    return mw.returnJson(True, '设置副本初始化成功!')
+
+def replClose():
+
+    d = getConfigData()
+    if 'replSetName' in d['replication']:
+        del d['replication']['replSetName']
+        setConfig(d)
+        restart()
+
+    client = mongdbClient()
+    db = client.admin
+    try:
+        restart()
+    except Exception as e:
+        return mw.returnJson(False, str(e))
+    
+    return mw.returnJson(True, '关闭副本同步成功!')
+
+def getDbBackupListFunc(dbname=''):
+    bkDir = getBackupDir()
+    if not os.path.isdir(bkDir):
+        return []
+    blist = os.listdir(bkDir)
+    r = []
+
+    bname = 'mongodb_' + dbname
+    blen = len(bname)
+    for x in blist:
+        fbstr = x[0:blen]
+        if fbstr == bname:
+            r.append(x)
+    return r
+
+def getDbBackupList():
+    args = getArgs()
+    data = checkArgs(args, ['name'])
+    if not data[0]:
+        return data[1]
+
+    r = getDbBackupListFunc(args['name'])
+    bkDir = getBackupDir()
+    rr = []
+    for x in range(0, len(r)):
+        p = bkDir + '/' + r[x]
+        data = {}
+        data['name'] = r[x]
+
+        rsize = os.path.getsize(p)
+        data['size'] = mw.toSize(rsize)
+
+        t = os.path.getctime(p)
+        t = time.localtime(t)
+
+        data['time'] = time.strftime('%Y-%m-%d %H:%M:%S', t)
+        rr.append(data)
+
+        data['file'] = p
+
+    rr.sort(key=lambda x: x['time'], reverse=True)
+    return mw.returnJson(True, 'ok', rr)
+
+def getDbBackupImportList():
+
+    bkImportDir = getImportDir()
+    blist = os.listdir(bkImportDir)
+
+    rr = []
+    for x in range(0, len(blist)):
+        name = blist[x]
+        p = bkImportDir + '/' + name
+        data = {}
+        data['name'] = name
+
+        rsize = os.path.getsize(p)
+        data['size'] = mw.toSize(rsize)
+
+        t = os.path.getctime(p)
+        t = time.localtime(t)
+
+        data['time'] = time.strftime('%Y-%m-%d %H:%M:%S', t)
+        rr.append(data)
+
+        data['file'] = p
+
+    rdata = {
+        "list": rr,
+        "upload_dir": bkImportDir,
+    }
+    return mw.returnJson(True, 'ok', rdata)
+
+def deleteDbBackup():
+    args = getArgs()
+    data = checkArgs(args, ['filename', 'path'])
+    if not data[0]:
+        return data[1]
+
+    path = args['path']
+    full_file = ""
+    bkDir = mw.getBackupDir() + '/database'
+    full_file = bkDir + '/' + args['filename']
+    if path != "":
+        full_file = path + "/" + args['filename']
+    os.remove(full_file)
+    return mw.returnJson(True, '删除成功!')
+
+def setDbBackup():
+    args = getArgs()
+    data = checkArgs(args, ['name'])
+    if not data[0]:
+        return data[1]
+
+    head = "cd "+mw.getPanelDir()
+    cmd = head +' && . bin/activate &&  python3 plugins/mongodb/scripts/backup.py database ' + args['name'] + ' 3'
+    # print(cmd)
+    os.system(cmd)
+    return mw.returnJson(True, 'ok')
+
+
+def getListBson(dbname=''):
+    bkDir = getImportDir() + '/' + dbname
+    if not os.path.isdir(bkDir):
+        return []
+    blist = os.listdir(bkDir)
+    r = []
+
+    bname = 'bson' 
+    blen = len(bname)
+    for x in blist:
+        if x.endswith(bname):
+            r.append(x)
+        # if x.endswith('json'):
+        #     r.append(x)
+    return r
+
+
+def getListBsonByDatabase(dbname=''):
+    bkDir = getBackupDir() + '/' + dbname
+    if not os.path.isdir(bkDir):
+        return []
+    blist = os.listdir(bkDir)
+    r = []
+
+    bname = 'bson' 
+    blen = len(bname)
+    for x in blist:
+        if x.endswith(bname):
+            r.append(x)
+    return r
+
+def rootPwd():
+    return pSqliteDb('config').where(
+        'id=?', (1,)).getField('mg_root')
+
+def importDbExternal():
+    args = getArgs()
+    data = checkArgs(args, ['file', 'name'])
+    if not data[0]:
+        return data[1]
+
+    file = args['file']
+    name = args['name']
+
+    import_dir = getImportDir() + '/'
+    port = getConfPort()
+
+    file_path = import_dir + file
+    if not os.path.exists(file_path):
+        return mw.returnJson(False, '文件突然消失?')
+
+    exts = ['gz', 'zip']
+    ext = mw.getFileSuffix(file)
+    if ext not in exts:
+        return mw.returnJson(False, '导入数据库格式不对!')
+
+    # print(file,name)
+    # print(import_dir,name)
+    auth = getConfAuth()
+    mg_root = pSqliteDb('config').where('id=?', (1,)).getField('mg_root')
+    uoption = ''
+    if auth != 'disabled':
+        uoption =' --authenticationDatabase admin -u root -p '+mg_root
+
+    file_dir = import_dir+name
+    if not os.path.exists(file_dir):
+        mw.execShell("mkdir -p "+file_dir)
+
+    file_tgz = import_dir+file
+    if os.path.exists(file_tgz):
+        cmd = 'cd ' + file_dir + ' && tar -xzvf ' + file_tgz + " -C "+file_dir
+        # print(cmd)
+        r = mw.execShell(cmd)
+        # print(r)
+        bson_list = getListBson(name)
+        # print(bson_list)
+        for x in bson_list:
+            cmd = mongoToolsBin('mongorestore') + " "+uoption+" --port "+str(port)+" --dir "+file_dir+'/'+x
+            # print(cmd)
+            rdata = mw.execShell(cmd)
+            # print(data)
+            if rdata[1].lower().find('error') > -1:
+                return mw.returnJson(False, rdata[1])
+
+    # 删除文件
+    if os.path.exists(file_dir):
+        del_cmd = "rm -rf "+file_dir
+        mw.execShell(del_cmd)
+
+    return mw.returnJson(True, 'ok')
+
+def importDbExternalProgress():
+    args = getArgs()
+    data = checkArgs(args, ['file', 'name'])
+    if not data[0]:
+        return data[1]
+
+    file = args['file']
+    name = args['name']
+
+    cmd = 'cd '+mw.getServerDir()+'/pmpanel && . bin/activate && '
+    cmd += 'python3 '+mw.getServerDir()+'/pmpanel/plugins/mongodb/index.py import_db_external_progress_bar  {"file":"'+file+'","name":"'+name+'"}'
+    return mw.returnJson(True, 'ok',cmd)
+
+def importDbExternalProgressBar():
+    args = getArgs()
+    data = checkArgs(args, ['file', 'name'])
+    if not data[0]:
+        return data[1]
+
+    file = args['file']
+    name = args['name']
+
+    import_dir = getImportDir() + '/'
+    port = getConfPort()
+
+    file_path = import_dir + file
+    if not os.path.exists(file_path):
+        return mw.returnJson(False, '文件突然消失?')
+
+    exts = ['sql', 'gz', 'zip']
+    ext = mw.getFileSuffix(file)
+    if ext not in exts:
+        return mw.returnJson(False, '导入数据库格式不对!')
+
+    file_dir = import_dir+name
+    if not os.path.exists(file_dir):
+        mw.execShell("mkdir -p "+file_dir)
+
+    auth = getConfAuth()
+    mg_root = pSqliteDb('config').where('id=?', (1,)).getField('mg_root')
+    uoption = ''
+    if auth != 'disabled':
+        uoption =' --authenticationDatabase admin -u root -p '+mg_root
+
+    file_tgz = import_dir+file
+    if os.path.exists(file_tgz):
+        cmd = 'cd ' + file_dir + ' && tar -xzvf ' + file_tgz + " -C "+file_dir
+        mw.execShell(cmd)
+        bson_list = getListBson(name)
+        for x in bson_list:
+            # mehotd 1
+            cmd = mongoToolsBin('mongorestore') + " "+uoption+" --port "+str(port)+" --dir "+file_dir+'/'+x
+            os.system(cmd)
+            # method2
+            # cmd = mongoToolsBin('mongorestore') + " "+uoption+" --port "+str(port) + " --archive  --db "+name + " --collection " + x.strip(".bson")
+            # cmd_progress_bar = "pv -t -p " + file_dir+"/"+x + '|'+ cmd
+            # print(cmd_progress_bar)
+            # os.system(mysql_cmd_progress_bar)
+
+    if os.path.exists(file_dir):
+        del_cmd = "rm -rf "+file_dir
+        mw.execShell(del_cmd)
+    return ""
+
+def importDbBackup():
+    args = getArgs()
+    data = checkArgs(args, ['file', 'name'])
+    if not data[0]:
+        return data[1]
+
+    file = args['file']
+    name = args['name']
+
+    port = getConfPort()
+    file_tgz = mw.getBackupDir() + '/database/' + file
+    file_dir = mw.getBackupDir() + '/database/' + file.replace('.tar.gz','')
+
+    if not os.path.exists(file_dir):
+        mw.execShell("mkdir -p "+file_dir)
+
+    # print(os.path.exists(file_tgz))
+    if os.path.exists(file_tgz):
+        cmd = 'cd ' + mw.getBackupDir() + '/database && tar -xzvf ' + file + " -C "+file_dir
+        # print(cmd)
+        mw.execShell(cmd)
+
+    auth = getConfAuth()
+    mg_root = pSqliteDb('config').where('id=?', (1,)).getField('mg_root')
+    uoption = ''
+    if auth != 'disabled':
+        uoption =' -u root -p '+mg_root
+
+    cmd = mongoToolsBin('mongorestore') + " "+uoption+" --port "+str(port)+" --dir "+file_dir
+    # print(cmd)
+    mw.execShell(cmd)
+    # 删除文件
+    if os.path.exists(file_dir):
+        del_cmd = "rm -rf "+file_dir
+        mw.execShell(del_cmd)
+
+    return mw.returnJson(True, 'ok')
+
+def importDbBackupProgress():
+    args = getArgs()
+    data = checkArgs(args, ['file', 'name'])
+    if not data[0]:
+        return data[1]
+
+    file = args['file']
+    name = args['name']
+
+    cmd = 'cd '+mw.getServerDir()+'/pmpanel && . bin/activate && '
+    cmd += 'python3 '+mw.getServerDir()+'/pmpanel/plugins/mongodb/index.py import_db_backup_progress_bar {"file":"'+file+'","name":"'+name+'"}'
+    return mw.returnJson(True, 'ok',cmd)
+    # return mw.returnJson(True, 'ok')
+
+def importDbBackupProgressBar():
+    args = getArgs()
+    data = checkArgs(args, ['file', 'name'])
+    if not data[0]:
+        return data[1]
+
+    file = args['file']
+    name = args['name']
+
+    import_dir = mw.getFatherDir() + '/backup/database/mongodb/'
+    port = getConfPort()
+
+    file_path = import_dir + file
+    if not os.path.exists(file_path):
+        return mw.returnJson(False, '文件突然消失?')
+
+    exts = ['sql', 'gz', 'zip']
+    ext = mw.getFileSuffix(file)
+    if ext not in exts:
+        return mw.returnJson(False, '导入数据库格式不对!')
+
+    file_dir = import_dir+name
+    if not os.path.exists(file_dir):
+        mw.execShell("mkdir -p "+file_dir)
+
+    auth = getConfAuth()
+    mg_root = pSqliteDb('config').where('id=?', (1,)).getField('mg_root')
+    uoption = ''
+    if auth != 'disabled':
+        uoption =' --authenticationDatabase admin -u root -p '+mg_root
+
+    file_tgz = import_dir+file
+    if os.path.exists(file_tgz):
+        cmd = 'cd ' + file_dir + ' && tar -xzvf ' + file_tgz + " -C "+file_dir
+        mw.execShell(cmd)
+        bson_list = getListBsonByDatabase(name)
+        for x in bson_list:
+            # mehotd 1
+            cmd = mongoToolsBin('mongorestore') + " "+uoption+" --port "+str(port)+" --dir "+file_dir+'/'+x
+            os.system(cmd)
+
+    if os.path.exists(file_dir):
+        del_cmd = "rm -rf "+file_dir
+        mw.execShell(del_cmd)
+    return ""
+
+def testData():
+    '''
+    cd /www/server/pmpanel && . bin/activate && python3 /www/server/pmpanel/plugins/mongodb/index.py test_data
+    '''
+    import pymongo
+    from pymongo import ReadPreference
+    
+    client = mongdbClient()
+
+    db = client.test
+    col = db["demo"]
+
+    rndStr = mw.getRandomString(10)
+    insert_dict = { "name": "v1", "value": rndStr}
+    x = col.insert_one(insert_dict)
+    print(x)
+
+
+def test():
+    '''
+    python3 /www/server/pmpanel/plugins/mongodb/index.py set_config_auth  {}
+    cd /www/server/pmpanel && . bin/activate && python3 /www/server/pmpanel/plugins/mongodb/index.py test
+    python3 plugins/mongodb/index.py test
+    '''
+    # https://pymongo.readthedocs.io/en/stable/examples/high_availability.html
+    # import pymongo
+    # from pymongo import ReadPreference
+    
+    client = mongdbClient()
+    db = client.admin
+
+    mg_pass = mw.getRandomString(10)
+    config = {
+        '_id': 'test',
+        'members': [
+            {'_id': 0, 'host': '127.0.0.1:27019'},
+            {'_id': 1, 'host': '127.0.0.1:27017'},
+        ]
+    }
+
+    rsStatus = client.admin.command('replSetInitiate',config)
+    print(rsStatus)
+
+    # 需要通过命令行操作
+    # rs.initiate({
+    #     _id: 'test',
+    #     members: [
+    #     {
+    #         _id: 1,
+    #         host: '127.0.0.1:27019',
+    #         priority: 2
+    #     }, 
+    #     {
+    #         _id: 2,
+    #         host: '127.0.0.1:27017',
+    #         priority: 1
+    #     }
+
+    #     ]
+    # });
+
+    # > rs.status();  // 查询状态
+    # // "stateStr" : "PRIMARY", 主节点
+    # // "stateStr" : "SECONDARY", 副本节点
+
+    # > rs.add({"_id":3, "host":"127.0.0.1:27318","priority":0,"votes":0});
+
+
+    # serverStatus = db.command('serverStatus')
+    # print(serverStatus)
+    
+    return mw.returnJson(True, 'OK')
+
+
+def initdStatus():
+    if mw.isAppleSystem():
+        return "Apple Computer does not support"
+
+    shell_cmd = 'systemctl status mongodb | grep loaded | grep "enabled;"'
+    data = mw.execShell(shell_cmd)
+    if data[0] == '':
+        return 'fail'
+    return 'ok'
+
+
+def initdInstall():
+    if mw.isAppleSystem():
+        return "Apple Computer does not support"
+
+    mw.execShell('systemctl enable mongodb')
+    return 'ok'
+
+
+def initdUinstall():
+    if mw.isAppleSystem():
+        return "Apple Computer does not support"
+
+    mw.execShell('systemctl disable mongodb')
+    return 'ok'
+
+
+def runLog():
+    f = getServerDir() + '/logs/mongodb.log'
+    if os.path.exists(f):
+        return f
+    return getServerDir() + '/logs.pl'
+
+def cronAddCheck():
+    try:
+        import tool_task
+        tool_task.createBgTask()
+        return mw.returnJson(True, '添加检查任务成功')
+    except Exception as e:
+        return mw.returnJson(False, '添加检查任务失败:'+str(e))
+
+def cronDelCheck():
+    try:
+        import tool_task
+        tool_task.removeBgTask()
+        return mw.returnJson(True, '删除检查任务成功')
+    except Exception as e:
+        return mw.returnJson(False, '删除检查任务失败:'+str(e))
+
+def cleanLog():
+    cfg = getConfigData()
+    log_file = cfg['systemLog']['path']
+
+    try:
+        if not os.path.isfile(log_file):
+            return mw.returnJson(False, '日志文件不存在:' + log_file)
+
+        size = os.path.getsize(log_file)
+        # O_TRUNC 截断: O(1) 操作, 不读写文件内容, 保留 inode/权限/属主,
+        # 日志再大也能瞬间清空; mongod 以追加方式写日志, 截断后可继续写入.
+        with open(log_file, 'w'):
+            pass
+
+        if size >= 1024 * 1024 * 1024:
+            size_txt = '%.2fGB' % (size / 1024.0 / 1024 / 1024)
+        elif size >= 1024 * 1024:
+            size_txt = '%.2fMB' % (size / 1024.0 / 1024)
+        elif size >= 1024:
+            size_txt = '%.2fKB' % (size / 1024.0)
+        else:
+            size_txt = '%dB' % size
+
+        return mw.returnJson(True, '清空成功!释放 %s' % size_txt)
+    except Exception as ex:
+        return mw.returnJson(False, '清空失败:' + str(ex))
+
+def _setProfiling(level):
+    '''统一设置 profiling: level=1 开启慢日志采集, level=0 关闭.
+    profiling 按数据库生效, 这里对所有业务库统一操作(跳过 local/config 系统库).
+    可选参数: slowms=慢查询阈值(毫秒, 默认100).'''
+    t = status()
+    if t == 'stop':
+        return mw.returnJson(False, 'MongoDB 未启动!')
+
+    args = getArgs()
+
+    slowms = 500
+    if 'slowms' in args:
+        try:
+            slowms = int(args['slowms'])
+        except (ValueError, TypeError):
+            slowms = 100
+
+    action = '开启' if level > 0 else '关闭'
+    try:
+        client = mongdbClient()
+        # profiling 按库生效, 对所有业务库统一设置; local/config 为系统内部库, 跳过
+        db_names = [x for x in client.list_database_names() if x not in ('local', 'config')]
+        if not db_names:
+            return mw.returnJson(False, '没有可操作的数据库!')
+
+        changed = []
+        already = []
+        cleaned = []
+        failed = []
+        for name in db_names:
+            try:
+                db = client[name]
+                # profile:-1 查询当前级别, 返回 {'was': 当前级别, 'slowms': 阈值}
+                cur_level = int(db.command('profile', -1).get('was', 0) or 0)
+
+                if level > 0:
+                    if cur_level > 0:
+                        already.append(name)
+                        continue
+                    db.command('profile', level, slowms=slowms)
+                    changed.append(name)
+                else:
+                    if cur_level > 0:
+                        db.command('profile', 0)
+                        changed.append(name)
+                    else:
+                        already.append(name)
+
+                    # 关闭后清理 profiler 采集表: MongoDB 要求先关 profiling 才能删除 system.profile
+                    if 'system.profile' in db.list_collection_names():
+                        db.drop_collection('system.profile')
+                        cleaned.append(name)
+            except Exception as ex:
+                failed.append('%s(%s)' % (name, str(ex)))
+
+        if level == 0:
+            if not changed and not cleaned and not failed:
+                return mw.returnJson(True, '慢日志已经关闭!(共%d个数据库)' % len(already))
+            msg = '关闭慢日志成功!(共%d个数据库' % len(changed)
+            msg += ')'
+            if cleaned:
+                msg += ', 已清理%d个system.profile' % len(cleaned)
+            if already:
+                msg += ', 其中%d个已关闭' % len(already)
+            if failed:
+                msg += '; 失败%d个:%s' % (len(failed), failed[0])
+            return mw.returnJson(len(failed) == 0, msg)
+
+        if not changed and not failed:
+            return mw.returnJson(True, '慢日志已经开启!(共%d个数据库)' % len(already))
+
+        msg = '开启慢日志成功!(共%d个数据库, 慢查询阈值:%sms' % (len(changed), slowms)
+        msg += ')'
+        if already:
+            msg += ', 其中%d个已开启' % len(already)
+        if failed:
+            msg += '; 失败%d个:%s' % (len(failed), failed[0])
+        return mw.returnJson(len(failed) == 0, msg)
+    except Exception as ex:
+        return mw.returnJson(False, '%s慢日志失败:%s' % (action, str(ex)))
+
+def openSlowlog():
+    return _setProfiling(1)
+
+def closeSlowlog():
+    return _setProfiling(0)
+
+def findSlowlogCmd():
+    cfg = getConfigData()
+    log_file = cfg['systemLog']['path']
+    cmd = "cat "+log_file + "|grep 'Slow query'"
+    return mw.returnJson(True, 'ok', cmd)
+
+
+def installPreInspectionDebainCheck(sysId,version):
+    if version == '8.0':
+        if int(sysId) < 12:
+            return "[%s]需要至少debain[12]" % (version,)
+    return ''
+
+def installPreInspection(version):
+    if mw.isAppleSystem():
+        return 'ok'
+
+    cmd = "cat /etc/*-release | grep PRETTY_NAME |awk -F = '{print $2}' | awk -F '\"' '{print $2}'| awk '{print $1}'"
+    sys = mw.execShell(cmd)
+
+    if sys[1] != '':
+        return '暂时不支持该系统'
+
+    sys_id = mw.execShell("cat /etc/*-release | grep VERSION_ID | awk -F = '{print $2}' | awk -F '\"' '{print $2}'")
+
+    sysName = sys[0].strip().lower()
+    sysId = sys_id[0].strip()
+
+    supportOs = ['centos', 'ubuntu', 'debian', 'opensuse', 'openeuler']
+    if not sysName in supportOs:
+        return '暂时仅支持{}'.format(','.join(supportOs))
+
+    if sysName == 'debian':
+        check = installPreInspectionDebainCheck(sysId, version) 
+        if check != '':
+            return check
+
+    return 'ok'
+
+def uninstallPreInspection(version):
+    stop()
+
+    # if mw.isDebugMode():
+    #     return 'ok'
+
+    from utils.plugin import plugin as MwPlugin
+    MwPlugin.instance().removeIndex(getPluginName(), version)
+
+    return "请手动删除MongoDB[{}]<br/> rm -rf {}".format(version, getServerDir())
+
+if __name__ == "__main__":
+    func = sys.argv[1]
+
+    version = '4.4'
+    if (len(sys.argv) > 2):
+        version = sys.argv[2]
+
+    if func == 'status':
+        print(status())
+    elif func == 'start':
+        print(start())
+    elif func == 'stop':
+        print(stop())
+    elif func == 'restart':
+        print(restart())
+    elif func == 'reload':
+        print(reload())
+    elif func == 'install_pre_inspection':
+        print(installPreInspection(version))
+    elif func == 'uninstall_pre_inspection':
+        print(uninstallPreInspection(version))
+    elif func == 'initd_status':
+        print(initdStatus())
+    elif func == 'initd_install':
+        print(initdInstall())
+    elif func == 'initd_uninstall':
+        print(initdUinstall())
+    elif func == 'run_info':
+        print(runInfo())
+    elif func == 'run_doc_info':
+        print(runDocInfo())
+    elif func == 'run_repl_info':
+        print(runReplInfo())
+    elif func == 'conf':
+        print(getConf())
+    elif func == 'config_key':
+        print(getConfKey())
+    elif func == 'get_config':
+        print(getConfig())
+    elif func == 'set_config':
+        print(saveConfig())
+    elif func == 'set_config_auth':
+        print(setConfigAuth())
+    elif func == 'root_pwd':
+        print(rootPwd())
+    elif func == 'get_db_list':
+        print(getDbList())
+    elif func == 'get_table_list':
+        print(getTableList())
+    elif func == 'add_db':
+        print(addDb())
+    elif func == 'del_db':
+        print(delDb())
+    elif func == 'del_db_table':
+        print(delDbTable())
+    elif func == 'set_root_pwd':
+        print(setRootPwd())
+    elif func == 'set_user_pwd':
+        print(setUserPwd())
+    elif func == 'sync_get_databases':
+        print(syncGetDatabases())
+    elif func == 'sync_to_databases':
+        print(syncToDatabases())
+    elif func == 'set_db_ps':
+        print(setDbPs())
+    elif func == 'get_db_info':
+        print(getDbInfo())
+    elif func == 'get_all_role':
+        print(getAllRole())
+    elif func == 'get_db_access':
+        print(getDbAccess())
+    elif func == 'set_db_access':
+        print(setDbAccess())
+    elif func == 'repl_set_name':
+        print(replSetName())
+    elif func == 'repl_set_node':
+        print(replSetNode())
+    elif func == 'get_repl_config':
+        print(getReplConfig())
+    elif func == 'del_repl_node':
+        print(delReplNode())
+    elif func == 'repl_init':
+        print(replInit())
+    elif func == 'repl_close':
+        print(replClose())
+    elif func == 'get_db_backup_list':
+        print(getDbBackupList())
+    elif func == 'get_db_backup_import_list':
+        print(getDbBackupImportList())
+    elif func == 'delete_db_backup':
+        print(deleteDbBackup())
+    elif func == 'set_db_backup':
+        print(setDbBackup())
+    elif func == 'import_db_external':
+        print(importDbExternal())
+    elif func == 'import_db_external_progress':
+        print(importDbExternalProgress())
+    elif func == 'import_db_external_progress_bar':
+        print(importDbExternalProgressBar())
+    elif func == 'import_db_backup':
+        print(importDbBackup())
+    elif func == 'import_db_backup_progress':
+        print(importDbBackupProgress())
+    elif func == 'import_db_backup_progress_bar':
+        print(importDbBackupProgressBar())
+    elif func == 'run_log':
+        print(runLog())
+    elif func == 'test':
+        print(test())
+    elif func == 'test_data':
+        print(testData())
+    elif func == 'cron_add_check':
+        print(cronAddCheck())
+    elif func == 'cron_del_check':
+        print(cronDelCheck())
+    elif func == 'clean_log':
+        print(cleanLog())
+    elif func == 'open_slowlog':
+        print(openSlowlog())
+    elif func == 'close_slowlog':
+        print(closeSlowlog())
+    elif func == 'find_slowlog_cmd':
+        print(findSlowlogCmd())
+    else:
+        print('error')
