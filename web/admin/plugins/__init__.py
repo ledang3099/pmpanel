@@ -63,8 +63,13 @@ def list():
     if not mw.isNumber(page) or int(page) < 1:
         page = 1
 
+    size = request.args.get('row', '10')
+    if not mw.isNumber(size):
+        size = 10
+    size = min(max(int(size), 1), 60)
+
     pg = MwPlugin.instance()
-    return pg.getList(plugins_type, search, int(page))
+    return pg.getList(plugins_type, search, int(page), size)
 
 # 插件设置是否在首页展示
 @blueprint.route('/set_index', endpoint='set_index', methods=['POST'])
@@ -73,6 +78,8 @@ def set_index():
     name = request.form.get('name', '')
     status = request.form.get('status', '0')
     version = request.form.get('version', '')
+    if not security.is_safe_name(name) or not security.is_safe_version(version):
+        return mw.returnData(False, '参数错误!')
 
     pg = MwPlugin.instance()
     if status == '1':

@@ -6,6 +6,7 @@
 	"title": "PHP[YUM]",
 	"coexist": true,
 	"versions": ["74","80","81","82","83","84","85"],
+	"eol": ["74", "80", "81"],
 	"install_pre_inspection":true,
 	"tip": "soft",
 	"checks": "server/php-yum/VERSION",

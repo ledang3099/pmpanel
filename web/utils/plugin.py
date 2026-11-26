@@ -521,6 +521,12 @@ class plugin(object):
         if 'icon' in info:
             pInfo['icon'] = info['icon']
 
+        # 已停止维护(不再有安全更新)的版本, 供应用商店提示
+        pInfo['eol'] = info.get('eol', [])
+        pInfo['recommend'] = info.get('recommend', '')
+        pInfo['home'] = info.get('home', '')
+        pInfo['author'] = info.get('author', '')
+
         if 'sort' in info:
             pInfo['sort'] = info['sort']
 

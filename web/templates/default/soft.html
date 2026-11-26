@@ -9,38 +9,24 @@
 					<a class="plr10 c4" href="/">首页</a>/<span class="plr10 c4">软件管理</span>
 				</div>
 				<div class="search pull-right">
-					<form target="_self" onsubmit='getSList();return false;'>
-						<input type="text" id="SearchValue" class="ser-text pull-left" placeholder="搜索" autocomplete="false" />
-						<button type="button" class="ser-sub pull-left" onclick='getSList()'></button>
+					<form target="_self" onsubmit='getSList(1);return false;'>
+						<input type="text" id="SearchValue" class="ser-text pull-left" placeholder="搜索软件名称或说明" autocomplete="off" />
+						<button type="button" class="ser-sub pull-left" onclick='getSList(1)'></button>
 					</form>
 				</div>
 			</div>
-			<div class="softbox bgw mtb15">
-				<div class="softlist">
-					<div class="divtable pd15 relative">
-
-						<div class="menu-sub softtype"></div>
-
-						<input type="file" style="display:none;" accept=".zip,.tar.gz" id="update_zip" multiple="multiple">
-						<button class="btn btn-default btn-sm" onclick="importPluginOpen()" title="添加插件" style="position:absolute;top:12px;right:15px">添加插件</button>
-						<div id="updata_pro_info"></div>
-						<table class="table table-hover" width="100%" cellspacing="0" cellpadding="0" border="0">
-							<thead>
-								<tr>
-									<th width="185">软件名称</th>
-									<th>说明</th>
-									<th width="40">位置</th>
-									<th width="40">状态</th>
-									<th width="64">首页显示</th>
-									<th style="text-align: right;" width="140">操作</th>
-								</tr>
-							</thead>
-							<tbody id="softList"></tbody>
-						</table>
-						<div class="dataTables_paginate paging_bootstrap pagination">
-							<ul id="softPage" class="page"></ul>
-						</div>
+			<div class="pm-store bgw mtb15">
+				<div class="pm-store-bar">
+					<div class="pm-store-tabs" id="softTypes"></div>
+					<div class="pm-store-ops">
+						<input type="file" style="display:none;" accept=".zip,.tar.gz" id="update_zip">
+						<button class="btn btn-default btn-sm" onclick="importPluginOpen()" title="上传第三方插件包(zip)">导入插件</button>
 					</div>
+				</div>
+				<div id="updata_pro_info"></div>
+				<div class="pm-store-grid" id="softStore"></div>
+				<div class="pm-store-page">
+					<div id="softPage" class="page"></div>
 				</div>
 			</div>
 		</div>

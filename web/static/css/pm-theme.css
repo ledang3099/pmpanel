@@ -870,3 +870,390 @@ body.pm-plain {
         width: auto !important;
     }
 }
+
+/* ------------------------------- 应用商店(软件管理) ------------------------------ */
+
+.pm-store {
+    padding: 0 0 8px;
+}
+
+.pm-store-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--pm-border);
+}
+
+.pm-store-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.pm-store-tab {
+    border: 1px solid transparent;
+    background: #f3f5f8;
+    color: var(--pm-text-2);
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 13px;
+    line-height: 20px;
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease;
+}
+
+.pm-store-tab:hover {
+    color: var(--pm-primary);
+    background: var(--pm-primary-soft);
+}
+
+.pm-store-tab.on {
+    background: var(--pm-primary);
+    color: #fff;
+}
+
+.pm-store-ops {
+    flex-shrink: 0;
+}
+
+.pm-store-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+    padding: 16px;
+    min-height: 200px;
+    transition: opacity .15s ease;
+}
+
+.pm-store-grid.pm-loading {
+    opacity: .45;
+    pointer-events: none;
+}
+
+.pm-store-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--pm-muted);
+    padding: 60px 0;
+}
+
+.pm-app {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--pm-border);
+    border-radius: 10px;
+    padding: 14px 14px 12px;
+    background: #fff;
+    transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+    min-width: 0;
+}
+
+.pm-app:hover {
+    border-color: rgba(32, 165, 58, .45);
+    box-shadow: 0 6px 18px rgba(16, 24, 40, .08);
+}
+
+.pm-app.installed {
+    background: linear-gradient(180deg, #fbfefc 0%, #fff 60%);
+}
+
+.pm-app-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.pm-app-icon {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    background: #f5f7fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.pm-app-icon img {
+    max-width: 30px;
+    max-height: 30px;
+}
+
+.pm-app-meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.pm-app-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--pm-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pm-app-title[data-act] {
+    cursor: pointer;
+}
+
+.pm-app-title[data-act]:hover {
+    color: var(--pm-primary);
+}
+
+.pm-app-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--pm-muted);
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.pm-app-ver {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pm-badge {
+    display: inline-block;
+    padding: 0 7px;
+    line-height: 18px;
+    border-radius: 9px;
+    font-size: 11px;
+    background: #f1f3f6;
+    color: var(--pm-muted);
+    flex-shrink: 0;
+}
+
+.pm-badge-run { background: var(--pm-primary-soft); color: #15803d; }
+.pm-badge-stop { background: #fef2f2; color: #dc2626; }
+.pm-badge-busy { background: #eff6ff; color: #2563eb; }
+.pm-badge-wait { background: #fffbeb; color: #b45309; }
+
+.pm-eol {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 6px;
+    line-height: 16px;
+    border-radius: 8px;
+    font-size: 11px;
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.pm-app-tools {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.pm-app-tool {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    background: transparent;
+    border-radius: 6px;
+    color: #a3abb8;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pm-app-tool:hover {
+    background: #f3f5f8;
+    color: var(--pm-text-2);
+}
+
+.pm-app-tool.on {
+    color: #f59e0b;
+}
+
+.pm-app-tool svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+}
+
+.pm-app-tool.on svg {
+    fill: currentColor;
+}
+
+.pm-app-desc {
+    margin: 12px 0 14px;
+    font-size: 13px;
+    line-height: 20px;
+    height: 40px;
+    color: var(--pm-text-2);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.pm-app-foot {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 26px;
+}
+
+.pm-app-actions {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.pm-app-actions .btn-xs {
+    padding: 3px 12px;
+    font-size: 12px;
+}
+
+.pm-upd-btn {
+    border: 0;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 12px;
+    border-radius: 6px;
+    padding: 3px 8px;
+    cursor: pointer;
+}
+
+.pm-upd-btn:hover {
+    background: #dbeafe;
+}
+
+.pm-store-page {
+    padding: 0 16px 8px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* 安装弹窗 */
+.pm-install-box {
+    padding: 20px 24px 8px;
+}
+
+.pm-install-label {
+    font-size: 13px;
+    color: var(--pm-muted);
+    margin-bottom: 10px;
+}
+
+.pm-ver-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.pm-ver-opt {
+    margin: 0;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+.pm-ver-opt input {
+    display: none;
+}
+
+.pm-ver-opt span {
+    display: block;
+    text-align: center;
+    border: 1px solid var(--pm-border-strong);
+    border-radius: 6px;
+    padding: 7px 4px;
+    font-size: 13px;
+    color: var(--pm-text);
+    transition: border-color .15s ease, background-color .15s ease;
+}
+
+.pm-ver-opt span em {
+    display: block;
+    font-style: normal;
+    font-size: 11px;
+    color: #c2410c;
+    line-height: 14px;
+}
+
+.pm-ver-opt.eol span {
+    color: var(--pm-muted);
+}
+
+.pm-ver-opt input:checked + span {
+    border-color: var(--pm-primary);
+    background: var(--pm-primary-soft);
+    color: #15803d;
+    box-shadow: 0 0 0 1px var(--pm-primary) inset;
+}
+
+.pm-install-tip {
+    margin-top: 12px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: #fff7ed;
+    color: #c2410c;
+    font-size: 12px;
+}
+
+.pm-import-info {
+    padding: 12px 16px;
+    background: #f7f8fa;
+    border: 1px solid var(--pm-border);
+    border-radius: 8px;
+    line-height: 26px;
+    margin-bottom: 12px;
+    word-break: break-all;
+}
+
+.pm-import-info p {
+    margin: 0;
+}
+
+#indexsoft .pm-index-soft {
+    cursor: pointer;
+}
+
+@media screen and (max-width: 980px) {
+    .pm-store-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .pm-store-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+    }
+
+    .pm-store-tab {
+        flex-shrink: 0;
+    }
+
+    .pm-store-ops {
+        align-self: flex-end;
+    }
+
+    .pm-store-grid {
+        grid-template-columns: 1fr;
+        padding: 12px;
+    }
+}
+
+.pm-ver-opt span em.rec {
+    color: #15803d;
+}
