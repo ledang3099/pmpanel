@@ -33,8 +33,7 @@ case $(uname -m) in
 	aarch64)  ARCH_NAME="arm64" ;;
 esac
 
-VERSION=2.11.2
-
+VERSION=2.11.9
 caddyDir=${serverPath}/source/caddy
 
 Install_App()

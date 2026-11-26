@@ -2,11 +2,11 @@
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin:/opt/homebrew/bin
 export PATH
 
-# cd /Users/dev/Desktop/pmdev/server/pmpanel/plugins/openresty && bash install.sh upgrade 1.31.1
+# cd /Users/dev/Desktop/pmdev/server/pmpanel/plugins/openresty && bash install.sh upgrade 1.31
 
 # cd /www/server/pmpanel/plugins/openresty && bash install.sh install 1.21.4
-# cd /www/server/pmpanel/plugins/openresty && bash install.sh upgrade 1.31.1
-# cd /www/server/pmpanel && . ./bin/activate && python3 plugins/openresty/index.py upgrade_check 1.31.1
+# cd /www/server/pmpanel/plugins/openresty && bash install.sh upgrade 1.31
+# cd /www/server/pmpanel && . ./bin/activate && python3 plugins/openresty/index.py upgrade_check 1.31
 
 # curl -I -H "Accept-Encoding: br" http://localhost
 # curl -I -H "Accept-Encoding: zstd" http://localhost

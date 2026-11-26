@@ -33,7 +33,7 @@ rootPath=$(dirname "$rootPath")
 rootPath=$(dirname "$rootPath")
 serverPath=$(dirname "$rootPath")
 
-VERSION=6.0.19
+VERSION=6.0.30
 SYS_ARCH=`arch`
 SYS_VERSION_ID=`cat /etc/*-release | grep VERSION_ID | awk -F = '{print $2}' | awk -F "\"" '{print $2}'`
 SYS_NAME=${SYS_VERSION_ID/./}

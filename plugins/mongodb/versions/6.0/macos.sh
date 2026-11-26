@@ -33,8 +33,7 @@ rootPath=$(dirname "$rootPath")
 rootPath=$(dirname "$rootPath")
 serverPath=$(dirname "$rootPath")
 
-VERSION=6.0.19
-
+VERSION=6.0.30
 MG_DIR=$serverPath/source/mongodb
 mkdir -p $MG_DIR
 

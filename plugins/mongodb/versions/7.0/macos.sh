@@ -34,8 +34,7 @@ rootPath=$(dirname "$rootPath")
 serverPath=$(dirname "$rootPath")
 SYS_ARCH=`arch`
 
-VERSION=7.0.15
-
+VERSION=7.0.48
 MG_DIR=$serverPath/source/mongodb
 mkdir -p $MG_DIR
 

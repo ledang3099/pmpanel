@@ -2,8 +2,8 @@
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin:/opt/homebrew/bin
 export PATH
 
-# cd /Users/dev/Desktop/pmdev/server/pmpanel/plugins/openresty && bash install.sh install 1.31.1
-# cd /www/server/pmpanel/plugins/openresty && bash install.sh install 1.31.1
+# cd /Users/dev/Desktop/pmdev/server/pmpanel/plugins/openresty && bash install.sh install 1.31
+# cd /www/server/pmpanel/plugins/openresty && bash install.sh install 1.31
 
 curPath=`pwd`
 rootPath=$(dirname "$curPath")
@@ -14,7 +14,7 @@ sysName=`uname`
 action=$1
 type=$2
 
-VERSION=1.31.1.1
+VERSION=1.31.9.1
 
 openrestyDir=${serverPath}/source/openresty
 
@@ -74,7 +74,7 @@ Install_openresty()
 
 	OPTIONS=''
 
-	opensslVersion="4.0.2"
+	opensslVersion="4.0.3"
 	libresslVersion="3.9.1"
 	pcreVersion='8.45'
 	if [ "$sysName" = "Darwin" ];then
@@ -116,7 +116,7 @@ Install_openresty()
 
 	fi
 
-	if [[ "$VERSION" =~ "1.31.1" ]];then
+	if [[ "$VERSION" =~ "1.31." ]];then
 		OPTIONS="${OPTIONS} --with-http_v3_module"
 
 		# if [ ! -f ${openrestyDir}/libressl-${libresslVersion}.tar.gz ];then

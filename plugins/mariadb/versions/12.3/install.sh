@@ -13,8 +13,7 @@ sysName=`uname`
 
 mariadbDir=${serverPath}/source/mariadb
 
-MY_VER=12.3.3
-
+MY_VER=12.3.4
 Install_app()
 {
 	mkdir -p ${mariadbDir}

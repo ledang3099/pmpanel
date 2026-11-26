@@ -74,7 +74,7 @@ Install_openresty()
 
 	OPTIONS=''
 
-	opensslVersion="3.5.5"
+	opensslVersion="3.5.9"
 	libresslVersion="3.9.1"
 	pcreVersion='8.45'
 	if [ "$sysName" = "Darwin" ];then
