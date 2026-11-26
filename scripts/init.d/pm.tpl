@@ -42,10 +42,10 @@ fi
 
 pm_start_panel()
 {
-    isStart=`ps -ef|grep 'gunicorn -c setting.py app:app' |grep -v grep|awk '{print $2}'`
+    isStart=`ps -efww|grep 'gunicorn -c setting.py app:app' |grep -v grep|awk '{print $2}'`
     if [ "$isStart" == '' ];then
         echo -e "starting pm-panel... \c"
-        cd ${PANEL_DIR}/web &&  gunicorn -c setting.py app:app
+        cd "${PANEL_DIR}/web" && gunicorn -c setting.py app:app || return 1
         port=$(cat ${PANEL_DIR}/data/port.pl)
         isStart=""
         n=0
@@ -137,7 +137,7 @@ pm_stop_panel()
     if [ -s "$pidfile" ]; then
         read -r pid < "$pidfile"
         if [[ "$pid" =~ ^[0-9]+$ ]]; then
-            args=$(ps -p "$pid" -o args=)
+            args=$(ps -ww -p "$pid" -o args=)
             if [[ "$args" == *"$PANEL_DIR/bin/gunicorn -c setting.py app:app"* ]]; then
                 kill -TERM "$pid" || return 1
                 for ((i=0; i<160; i++)); do
@@ -163,7 +163,7 @@ pm_stop()
 
 pm_status()
 {
-    isStart=$(ps aux|grep 'gunicorn -c setting.py app:app'|grep -v grep|awk '{print $2}')
+    isStart=$(ps auxww|grep 'gunicorn -c setting.py app:app'|grep -v grep|awk '{print $2}')
     if [ "$isStart" != '' ];then
         echo -e "\033[32mmw (pid $(echo $isStart)) already running\033[0m"
     else
@@ -181,17 +181,17 @@ pm_status()
 
 pm_reload()
 {
-	isStart=$(ps aux|grep 'gunicorn -c setting.py app:app'|grep -v grep|awk '{print $2}')
+	isStart=$(ps auxww|grep 'gunicorn -c setting.py app:app'|grep -v grep|awk '{print $2}')
     
     if [ "$isStart" != '' ];then
     	echo -e "reload pm... \c";
-	    arr=`ps aux|grep 'gunicorn -c setting.py app:app'|grep -v grep|awk '{print $2}'`
+	    arr=`ps auxww|grep 'gunicorn -c setting.py app:app'|grep -v grep|awk '{print $2}'`
 		for p in ${arr[@]}
         do
                 kill -9 $p
         done
         cd ${PANEL_DIR}/web && gunicorn -c setting.py app:app
-        isStart=`ps aux|grep 'gunicorn -c setting.py app:app'|grep -v grep|awk '{print $2}'`
+        isStart=`ps auxww|grep 'gunicorn -c setting.py app:app'|grep -v grep|awk '{print $2}'`
         if [ "$isStart" == '' ];then
             echo -e "\033[31mfailed\033[0m"
             echo '------------------------------------------------------'
