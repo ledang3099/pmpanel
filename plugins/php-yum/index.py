@@ -850,6 +850,24 @@ def installPreInspection(version):
 
 
 
+def upgradeCheck(version):
+    import subprocess
+
+    if version not in ('82', '83', '84', '85'):
+        return mw.returnJson(0, '没有可用更新')
+    package = 'php' + version + '-php-fpm'
+    try:
+        result = subprocess.run(['yum', '-q', '--cacheonly', 'check-update', package],
+                                capture_output=True, text=True, timeout=8)
+        if result.returncode == 100:
+            match = re.search(r'^' + re.escape(package) + r'\.\S+\s+(\S+)', result.stdout, re.MULTILINE)
+            if match:
+                return mw.returnJson(1, '软件源有新版', match.group(1))
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return mw.returnJson(0, '没有可用更新')
+
+
 if __name__ == "__main__":
 
     if len(sys.argv) < 3:
@@ -867,6 +885,8 @@ if __name__ == "__main__":
         print(stop(version))
     elif func == 'restart':
         print(restart(version))
+    elif func == 'upgrade_check':
+        print(upgradeCheck(version))
     elif func == 'reload':
         print(reload(version))
     elif func == 'install_pre_inspection':

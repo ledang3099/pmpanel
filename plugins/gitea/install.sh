@@ -72,7 +72,16 @@ Install_App()
 
 	git config --global push.default simple
 
-	if [ "macos" = "$OSNAME" ];then
+	if [ "$version" = 28.4.0 ]; then
+        case "$(uname -m)" in
+            x86_64) architecture=amd64 ;;
+            arm64|aarch64) architecture=arm64 ;;
+            *) echo "Unsupported Gitea architecture" >&2; return 1 ;;
+        esac
+        platform=linux
+        if [ "$OSNAME" = macos ]; then platform=darwin; fi
+        file="gitea-${version}-${platform}-${architecture}"
+    elif [ "macos" = "$OSNAME" ];then
 		file=gitea-${version}-darwin-10.12-amd64
 	else
 		file=gitea-${version}-linux-amd64
@@ -81,10 +90,10 @@ Install_App()
 	file_xz="${file}.xz"
 	echo "wget -O $serverPath/source/gitea/$file_xz ${URL_DOWNLOAD}/gitea/${version}/${file_xz}"
 	if [ ! -f $serverPath/source/gitea/$file_xz ];then
-		wget  --no-check-certificate -O $serverPath/source/gitea/$file_xz ${URL_DOWNLOAD}/gitea/${version}/${file_xz}
+		wget -O "$serverPath/source/gitea/$file_xz.part" "${URL_DOWNLOAD}/gitea/${version}/${file_xz}" && mv "$serverPath/source/gitea/$file_xz.part" "$serverPath/source/gitea/$file_xz" || return 1
 	fi
 
-	cd $serverPath/source/gitea && xz -k -d $file_xz
+	cd "$serverPath/source/gitea" && xz -kf -d "$file_xz" || return 1
 	if [ -f $file ];then
 		mkdir -p $serverPath/gitea
 		mv $serverPath/source/gitea/$file $serverPath/gitea/gitea

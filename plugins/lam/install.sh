@@ -45,28 +45,26 @@ Install_App()
 		exit 0
 	fi
 
-	mkdir -p ${serverPath}/lam
 	mkdir -p ${serverPath}/source/lam
-	echo "${1}" > ${serverPath}/lam/version.pl
 	
 	VER=$1
 
 	# https://github.com/LDAPAccountManager/lam/releases/download/9.0/ldap-account-manager-9.0.tar.bz2
 	FDIR=ldap-account-manager-${VER}
 	FILE=ldap-account-manager-${VER}.tar.bz2
-	DOWNLOAD=https://github.com/LDAPAccountManager/lam/releases/download/9.0/${FILE}
+	DOWNLOAD=https://github.com/LDAPAccountManager/lam/releases/download/${VER}/${FILE}
 	
 
-	if [ ! -f $serverPath/source/phpmyadmin/$FILE ];then
-		wget --no-check-certificate -O $serverPath/source/lam/$FILE $DOWNLOAD
+	if [ ! -f $serverPath/source/lam/$FILE ];then
+		wget -O "$serverPath/source/lam/$FILE" "$DOWNLOAD" || return 1
 	fi
 
 	if [ ! -d $serverPath/source/lam/$FDIR ];then
-		cd $serverPath/source/lam  && tar jxvf $FILE
+		cd "$serverPath/source/lam" && tar jxf "$FILE" || return 1
 	fi
 
-	cp -r $serverPath/source/lam/$FDIR $serverPath/lam/
-	cd $serverPath/lam/ && mv $FDIR lam
+	mkdir -p "$serverPath/lam" && cp -R "$serverPath/source/lam/$FDIR" "$serverPath/lam/lam" || return 1
+	printf "%s\n" "$VER" > "$serverPath/lam/version.pl"
 	# rm -rf $serverPath/source/lam/$FDIR
 	
 	cd ${rootPath} && python3 ${rootPath}/plugins/lam/index.py start

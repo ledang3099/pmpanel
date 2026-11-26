@@ -508,7 +508,7 @@ class plugin(object):
             "upgrade": app_upgrade,
             "coexist": coexist,
             "versions": info['versions'],
-            # "updates": info['updates'],
+            "release_versions": info.get("release_versions", {}),
             "task": True,
             "display": False,
             "setup": False,

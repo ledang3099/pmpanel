@@ -54,7 +54,7 @@ fi
 VERSION_ID=`cat /etc/*-release | grep VERSION_ID | awk -F = '{print $2}' | awk -F "\"" '{print $2}'`
 
 
-VERSION=26.10.0
+VERSION=26.10.0.1
 # https://dev.mysql.com/get/Downloads/MySQL-9.4/mysql-${VERSION}.tar.gz
 # https://cdn.mysql.com/archives/mysql-9.4/mysql-9.4.0.tar.gz
 Install_mysql()
@@ -99,25 +99,12 @@ Install_mysql()
 		INSTALL_CMD=cmake3
 	fi
 
-	if [ ! -f ${mysqlDir}/mysql-${VERSION}.tar.gz ];then
-		wget --no-check-certificate -O ${mysqlDir}/mysql-${VERSION}.tar.gz --tries=3 https://cdn.mysql.com//Downloads/MySQL-26.10/mysql-${VERSION}.tar.gz
-	fi
-
-	#检测文件是否损坏.
-	md5_mysql_ok=99a17d98c0d6062155d2e9807e6f0efd
-	if [ -f ${mysqlDir}/mysql-${VERSION}.tar.gz ];then
-		md5_mysql=`md5sum ${mysqlDir}/mysql-${VERSION}.tar.gz  | awk '{print $1}'`
-		if [ "${md5_mysql_ok}" = "${md5_mysql}" ]; then
-			echo "mysql27.10 file check ok"
-		else
-			# 重新下载
-			rm -rf ${mysqlDir}/mysql-${VERSION}
-			wget --no-check-certificate -O ${mysqlDir}/mysql-${VERSION}.tar.gz --tries=3 https://cdn.mysql.com//Downloads/MySQL-26.10/mysql-${VERSION}.tar.gz
-		fi
-	fi
-
-	if [ ! -d ${mysqlDir}/mysql-${VERSION} ];then
-		 cd ${mysqlDir} && tar -zxvf ${mysqlDir}/mysql-${VERSION}.tar.gz
+	source "$rootPath/scripts/tools/verified-download.sh" || return 1
+	archive="$mysqlDir/mysql-${VERSION}.tar.gz"
+	verified_download "https://cdn.mysql.com/Downloads/MySQL-26.10/mysql-${VERSION}.tar.gz" \
+	    "$archive" 3d91f6b127ffd2fbd04794c1a11a364a4c73f89c8c44d1e2a07f5661a1b7a46a || return 1
+	if [ ! -d "$mysqlDir/mysql-${VERSION}" ]; then
+	    tar -xzf "$archive" -C "$mysqlDir" || return 1
 	fi
 
 	OPTIONS=''
@@ -202,7 +189,7 @@ Install_mysql()
 		-DCMAKE_CXX_COMPILER=$WHERE_DIR_GPP \
 		-DDOWNLOAD_BOOST=0 \
 		-DWITH_BOOST=${mysqlDir}/mysql-${VERSION}/boost/
-		make -j${cpuCore} && make install && make clean
+		make -j"${cpuCore}" && make install || return 1
 
 		if [ -d $serverPath/mysql ];then
 			rm -rf ${mysqlDir}/mysql-${VERSION}

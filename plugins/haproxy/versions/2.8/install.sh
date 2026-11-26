@@ -13,53 +13,24 @@ OSNAME=`cat ${rootPath}/data/osname.pl`
 OSNAME_ID=`cat /etc/*-release | grep VERSION_ID | awk -F = '{print $2}' | awk -F "\"" '{print $2}'`
 
 
-VERSION=2.8.20
+VERSION=2.8.32
 MIN_VERSION=2.8
 Install_App()
 {
 	echo '正在安装Haproxy软件...'
-	mkdir -p $serverPath/haproxy
-
-	APP_DIR=${serverPath}/source/haproxy
-	mkdir -p $APP_DIR
-	echo $MIN_VERSION > $serverPath/haproxy/version.pl
-
-	LOCAL_ADDR=common
-    cn=$(curl -fsSL -m 10 -s http://ipinfo.io/json | grep "\"country\": \"CN\"")
-    if [ ! -z "$cn" ] || [ "$?" = "0" ] ;then
-        LOCAL_ADDR=cn
-    fi
-
-
-    if [ "${LOCAL_ADDR}" = "cn" ];then
-    	if [ ! -f ${APP_DIR}/haproxy-${VERSION}.tar.gz ];then
-			wget -O ${APP_DIR}/haproxy-${VERSION}.tar.gz https://www.haproxy.org/download/${MIN_VERSION}/src/haproxy-${VERSION}.tar.gz
-		fi
-    fi
-
-	
-	if [ ! -f ${APP_DIR}/haproxy-${VERSION}.tar.gz ];then
-		if [ $sysName = 'Darwin' ]; then
-			wget --no-check-certificate -O ${APP_DIR}/haproxy-${VERSION}.tar.gz https://www.haproxy.org/download/${MIN_VERSION}/src/haproxy-${VERSION}.tar.gz
-		else
-			curl -sSLo ${APP_DIR}/haproxy-${VERSION}.tar.gz https://www.haproxy.org/download/${MIN_VERSION}/src/haproxy-${VERSION}.tar.gz
-		fi
-	fi
-
-	if [ ! -f ${APP_DIR}/haproxy-${VERSION}.tar.gz ];then
-		curl -sSLo ${APP_DIR}/haproxy-${VERSION}.tar.gz https://www.haproxy.org/download/${MIN_VERSION}/src/haproxy-${VERSION}.tar.gz
-	fi
-
-
-	cd ${APP_DIR} && tar -zxvf haproxy-${VERSION}.tar.gz
-
-	if [ "$OSNAME" = "macos" ];then
-		cd ${APP_DIR}/haproxy-${VERSION} && make TARGET=osx && make install PREFIX=$serverPath/haproxy
-	else
-		cd ${APP_DIR}/haproxy-${VERSION} && make TARGET=linux-glibc && make install PREFIX=$serverPath/haproxy
-	fi
-
-	echo '安装Haproxy成功'
+	APP_DIR="$serverPath/source/haproxy"
+    mkdir -p "$APP_DIR" || return 1
+    source "$rootPath/scripts/tools/verified-download.sh" || return 1
+    archive="$APP_DIR/haproxy-${VERSION}.tar.gz"
+    verified_download "https://www.haproxy.org/download/${MIN_VERSION}/src/haproxy-${VERSION}.tar.gz" \
+        "$archive" a2bfd7dcdaeb75aa55ff15d3b9f698c4469c76a5f4a8a43a1e70df4d07acc66b || return 1
+    tar -xzf "$archive" -C "$APP_DIR" || return 1
+    cd "$APP_DIR/haproxy-$VERSION" || return 1
+    target=linux-glibc
+    if [ "$OSNAME" = macos ]; then target=osx; fi
+    make TARGET="$target" && make install PREFIX="$serverPath/haproxy" || return 1
+    printf '%s\n' "$MIN_VERSION" > "$serverPath/haproxy/version.pl"
+    echo '安装Haproxy成功'
 
 	#Haproxy日志配置
 	if [ -f /etc/rsyslog.conf ];then

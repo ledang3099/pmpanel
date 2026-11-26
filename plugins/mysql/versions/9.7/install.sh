@@ -54,7 +54,7 @@ fi
 VERSION_ID=`cat /etc/*-release | grep VERSION_ID | awk -F = '{print $2}' | awk -F "\"" '{print $2}'`
 
 
-VERSION=9.7.4
+VERSION=9.7.4.1
 Install_mysql()
 {
 	mkdir -p ${mysqlDir}
@@ -97,25 +97,12 @@ Install_mysql()
 		INSTALL_CMD=cmake3
 	fi
 
-	if [ ! -f ${mysqlDir}/mysql-${VERSION}.tar.gz ];then
-         wget --no-check-certificate -O ${mysqlDir}/mysql-${VERSION}.tar.gz --tries=3 https://cdn.mysql.com//Downloads/MySQL-9.7/mysql-${VERSION}.tar.gz
-	fi
-
-	#检测文件是否损坏.
-	md5_mysql_ok=55a8f054435120d47d7a8700986997fd
-	if [ -f ${mysqlDir}/mysql-${VERSION}.tar.gz ];then
-		md5_mysql=`md5sum ${mysqlDir}/mysql-${VERSION}.tar.gz  | awk '{print $1}'`
-		if [ "${md5_mysql_ok}" = "${md5_mysql}" ]; then
-			echo "mysql9.7 file check ok"
-		else
-			# 重新下载
-			rm -rf ${mysqlDir}/mysql-${VERSION}
-			wget --no-check-certificate -O ${mysqlDir}/mysql-${VERSION}.tar.gz --tries=3 https://cdn.mysql.com//Downloads/MySQL-9.7/mysql-${VERSION}.tar.gz
-		fi
-	fi
-
-	if [ ! -d ${mysqlDir}/mysql-${VERSION} ];then
-		 cd ${mysqlDir} && tar -zxvf ${mysqlDir}/mysql-${VERSION}.tar.gz
+	source "$rootPath/scripts/tools/verified-download.sh" || return 1
+	archive="$mysqlDir/mysql-${VERSION}.tar.gz"
+	verified_download "https://cdn.mysql.com/Downloads/MySQL-9.7/mysql-${VERSION}.tar.gz" \
+	    "$archive" 7f399c598797c6fc0de9a97cbd68008150396ab32cb27f8bcb9746217371237f || return 1
+	if [ ! -d "$mysqlDir/mysql-${VERSION}" ]; then
+	    tar -xzf "$archive" -C "$mysqlDir" || return 1
 	fi
 
 	OPTIONS=''
@@ -200,7 +187,7 @@ Install_mysql()
 		-DCMAKE_CXX_COMPILER=$WHERE_DIR_GPP \
 		-DDOWNLOAD_BOOST=0 \
 		-DWITH_BOOST=${mysqlDir}/mysql-${VERSION}/boost/
-		make -j${cpuCore} && make install && make clean
+		make -j"${cpuCore}" && make install || return 1
 
 		if [ -d $serverPath/mysql ];then
 			rm -rf ${mysqlDir}/mysql-${VERSION}

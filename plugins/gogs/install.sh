@@ -54,8 +54,20 @@ Install_gogs()
 		file=gogs_${version}_linux_amd64.zip
 	fi
 
+	if [ "$version" = 0.14.4 ]; then
+		architecture=$(uname -m)
+		case "$architecture" in
+			x86_64) architecture=amd64 ;;
+			arm64|aarch64) architecture=arm64 ;;
+			*) echo "Unsupported Gogs architecture: $architecture" >&2; return 1 ;;
+		esac
+		file="gogs_v${version}_${os}_${architecture}.zip"
+		url="https://github.com/gogs/gogs/releases/download/v${version}/${file}"
+	else
+		url="${GOGS_DOWNLOAD}/${version}/${file}"
+	fi
 	if [ ! -f $serverPath/source/gogs/$file ];then
-		wget  --no-check-certificate -O $serverPath/source/gogs/$file ${GOGS_DOWNLOAD}/${version}/${file}
+		curl -fsSL --retry 2 "$url" -o "$serverPath/source/gogs/$file.part" && mv "$serverPath/source/gogs/$file.part" "$serverPath/source/gogs/$file" || return 1
 	fi
 
 	cd $serverPath/source/gogs && unzip -o $file -d gogs_${version}

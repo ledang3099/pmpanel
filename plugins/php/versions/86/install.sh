@@ -1,0 +1,143 @@
+#!/bin/bash
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin:/opt/homebrew/bin
+export PATH=$PATH:/opt/homebrew/bin
+
+action=${1}
+
+curPath=`pwd`
+rootPath=$(dirname "$curPath")
+rootPath=$(dirname "$rootPath")
+serverPath=$(dirname "$rootPath")
+sourcePath=${serverPath}/source
+sysName=`uname`
+
+version=8.6.0
+PHP_VER=86
+source_sha256=5f84beaa3d763aee1e4feed99bf54ec692c383b322e25626807b589238c3a087
+Install_php()
+{
+#------------------------ install start ------------------------------------#
+echo "安装php-${version} ..."
+mkdir -p $sourcePath/php
+mkdir -p $serverPath/php
+
+cd ${rootPath}/plugins/php/lib && /bin/bash freetype_new.sh
+cd ${rootPath}/plugins/php/lib && /bin/bash zlib.sh
+
+# redat ge 8
+which yum
+if [ "$?" = "0" ];then
+    cd ${rootPath}/plugins/php/lib && /bin/bash oniguruma.sh
+fi
+
+source "$rootPath/scripts/tools/verified-download.sh" || return 1
+archive="$sourcePath/php/php-${version}.tar.xz"
+verified_download "https://www.php.net/distributions/php-${version}.tar.xz" "$archive" "$source_sha256" || return 1
+build_root=$(mktemp -d "$sourcePath/php/build-${version}.XXXXXX") || return 1
+trap 'rm -rf -- "$build_root"' EXIT
+tar -Jxf "$archive" -C "$build_root" || return 1
+cd "$build_root/php-${version}" || return 1
+
+OPTIONS='--without-iconv'
+
+# if [ $sysName = 'Darwin' ]; then
+# 	OPTIONS="${OPTIONS} --with-curl"
+# fi
+
+argon_version=`pkg-config libargon2 --modversion`
+if [ "$?" = "0" ];then
+    OPTIONS="${OPTIONS} --with-password-argon2"
+fi
+
+IS_64BIT=`getconf LONG_BIT`
+if [ "$IS_64BIT" = "64" ];then
+    OPTIONS="${OPTIONS} --with-libdir=lib64"
+fi
+
+# ----- cpu start ------
+if [ -z "${cpuCore}" ]; then
+    cpuCore="1"
+fi
+
+if [ -f /proc/cpuinfo ];then
+    cpuCore=`cat /proc/cpuinfo | grep "processor" | wc -l`
+fi
+
+MEM_INFO=$(which free > /dev/null && free -m|grep Mem|awk '{printf("%.f",($2)/1024)}')
+if [ "${cpuCore}" != "1" ] && [ "${MEM_INFO}" != "0" ];then
+    if [ "${cpuCore}" -gt "${MEM_INFO}" ];then
+        cpuCore="${MEM_INFO}"
+    fi
+else
+    cpuCore="1"
+fi
+
+if [ "$cpuCore" -gt "2" ];then
+    cpuCore=`echo "$cpuCore" | awk '{printf("%.f",($1)*0.8)}'`
+else
+    cpuCore="1"
+fi
+# ----- cpu end ------
+
+# OPTIONS="${OPTIONS} --enable-debug"
+# OPTIONS="${OPTIONS} --enable-dtrace"
+
+if [ "$sysName" = "Darwin" ];then
+    LIB_DEPEND_DIR=`brew --prefix openssl@3`
+    OPTIONS="$OPTIONS --with-openssl=$LIB_DEPEND_DIR"
+    export PKG_CONFIG_PATH=$LIB_DEPEND_DIR/lib/pkgconfig
+    export OPENSSL_CFLAGS="-I${LIB_DEPEND_DIR}/include"
+    export OPENSSL_LIBS="-L/${LIB_DEPEND_DIR}/lib -lssl -lcrypto -lz"
+else
+    echo "lib"
+    # cd ${rootPath}/plugins/php/lib && /bin/bash openssl_35.sh
+    # export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$serverPath/lib/openssl35/lib/pkgconfig
+    OPTIONS="$OPTIONS --with-openssl"
+fi
+
+
+if [ ! -d $serverPath/php/${PHP_VER} ] || [ "$action" == "upgrade" ];then
+    # ./buildconf --force
+    ./configure \
+    --prefix=$serverPath/php/${PHP_VER} \
+    --exec-prefix=$serverPath/php/${PHP_VER} \
+    --with-config-file-path=$serverPath/php/${PHP_VER}/etc \
+    --enable-mysqlnd \
+    --with-mysql=mysqlnd \
+    --with-mysqli=mysqlnd \
+    --with-pdo-mysql=mysqlnd \
+    --with-mysqlnd-ssl \
+    --enable-mbstring \
+    --enable-ftp \
+    --enable-sockets \
+    --enable-simplexml \
+    --enable-soap \
+    --enable-posix \
+    --enable-sysvmsg \
+    --enable-sysvsem \
+    --enable-sysvshm \
+    --disable-intl \
+    --disable-fileinfo \
+    $OPTIONS \
+    --enable-fpm || return 1
+    make clean && make -j"${cpuCore}" && make install || return 1
+
+fi
+#------------------------ install end ------------------------------------#
+}
+
+Uninstall_php()
+{
+    $serverPath/php/init.d/php${PHP_VER} stop
+    rm -rf $serverPath/php/${PHP_VER}
+    echo "卸载php-${version}..."
+}
+
+
+if [ "${1}" = 'install' ] || [ "$action" = "upgrade" ];then
+    Install_php
+elif [ "${1}" = 'uninstall' ];then
+    Uninstall_php
+else
+    echo "OPTIONS ERROR"
+fi

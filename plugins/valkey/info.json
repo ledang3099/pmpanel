@@ -4,7 +4,7 @@
 	"name": "valkey",
 	"title": "valkey",
 	"shell": "install.sh",
-	"versions":["7.2.16","8.0.13","8.1.12", "9.0.8", "9.1.4"],
+	"versions":["7.2.16","8.0.13","8.1.12", "9.0.8", "9.1.4", "9.2.1"],
 	"tip": "soft",
 	"checks": "server/valkey",
 	"path": "server/valkey",

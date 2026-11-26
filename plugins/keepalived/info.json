@@ -4,7 +4,7 @@
 	"name": "keepalived",
 	"title": "keepalived",
 	"shell": "install.sh",
-	"versions":["2.2.8"],
+	"versions":["2.4.3"],
 	"tip": "soft",
 	"checks": "server/keepalived",
 	"path": "server/keepalived",

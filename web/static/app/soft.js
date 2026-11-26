@@ -206,7 +206,7 @@ $(document).on('click', '#softStore [data-act]', function(e) {
     var act = $(this).attr('data-act');
     var vers = softVersions(p);
     if (act == 'install') {
-        addVersion(p.name, vers.join('|'), p.tip, this, p.title, p.install_pre_inspection, p.eol || [], p.recommend);
+        addVersion(p.name, vers.join('|'), p.tip, this, p.title, p.install_pre_inspection, p.eol || [], p.recommend, p.release_versions);
     } else if (act == 'setting') {
         softMain(p.name, p.title, p.setup_version);
     } else if (act == 'uninstall') {
@@ -276,7 +276,7 @@ function installPreInspection(name, ver, callback){
 }
 
 // 安装弹窗: 版本列表(标出停止维护的版本), 默认选中最新的受支持版本
-function addVersion(name, ver, type, obj, title, install_pre_inspection, eol, recommend) {
+function addVersion(name, ver, type, obj, title, install_pre_inspection, eol, recommend, releases) {
     eol = eol || [];
     var vers = String(ver).split('|').filter(function(v){ return v !== ''; });
     var titlename = String(title).replace("-" + ver, "");
@@ -292,9 +292,11 @@ function addVersion(name, ver, type, obj, title, install_pre_inspection, eol, re
     var opts = '';
     for (var i = 0; i < vers.length; i++) {
         var isEol = eol.indexOf(vers[i]) > -1;
+        var release = releases && releases[vers[i]];
+        var label = release && release !== vers[i] ? vers[i] + ' · ' + release : vers[i];
         opts += '<label class="pm-ver-opt' + (isEol ? ' eol' : '') + '">' +
             '<input type="radio" name="pm_install_ver" value="' + softEsc(vers[i]) + '"' + (i == defIdx ? ' checked' : '') + '>' +
-            '<span>' + softEsc(vers[i]) + (isEol ? '<em>停止维护</em>' : (vers[i] == recommend ? '<em class="rec">推荐</em>' : '')) + '</span></label>';
+            '<span>' + softEsc(label) + (isEol ? '<em>停止维护</em>' : (vers[i] == recommend ? '<em class="rec">推荐</em>' : '')) + '</span></label>';
     }
 
     layer.open({
