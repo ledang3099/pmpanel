@@ -1,94 +1,45 @@
 <style type="text/css">
-.overflow_hide {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    display: inline-block;
-    vertical-align: middle;
-}
-
-.lsyncd_exclude label {
-    font-weight: normal;
-    margin-right: 20px
-}
-
-.lsyncd_exclude button {
-    vertical-align: 0
-}
-
-.lsyncd_exclude {
-    overflow: hidden;
-    margin: 15px;
-}
-
-.lsyncd_exclude span {
-    margin-right: 5px
-}
-
-.lsyncd_exclude fieldset {
-    border: 1px solid #ccc;
-     border-radius: 3px; 
-     float: left; 
-     padding-bottom: 0; 
-    /* width: 240px; */
-}
-
-.wafConf fieldset:nth-of-type(2) {
-    margin: 0 10px
-}
-
-.lsyncd_exclude legend {
-    border: 0 none;
-    font-size: 14px;
-    margin: 0 6px;
-    padding: 3px;
-    width: auto
-}
-
-.lsyncd_exclude fieldset input {
-    margin-left: 4px
-}
-
-.lsyncd_exclude fieldset .table {
-    margin-top: -1px;
-    margin-bottom: 0
-}
-
-.lsyncd_exclude fieldset .table tr td:nth-of-type(2) {
-    width: 42px
-}
-
-.lsyncd_exclude fieldset .table-overflow {
-    height: 210px;
-    overflow: auto;
-    margin-top: 10px;
-    border-top: #ddd 1px solid
-}
-
-
+.rs-box { padding: 4px 2px; }
+.rs-alert { border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; line-height: 20px; }
+.rs-alert.warn { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+.rs-alert.ok { background: #ecfdf3; color: #166534; border: 1px solid #bbf7d0; }
+.rs-alert.info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+.rs-kv { width: 100%; }
+.rs-kv td { padding: 8px 6px; border-bottom: 1px solid #f1f3f6; font-size: 13px; vertical-align: top; }
+.rs-kv td:first-child { width: 120px; color: #6b7280; }
+.rs-toolbar { margin-bottom: 10px; display: flex; gap: 8px; align-items: center; }
+.rs-table { width: 100%; }
+.rs-table th { background: #f7f8fa; font-weight: 500; }
+.rs-table td, .rs-table th { padding: 8px 6px !important; font-size: 13px; }
+.rs-tag { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 11px; line-height: 18px; background: #f1f3f6; color: #6b7280; margin-right: 4px; }
+.rs-tag.green { background: #ecfdf3; color: #15803d; }
+.rs-tag.red { background: #fef2f2; color: #b91c1c; }
+.rs-tag.blue { background: #eff6ff; color: #1d4ed8; }
+.rs-form .line { margin-bottom: 6px !important; padding: 4px 0 !important; height: auto !important; overflow: hidden; }
+.rs-form .tname { line-height: 32px; }
+.rs-dlg { max-height: 68vh; overflow-y: auto; }
+.rs-form .tname { width: 110px; }
+.rs-form .rs-help { color: #9ca3af; font-size: 12px; margin-top: 4px; }
+.rs-pre { background: #1f2430; color: #e5e7eb; padding: 10px 12px; border-radius: 6px; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 360px; overflow: auto; }
+.rs-ellipsis { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
 </style>
 <div class="bt-form">
 	<div class="bt-w-main">
 		<div class="bt-w-menu">
 			<p class="bgw" onclick="pluginService('rsyncd');">服务</p>
 			<p onclick="pluginInitD('rsyncd');">自启动</p>
-			<p onclick="lsyncdSend();">发送配置</p>
-			<p onclick="rsyncdReceive();">接收配置</p>
-			<p onclick="rsRead()">说明</p>
+			<p onclick="rsOverview();">版本与安全</p>
+			<p onclick="rsReceive();">接收(服务端)</p>
+			<p onclick="rsSend();">发送(同步任务)</p>
+			<p onclick="rsLogs();">日志</p>
+			<p onclick="rsHelp();">说明</p>
 		</div>
 		<div class="bt-w-con pd15">
 			<div class="soft-man-con"></div>
 		</div>
 	</div>
 </div>
-
 <script type="text/javascript">
-
-resetPluginWinWidth(800);
-resetPluginWinHeight(400);
-// $.getScript("/plugins/file?name=rsyncd&f=js/base64.js", function() {
-// 	console.log('base64 load');
-// });
 $.getScript("/plugins/file?name=rsyncd&f=js/rsyncd.js", function() {
 	pluginService('rsyncd');
 });
