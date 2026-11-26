@@ -60,7 +60,7 @@ if [ ! -d $sourcePath/php/php${PHP_VER} ];then
 		if [ "${md5_file}" != "${md5_file_ok}" ]; then
 			echo "PHP${version} 下载文件不完整,重新安装"
 			rm -rf $sourcePath/php/php-${version}.tar.xz
-			exit
+			exit 1
 		fi
 	fi
 	
@@ -130,7 +130,7 @@ if [ ! -d $serverPath/php/${PHP_VER} ] || [ "$action" == "upgrade" ];then
 	# cd /www/server/source/php/php74 && patch -p1 --dry-run < /www/server/pmpanel/plugins/php/versions/74/cve/7.4-CVE-2026-109618-109619.patch
 
 	# cd $sourcePath/php/php${PHP_VER} && patch -p1 --dry-run < ${rootPath}/plugins/php/versions/74/cve/7.4-CVE-2026-109618-109619.patch
-	cd $sourcePath/php/php${PHP_VER} && patch -p1 < ${rootPath}/plugins/php/versions/74/cve/7.4-CVE-2026-109618-109619.patch
+	cd $sourcePath/php/php${PHP_VER} && patch -p1 < ${rootPath}/plugins/php/versions/74/cve/7.4-CVE-2026-109618-109619.patch || return 1
 	cd $sourcePath/php/php${PHP_VER} && make clean
 	./configure \
 	--prefix=$serverPath/php/${PHP_VER} \

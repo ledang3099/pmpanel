@@ -26,7 +26,7 @@ Install_php()
 #------------------------ install start ------------------------------------#
 
 if [ "$action" == "upgrade" ];then
-	apt -y upgrade php${version} php${version}-fpm php${version}-dev
+	apt-get -y install --only-upgrade "php${version}" "php${version}-fpm" "php${version}-dev" || return 1
 else
 	apt -y install php${version} php${version}-fpm php${version}-dev
 fi

@@ -23,33 +23,16 @@ VERSION=$2
 Install_App()
 {
 	echo '正在安装keepalived脚本文件...'
-	mkdir -p $serverPath/source/keepalived
-
-	if [ ! -f $serverPath/source/keepalived/keepalived-${VERSION}.tar.gz ];then
-		wget -O $serverPath/source/keepalived/keepalived-${VERSION}.tar.gz https://keepalived.org/software/keepalived-${VERSION}.tar.gz
-	fi
-
-	#检测文件是否损坏.
-	md5_file_ok=8c26f75a8767e5341d82696e1e717115
-	if [ -f $serverPath/source/keepalived/keepalived-${VERSION}.tar.gz ];then
-		md5_file=`md5sum $serverPath/source/keepalived/keepalived-${VERSION}.tar.gz  | awk '{print $1}'`
-		if [ "${md5_file}" != "${md5_file_ok}" ]; then
-			echo "keepalived-${version} 下载文件不完整,重新安装"
-			rm -rf $serverPath/source/keepalived/keepalived-${VERSION}.tar.gz
-		fi
-	fi
-	
-	echo $serverPath/keepalived/keepalived-${VERSION}
-	if [ -d $serverPath/keepalived/keepalived-${VERSION} ];then
-		cd  $serverPath/keepalived/keepalived-${VERSION}
-	else 
-		cd $serverPath/source/keepalived && tar -zxvf keepalived-${VERSION}.tar.gz
-		cd  $serverPath/keepalived/keepalived-${VERSION}
-	fi
-
-	cd $serverPath/source/keepalived/keepalived-${VERSION}
-
-	./configure --prefix=$serverPath/keepalived && make && make install
+    if [ "$VERSION" != 2.4.3 ]; then return 1; fi
+    source "$rootPath/scripts/tools/verified-download.sh" || return 1
+    sources="$serverPath/source/keepalived"
+    mkdir -p "$sources" || return 1
+    archive="$sources/keepalived-$VERSION.tar.gz"
+    verified_download "https://keepalived.org/software/keepalived-$VERSION.tar.gz" "$archive" \
+        a0faef8e401c143487b131b526df7541c1e33d9b8814642fa9dfe8bb250a9632 || return 1
+    tar -xzf "$archive" -C "$sources" || return 1
+    cd "$sources/keepalived-$VERSION" || return 1
+    ./configure --prefix="$serverPath/keepalived" && make && make install || return 1
 
 	# for test
 	# mkdir -p $serverPath/keepalived

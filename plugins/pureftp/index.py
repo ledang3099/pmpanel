@@ -2,6 +2,7 @@
 
 import sys
 import io
+import json
 import os
 import time
 import shutil
@@ -451,6 +452,18 @@ def startPort():
     return data[0]
 
 
+def upgradeCheck():
+    latest = json.loads(mw.readFile(getPluginDir() + '/info.json'))['versions'][-1]
+    installed = mw.readFile(getServerDir() + '/version.pl').strip()
+    from packaging.version import InvalidVersion, Version
+    try:
+        if Version(installed) < Version(latest):
+            return mw.returnJson(1, '有新版', latest)
+    except InvalidVersion:
+        pass
+    return mw.returnJson(0, '已是最新版本')
+
+
 if __name__ == "__main__":
     func = sys.argv[1]
     if func == 'status':
@@ -461,6 +474,8 @@ if __name__ == "__main__":
         print(stop())
     elif func == 'restart':
         print(restart())
+    elif func == 'upgrade_check':
+        print(upgradeCheck())
     elif func == 'reload':
         print(reload())
     elif func == 'initd_status':

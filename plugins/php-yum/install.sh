@@ -38,21 +38,21 @@ OSNAME=`cat ${rootPath}/data/osname.pl`
 VERSION_ID=`cat /etc/*-release | grep VERSION_ID | awk -F = '{print $2}' | awk -F "\"" '{print $2}'`
 
 if [ "$OSNAME" = "alma" ];then
-	rpm -Uvh http://rpms.remirepo.net/enterprise/remi-release-${VERSION_ID}.rpm
+	rpm -Uvh https://rpms.remirepo.net/enterprise/remi-release-${VERSION_ID}.rpm
 fi
 
 if [ "$OSNAME" = "rocky" ];then
-	rpm -Uvh http://rpms.remirepo.net/enterprise/remi-release-${VERSION_ID}.rpm
+	rpm -Uvh https://rpms.remirepo.net/enterprise/remi-release-${VERSION_ID}.rpm
 fi
 
 if [ "$OSNAME" = "centos" ];then
-	rpm -Uvh http://rpms.remirepo.net/enterprise/remi-release-${VERSION_ID}.rpm
+	rpm -Uvh https://rpms.remirepo.net/enterprise/remi-release-${VERSION_ID}.rpm
 fi
 
 
-# rpm -Uvh http://rpms.remirepo.net/fedora/remi-release-31.rpm
+# rpm -Uvh https://rpms.remirepo.net/fedora/remi-release-31.rpm
 if [ "$OSNAME" = "fedora" ];then
-	rpm -Uvh http://rpms.remirepo.net/fedora/remi-release-${VERSION_ID}.rpm
+	rpm -Uvh https://rpms.remirepo.net/fedora/remi-release-${VERSION_ID}.rpm
 fi
 
 
@@ -71,6 +71,13 @@ if [ "${action}" = "uninstall" ] && [ -d ${serverPath}/php-yum/${type} ];then
 	fi
 
 	systemctl daemon-reload
+fi
+
+if [ "$action" = upgrade ]; then
+    case "$type" in 82|83|84|85) ;; *) exit 1 ;; esac
+    yum -y upgrade "php${type}" "php${type}-php-*" || exit 1
+    systemctl restart "php${type}-php-fpm"
+    exit $?
 fi
 
 cd ${curPath} && sh -x $curPath/versions/$2/install.sh $1

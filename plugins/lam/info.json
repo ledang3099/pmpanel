@@ -4,7 +4,7 @@
 	"name":"lam",
 	"type":"运行环境",
 	"ps":"LDAP管理工具(LAM)",
-	"versions":["9.0"],
+	"versions":["9.0", "9.7"],
 	"shell":"install.sh",
 	"checks":"server/lam",
 	"path": "server/lam",

@@ -141,10 +141,10 @@ if [ "$sysName" = "Darwin" ];then
 	if [ ! -f $curPath/versions/$2/install_mac.sh ];then
 		echo "not supported for the time being"
 	else
-		sh -x $curPath/versions/$2/install_mac.sh $1
+		bash -x "$curPath/versions/$2/install_mac.sh" "$1" || exit $?
 	fi	
 else
-	sh -x $curPath/versions/$2/install_generic.sh $1
+	bash -x "$curPath/versions/$2/install_generic.sh" "$1" || exit $?
 fi
 
 

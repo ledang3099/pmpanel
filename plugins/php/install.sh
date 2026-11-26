@@ -53,12 +53,12 @@ if [ "${action}" = "uninstall" ];then
 fi
 
 if [ "${action}" = "upgrade" ];then
-	cd ${curPath} && sh -x $curPath/versions/$2/install.sh upgrade
+	cd ${curPath} && bash -x "$curPath/versions/$2/install.sh" upgrade || exit $?
 	which systemctl && systemctl restart php${type}
 	exit 0
 fi
 
-cd ${curPath} && sh -x $curPath/versions/$2/install.sh $1
+cd ${curPath} && bash -x "$curPath/versions/$2/install.sh" "$1" || exit $?
 
 
 if [ "${action}" = "install" ] && [ -d ${serverPath}/php/${type} ];then

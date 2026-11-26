@@ -4,7 +4,7 @@
 	"name": "prometheus",
 	"title": "prometheus",
 	"shell": "install.sh",
-	"versions":["3.5.0"],
+	"versions":["3.5.0", "3.16.0"],
 	"tip": "soft",
 	"checks": "server/prometheus",
 	"path": "server/prometheus",

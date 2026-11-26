@@ -26,33 +26,23 @@ Install_App()
 	fi
 
 	echo '正在安装脚本文件...'
-	mkdir -p $serverPath/source
+    case "$VERSION" in
+        2.0.23) digest=dc815cbd9f27db2fa7fcb06390f7ec1d65b5300827f4c1c7402e62ce9cfd5660 ;;
+        2.1.4) digest=ca30b26ccd3041c0e11fc407fe4f2e62bc445e8d8dea94a083cc60c09bd5ea30 ;;
+        *) return 1 ;;
+    esac
+    source "$rootPath/scripts/tools/verified-download.sh" || return 1
+    sources="$serverPath/source"
+    mkdir -p "$sources" || return 1
+    archive="$sources/mosquitto-$VERSION.tar.gz"
+    verified_download "https://mosquitto.org/files/source/mosquitto-$VERSION.tar.gz" "$archive" "$digest" || return 1
+    build_dir=$(mktemp -d "$sources/mosquitto-build.XXXXXX") || return 1
+    trap 'rm -rf -- "$build_dir"' EXIT
+    tar -xzf "$archive" -C "$build_dir" || return 1
+    cd "$build_dir/mosquitto-$VERSION" || return 1
+    cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX="$serverPath/mosquitto" . || return 1
+    make && make install || return 1
 
-	if [ ! -f $serverPath/source/mosquitto-${VERSION}.tar.gz ];then
-		wget --no-check-certificate -O $serverPath/source/mosquitto-${VERSION}.tar.gz https://mosquitto.org/files/source/mosquitto-${VERSION}.tar.gz
-	fi
-	
-	if [ ! -d mosquitto-${VERSION} ];then
-		cd $serverPath/source && tar -zxvf mosquitto-${VERSION}.tar.gz
-	fi
-
-
-	INSTALL_CMD=cmake
-	# check cmake version
-	CMAKE_VERSION=`cmake -version | grep version | awk '{print $3}' | awk -F '.' '{print $1}'`
-	if [ "$CMAKE_VERSION" -eq "2" ];then
-		mkdir -p /var/log/mariadb
-		touch /var/log/mariadb/mariadb.log
-		INSTALL_CMD=cmake3
-	fi
-
-	mkdir -p $serverPath/mosquitto
-	if  [ ! -d $serverPath/mosquitto/bin ];then
-		cd mosquitto-${VERSION} && ${INSTALL_CMD} CMakeLists.txt \
-		-DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-		-DCMAKE_INSTALL_PREFIX=$serverPath/mosquitto && make install
-	fi
-	
 	if [ -d $serverPath/mosquitto ];then
 		echo "${VERSION}" > $serverPath/mosquitto/version.pl
 		echo '安装mosquitto完成'

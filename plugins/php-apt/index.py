@@ -851,29 +851,22 @@ def installPreInspection(version):
     return 'ok'
 
 def upgradeCheck(version):
-    version_big = version[0]+version[2]
+    import subprocess
 
-    info = getPluginDir() + '/info.json'
-    content = mw.readFile(info)
-    content = json.loads(content)
-    versions = content['versions']
-    updates = content['updates']
-
-    idx = versions.index(version_big)
-    full_verion = updates[idx]
-
-    # 找到本地版本信息对比
-    # /usr/bin/php5.6 -d display_startup_errors=0 -r 'echo PHP_VERSION;' 2>/dev/null
-    php_path = "/usr/bin/php"+version
-    if not os.path.exists(php_path):
-        return mw.returnJson(0,"pass")
-
-    cmd = php_path + " -d display_startup_errors=0 -r 'echo PHP_VERSION;' 2>/dev/null"
-    cmd_data = mw.execShell(cmd)
-    local_full_version = cmd_data[0].split("-")[0]
-    if local_full_version != full_verion:
-        return mw.returnJson(1, "有新版",full_verion)
-    return mw.returnJson(0,"pass")
+    package = 'php' + version + '-fpm'
+    try:
+        output = subprocess.check_output(['apt-cache', 'policy', package], text=True, timeout=5,
+                                         env=dict(os.environ, LC_ALL='C'))
+        versions = dict(re.findall(r'^\s*(Installed|Candidate):\s+(\S+)', output, re.MULTILINE))
+        installed = versions.get('Installed', '(none)')
+        candidate = versions.get('Candidate', '(none)')
+        if '(none)' not in (installed, candidate) and subprocess.call(
+            ['dpkg', '--compare-versions', candidate, 'gt', installed]
+        ) == 0:
+            return mw.returnJson(1, '软件源有新版', candidate)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return mw.returnJson(0, '没有可用更新')
 
 if __name__ == "__main__":
 

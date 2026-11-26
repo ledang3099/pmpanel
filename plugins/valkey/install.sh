@@ -30,7 +30,7 @@ Install_App()
 	VALKEY_DIR=$serverPath/source/valkey
 
 	if [ ! -f $VALKEY_DIR/${FILE_TGZ} ];then
-		wget --no-check-certificate -O $VALKEY_DIR/${FILE_TGZ} https://github.com/valkey-io/valkey/archive/refs/tags/${FILE_TGZ}
+		wget -O $VALKEY_DIR/${FILE_TGZ} https://github.com/valkey-io/valkey/archive/refs/tags/${FILE_TGZ}
 	fi
 	
 	cd $VALKEY_DIR && tar -zxvf ${FILE_TGZ}

@@ -45,43 +45,22 @@ Install_pureftp()
 		useradd -g ftp -s /sbin/nologin ftp
 	fi
 
-	# mkdir -p ${serverPath}/pureftp
-	mkdir -p ${serverPath}/source/pureftp
-
-	# https://github.com/jedisct1/pure-ftpd/releases/download/1.0.49/pure-ftpd-1.0.49.tar.gz
-	# https://download.pureftpd.org/pub/pure-ftpd/releases/pure-ftpd-1.0.49.tar.gz
-	
-
-	VER=$1
-	DOWNLOAD=https://github.com/jedisct1/pure-ftpd/releases/download/${VER}/pure-ftpd-${VER}.tar.gz
-	# DOWNLOAD=https://download.pureftpd.org/pub/pure-ftpd/releases/pure-ftpd-${VER}.tar.gz
-
-	# curl -sSLo pure-ftpd-1.0.49.tar.gz https://download.pureftpd.org/pub/pure-ftpd/releases/pure-ftpd-1.0.49.tar.gz
-	if [ ! -f $serverPath/source/pureftp/pure-ftpd-${VER}.tar.gz ];then
-		# wget --no-check-certificate -O $serverPath/source/pureftp/pure-ftpd-${VER}.tar.gz $DOWNLOAD
-		curl -sSLo $serverPath/source/pureftp/pure-ftpd-${VER}.tar.gz $DOWNLOAD
-	fi
-
-	#检测文件是否损坏.
-	md5_ok=451879495ba61c1d7dcfca8dd231119f
-	if [ -f $serverPath/source/pureftp/pure-ftpd-${VER}.tar.gz ];then
-		md5_check=`md5sum $serverPath/source/pureftp/pure-ftpd-${VER}.tar.gz  | awk '{print $1}'`
-		if [ "${md5_ok}" = "${md5_check}" ]; then
-			echo "pure-ftpd file  check ok"
-		fi
-	fi
-
-	# Last Download Method
-	if [ ! -f $serverPath/source/pureftp/pure-ftpd-${VER}.tar.gz ];then
-		wget -O $serverPath/source/pureftp/pure-ftpd-${VER}.tar.gz https://download.pureftpd.org/pub/pure-ftpd/releases/pure-ftpd-${VER}.tar.gz -T 3
-	fi
-
-	if [ ! -d $serverPath/source/pureftp/pure-ftpd-${VER} ];then
-		cd $serverPath/source/pureftp  && tar zxvf pure-ftpd-${VER}.tar.gz
-	fi
-
-	cd $serverPath/source/pureftp/pure-ftpd-${VER} &&  ./configure --prefix=${serverPath}/pureftp \
-　　 	CFLAGS=-O2 \
+    VERSION=$1
+    if [ "$VERSION" != 1.0.54 ]; then
+        echo "Unsupported Pure-FTPd release: $VERSION" >&2
+        return 1
+    fi
+    source "$rootPath/scripts/tools/verified-download.sh" || return 1
+    source_dir="$serverPath/source/pureftp"
+    mkdir -p "$source_dir" || return 1
+    archive="$source_dir/pure-ftpd-${VERSION}.tar.gz"
+    verified_download "https://download.pureftpd.org/pub/pure-ftpd/releases/pure-ftpd-${VERSION}.tar.gz" \
+        "$archive" dc9140420ec44f7829579591ff378aa6396b4604b9c6aeae847368e0f35bd7b2 || return 1
+    build_root=$(mktemp -d "$source_dir/build.XXXXXX") || return 1
+    trap 'rm -rf -- "$build_root"' EXIT
+    tar -xzf "$archive" -C "$build_root" || return 1
+    cd "$build_root/pure-ftpd-${VERSION}" || return 1
+    CFLAGS=-O2 ./configure --prefix="$serverPath/pureftp" \
 		--with-puredb \
 		--with-quotas \
 		--with-cookie \
@@ -96,19 +75,17 @@ Install_pureftp()
 		--with-throttling \
 		--with-uploadscript \
 		--with-language=english \
-		--with-rfc2640 \
 		--with-ftpwho \
-		--with-tls && make && make install && make clean
-	
-	if [ -d ${serverPath}/pureftp ];then 
-		echo "${1}" > ${serverPath}/pureftp/version.pl
-		echo '安装完成'
-
-		cd ${rootPath} && python3 ${rootPath}/plugins/pureftp/index.py start
-		cd ${rootPath} && python3 ${rootPath}/plugins/pureftp/index.py initd_install
-	else
-		echo '安装失败'
-	fi
+		--with-tls || return 1
+    make && make install || return 1
+    cd "$rootPath" || return 1
+    if [ "$action" = upgrade ]; then
+        [ "$(python3 plugins/pureftp/index.py restart)" = ok ] || return 1
+    else
+        [ "$(python3 plugins/pureftp/index.py start)" = ok ] || return 1
+        python3 plugins/pureftp/index.py initd_install || return 1
+    fi
+    printf '%s\n' "$VERSION" > "$serverPath/pureftp/version.pl"
 }
 
 Uninstall_pureftp()
@@ -131,8 +108,9 @@ Uninstall_pureftp()
 }
 
 action=$1
-if [ "${1}" = 'install' ];then
-	Install_pureftp $2
-else
-	Uninstall_pureftp $2
-fi
+case "$action" in
+    install) Install_pureftp "$2" ;;
+    upgrade) Install_pureftp 1.0.54 ;;
+    uninstall) Uninstall_pureftp ;;
+    *) exit 1 ;;
+esac
