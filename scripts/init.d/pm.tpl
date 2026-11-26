@@ -218,24 +218,12 @@ pm_open()
 
 pm_unbind_domain()
 {
-    if [ -f ${PANEL_DIR}/data/bind_domain.pl ];then
-        rm -rf ${PANEL_DIR}/data/bind_domain.pl
-    fi
+    cd "${PANEL_DIR}" && python3 panel_tools.py cli 21
 }
 
 pm_unbind_ssl()
 {
-    if [ -f ${PANEL_DIR}/local ];then
-        rm -rf ${PANEL_DIR}/local
-    fi
-
-    if [ -f $pm_path/nginx ];then
-        rm -rf $pm_path/nginx
-    fi
-
-    if [ -f $pm_path/ssl/choose.pl ];then
-        rm -rf $pm_path/ssl/choose.pl
-    fi
+    cd "${PANEL_DIR}" && python3 panel_tools.py cli 22
 }
 
 error_logs()
@@ -464,7 +452,7 @@ pm_install_app()
 }
 
 pm_close_admin_path(){
-    cd ${PANEL_DIR} && python3 panel_tools.py cli 6
+    cd ${PANEL_DIR} && python3 panel_tools.py cli 7
 }
 
 pm_force_kill()
@@ -826,7 +814,7 @@ case "$1" in
     'install_app') pm_install_app;;
     'close_admin_path') pm_close_admin_path;;
     'unbind_domain') pm_unbind_domain;;
-    'unbind_ssl') pm_unbind_domain;;
+    'unbind_ssl') pm_unbind_ssl;;
     'debug') pm_debug;;
     'mirror') pm_mirror;;
     'db') pm_connect_mysql;;

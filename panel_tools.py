@@ -16,20 +16,32 @@ import os
 import json
 import time
 import re
+import subprocess
 
 web_dir = os.getcwd() + "/web"
 os.chdir(web_dir)
 sys.path.append(web_dir)
 
 from utils.firewall import Firewall as MwFirewall
+from utils.security import is_valid_port
 import core.mw as mw
 import thisdb
 
-INIT_DIR = "/etc/rc.d/init.d"
-if mw.isAppleSystem():
-    INIT_DIR = mw.getPanelDir() + "/scripts/init.d"
-
-INIT_CMD = INIT_DIR + "/mw"
+def run_panel_service(action):
+    script_paths = (
+        '/etc/rc.d/init.d/pm',
+        '/etc/init.d/pm',
+        os.path.join(mw.getPanelDir(), 'scripts', 'init.d', 'pm'),
+    )
+    for script in script_paths:
+        if os.path.isfile(script):
+            try:
+                return subprocess.call(['bash', script, action])
+            except OSError as error:
+                mw.echoInfo("无法启动面板服务命令: " + str(error))
+                return 1
+    mw.echoInfo("找不到 PM 面板服务脚本")
+    return 1
 
 
 def mw_input_cmd(msg):
@@ -112,13 +124,13 @@ def mwcli(mw_input=0):
         exit()
 
     if mw_input == 1:
-        os.system(INIT_CMD + " restart")
+        return run_panel_service("restart")
     elif mw_input == 2:
-        os.system(INIT_CMD + " stop")
+        return run_panel_service("stop")
     elif mw_input == 3:
-        os.system(INIT_CMD + " start")
+        return run_panel_service("start")
     elif mw_input == 4:
-        os.system(INIT_CMD + " reload")
+        return run_panel_service("reload")
     elif mw_input == 5:
         in_ip = mw_input_cmd("请输入设置的面板IP：")
         in_ip = in_ip.strip()
@@ -131,21 +143,21 @@ def mwcli(mw_input=0):
         mw.echoInfo("设置面板IP: " + in_ip)
     elif mw_input == 6:
         in_port = mw_input_cmd("请输入新的面板端口：")
-        in_port_int = int(in_port.strip())
-        if in_port_int < 65536 and in_port_int > 0:
-            MwFirewall.instance().addAcceptPort(in_port, 'WEB面板[TOOLS修改]', 'port')
-            panel_port = panel_dir + '/data/port.pl'
-            mw.writeFile(panel_port, in_port)
-            os.system(INIT_CMD + " restart_panel")
-            os.system(INIT_CMD + " default")
-        else:
-            mw.echoInfo("端口范围在0-65536之间")
-        return
+        if not is_valid_port(in_port):
+            mw.echoInfo("端口范围为 1–65535")
+            return 1
+        port = str(int(in_port))
+        MwFirewall.instance().addAcceptPort(port, 'WEB面板[TOOLS修改]', 'port')
+        panel_port = panel_dir + '/data/port.pl'
+        if not mw.writeFile(panel_port, port):
+            mw.echoInfo("无法保存面板端口")
+            return 1
+        return run_panel_service("restart_panel") or run_panel_service("default")
     elif mw_input == 7:
         thisdb.setOption('admin_path', '')
         mw.echoInfo("关闭安全入口成功!")
     elif mw_input == 10:
-        os.system(INIT_CMD + " default")
+        return run_panel_service("default")
     elif mw_input == 11:
         input_pwd = mw_input_cmd("请输入新的面板密码：")
         if len(input_pwd.strip()) < 5:
@@ -176,13 +188,14 @@ def mwcli(mw_input=0):
         if basic_auth['open']:
             basic_auth['open'] = False
             thisdb.setOption('basic_auth', json.dumps(basic_auth))
-            os.system(INIT_CMD + " restart")
+            result = run_panel_service("restart_panel")
+            if result:
+                return result
             mw.echoInfo("关闭basic_auth成功")
     elif mw_input == 21:
         panel_domain = thisdb.getOption('panel_domain', default='')
         if panel_domain != '':
             thisdb.setOption('panel_domain', '')
-            os.system(INIT_CMD + " unbind_domain")
             mw.echoInfo("解除域名绑定成功")
         else:
             mw.echoInfo("面板未绑定域名!")
@@ -191,13 +204,17 @@ def mwcli(mw_input=0):
         if panel_ssl['open']:
             panel_ssl['open'] = False
             thisdb.setOption('panel_ssl', json.dumps(panel_ssl))
-            os.system(INIT_CMD + " unbind_ssl")
+            result = run_panel_service("restart_panel")
+            if result:
+                return result
             mw.echoInfo("解除面板SSL绑定成功")
     elif mw_input == 23:
         listen_ipv6 = panel_dir + '/data/ipv6.pl'
         if not os.path.exists(listen_ipv6):
             mw.writeFile(listen_ipv6, 'True')
-            os.system(INIT_CMD + " restart")
+            result = run_panel_service("restart_panel")
+            if result:
+                return result
             mw.echoInfo("开启IPv6支持了")
         else:
             mw.echoInfo("已开启IPv6支持!")
@@ -207,7 +224,9 @@ def mwcli(mw_input=0):
             mw.echoInfo("已关闭IPv6支持!")
         else:
             os.remove(listen_ipv6)
-            os.system(INIT_CMD + " restart")
+            result = run_panel_service("restart_panel")
+            if result:
+                return result
             mw.echoInfo("关闭IPv6支持了")
     elif mw_input == 25:
         open_ssh_port()
@@ -260,7 +279,6 @@ def mwcli(mw_input=0):
             mw.echoInfo("执行PHP52隐藏成功!")
     elif mw_input == 200:
         os.system("bash <(curl -sSL https://linuxmirrors.cn/main.sh)")
-        # os.system(INIT_CMD + " mirror")
     elif mw_input == 201:
         os.system('curl -Lso- bench.sh | bash')
     elif mw_input == 202:
@@ -424,9 +442,9 @@ def main():
                 clinum = int(sys.argv[2]) if sys.argv[2][:6] else sys.argv[2]
         except:
             clinum = sys.argv[2]
-        mwcli(clinum)
+        return mwcli(clinum)
     else:
         print('ERROR: Parameter error')
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
