@@ -228,9 +228,15 @@ class ssh_terminal(object):
         return self.returnMsg(True, '连接成功!')
 
     def connectBySocket(self, sid):
-        if self.__lock :
-            return False
+        if self.__lock:
+            return self.returnMsg(False, '正在建立 SSH 连接')
         self.__lock = True
+        try:
+            return self._connectRemote(sid)
+        finally:
+            self.__lock = False
+
+    def _connectRemote(self, sid):
         if not self.__host:
             return self.returnMsg(False, '错误的连接地址')
         if not self.__user:
@@ -242,6 +248,7 @@ class ssh_terminal(object):
         num = 0
         while num < 5:
             num += 1
+            sock = None
             try:
                 self.debug('正在尝试第{}次连接'.format(num))
                 if self.__rep_ssh_config:
@@ -252,6 +259,8 @@ class ssh_terminal(object):
                 sock.connect((self.__host, self.__port))
                 break
             except Exception as e:
+                if sock is not None:
+                    sock.close()
                 if num == 5:
                     self.setSshdConfig(True)
                     self.debug('重试连接失败,{}'.format(e))
@@ -335,11 +344,11 @@ class ssh_terminal(object):
         ssh = self.__tp.open_session()
         ssh.get_pty(term='xterm', width=100, height=34)
         ssh.invoke_shell()
+        ssh.setblocking(False)
         self.__ssh_list[sid] = ssh
         mw.writeLog(self.__log_type, '成功登录到SSH服务器 [{}:{}]'.format(
             self.__host, self.__port))
         self.debug('通道已构建')
-        self.__lock = False
         return self.returnMsg(True, '连接成功.')
 
     def getSshInfo(self, file):

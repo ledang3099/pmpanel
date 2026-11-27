@@ -51,7 +51,7 @@ class classApi:
         post_data = requests.post(url, data=request_data, headers={
             'app-id':self.__MW_APP_ID,
             'app-secret':self.__MW_APP_SECRET
-        })
+        }, timeout=timeout)
         try:
             return post_data.json()
         except Exception as e:
@@ -97,16 +97,15 @@ class classApi:
         if os.path.exists(log_file):
             os.remove(log_file)
 
-        plugins_dir = mw.getServerDir() + '/pmpanel'
-        exe = "cd {0} && . bin/activate && python3 plugins/migration_api/index.py bg_process &>{1} &".format(
-            plugins_dir, log_file_error)
-        # mw.execShell(exe)
-        # os.system(exe)
-        subprocess.Popen(exe, shell=True, stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE)
+        panel = mw.getPanelDir()
+        command = [sys.executable, os.path.join(panel, 'plugins/migration_api/index.py'), 'bg_process']
+        with open(log_file_error, 'ab') as log:
+            worker = subprocess.Popen(
+                command, cwd=panel, stdin=subprocess.DEVNULL, stdout=log,
+                stderr=subprocess.STDOUT, start_new_session=True,
+            )
         time.sleep(1)
-        # 检查是否执行成功
-        if not getPid():
+        if worker.poll() not in (None, 0):
             return mw.returnJson(False, '创建进程失败!<br>{}'.format(mw.readFile(log_file_error)))
         return mw.returnJson(True, "迁移进程创建成功!")
 
@@ -124,8 +123,7 @@ class classApi:
             sync_info['databases'][i]['state'] = 0
             sync_info['total'] += 1
         mw.writeFile(self._INFO_FILE, json.dumps(sync_info))
-        self.fock_process(None)
-        return mw.returnJson(True, '设置成功!')
+        return self.fock_process(None)
 
     def get_sync_info(self, args):
         # 获取要被迁移的网站、数据库
@@ -223,21 +221,8 @@ class classApi:
             pdata['dir_mode'] = mode_user['mode'] + ',' + mode_user['user']
             mode_user = self.get_mode_and_user(sfile)
             pdata['file_mode'] = mode_user['mode'] + ',' + mode_user['user']
-        f = open(sfile, 'rb')
-
-        return self.send_file(pdata, f)
-
-    def close_sync(self, args):
-        # 取消迁移
-        mw.execShell("kill -9 {}".format(self.get_pid()))
-        mw.execShell("kill -9 $(ps -ef|grep index.py|grep -v grep|awk '{print $2}')")
-        # 删除迁移配置
-        time.sleep(1)
-        if os.path.exists(self._INFO_FILE):
-            os.remove(self._INFO_FILE)
-        if os.path.exists(self._SPEED_FILE):
-            os.remove(self._SPEED_FILE)
-        return mw.returnJson(True, '已取消迁移任务!')
+        with open(sfile, 'rb') as file:
+            return self.send_file(pdata, file)
 
     def send_file(self, pdata, f):
         success_num = 0  # 连续发送成功次数
@@ -260,6 +245,7 @@ class classApi:
             max_buff = int(pdata['size'] - pdata['start'])
             if max_buff < buff_size:
                 buff_size = max_buff
+            f.seek(pdata['start'])
             files = {"blob": f.read(buff_size)}
             start_time = time.time()
 
@@ -268,7 +254,9 @@ class classApi:
                 res = requests.post(url, data=pdata, files=files, headers={
                     'app-id':self.__MW_APP_ID,
                     'app-secret':self.__MW_APP_SECRET
-                },timeout=30000)
+                }, timeout=timeout)
+                res.raise_for_status()
+                result = res.json()
 
                 success_num += 1
                 err_num = 0
@@ -279,33 +267,22 @@ class classApi:
                     if self._buff_size > max_buff_size:
                         self._buff_size = max_buff_size
                     write_log("|-发送顺利, 尝试调整分片大小为: {}".format(toSize(self._buff_size)))
-            except Exception as e:
+            except (requests.Timeout, requests.ConnectionError) as e:
                 times = time.time() - start_time
                 total_time += times
-                ex = str(e)
-                if ex.find('Read timed out') != -1 or ex.find('Connection aborted') != -1:
-                    # 发生超时的时候尝试调整分片大小, 以确保网络情况不好的时候能继续上传
-                    self._buff_size = int(self._buff_size / 2)
-                    if self._buff_size < min_buff_size:
-                        self._buff_size = min_buff_size
-                    success_num = 0
-                    write_log(
-                        "|-发送超时, 尝试调整分片大小为: {}".format(toSize(self._buff_size)))
-                    continue
-
-                # 如果连接超时
-                if ex.find('Max retries exceeded with') != -1 and err_num <= max_err_num:
-                    err_num += 1
-                    write_log("|-连接超时, 第{}次重试".format(err_num))
-                    time.sleep(1)
-                    continue
-
-                # 超过重试次数
-                write_log("|-上传失败, 跳过本次上传任务")
-                write_log(mw.getTracebackInfo())
+                err_num += 1
+                if err_num > max_err_num:
+                    write_log("|-上传失败, 已达到重试次数: {}".format(e))
+                    return False
+                self._buff_size = max(min_buff_size, self._buff_size // 2)
+                success_num = 0
+                write_log("|-连接中断, 第{}次重试, 分片大小: {}".format(err_num, toSize(self._buff_size)))
+                time.sleep(1)
+                continue
+            except (requests.RequestException, ValueError) as e:
+                write_log("|-上传失败: {}".format(e))
                 return False
 
-            result = res.json()
             times = time.time() - start_time
             total_time += times
 
@@ -318,10 +295,10 @@ class classApi:
                 if split_num > 10:
                     write_log("|-上传失败, 跳过本次上传任务")
                     return False
-                if result['data'] > pdata['size']:
+                if not isinstance(result['data'], int) or not 0 <= result['data'] <= pdata['size']:
                     write_log("|-上传失败, 跳过本次上传任务")
                     return False
-                self.write_speed('used', result)
+                self.write_speed('used', result['data'])
                 self.write_speed('speed', int(buff_size / times))
                 write_log("|-已上传 {},上传速度 {}/s, 共用时 {}分{:.2f}秒,  {:.2f}%".format(toSize(result['data']), toSize(
                     buff_size / times), int(total_time // 60), total_time % 60, (float(result['data']) / float(pdata['size']) * 100)))

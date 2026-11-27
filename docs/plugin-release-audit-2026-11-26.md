@@ -35,7 +35,7 @@
 | `manticoresearch` | 安装修复 | APT 入口使用官方仓库并适配 32.1.3 合并后的主包。Debian 13 安装、systemd 和 SQL 版本查询通过。 [上游](https://github.com/manticoresoftware/manticoresearch/releases) |
 | `mariadb` | 已更新 | 新增 13.1.2 滚动版 Linux x86_64 全新安装，验证官方归档和认证 SQL 读写。修正 12.3 安装记录，保持现有 LTS 选择和推荐。跨版本数据迁移待验证。 [上游](https://mariadb.org/mariadb-server-13-1-is-now-stable-and-13-2-reaches-release-candidate/) |
 | `memcached` | 已是当前 | 1.6.45。Debian 13 通过插件安装和缓存读写。 [上游](https://www.memcached.org/downloads) |
-| `migration_api` | 面板集成 | Debian 13 已安装面板迁移 API；跨服务器迁移待验证。 |
+| `migration_api` | 功能修复 | 移除与 shell 不兼容的工作进程启动方式。分片超时按接收端确认的偏移重读并限制重试。Debian 13 验证进程启动，并用实际接收函数模拟确认丢失，最终文件 SHA-256 一致。真实跨面板网站及数据库迁移待验证。 |
 | `modsecurity` | 主分支新增 | 主分支集成 ModSecurity 3.0.17、NGINX connector 1.0.4 和 OWASP CRS 4.31.0。Debian 13 通过源码编译、动态模块装载、配置语法和普通 HTTP 请求。 [上游](https://github.com/owasp-modsecurity/ModSecurity/releases/tag/v3.0.17) |
 | `mongodb` | 已更新 | Debian、Ubuntu 和 RHEL 系 9.0 安装入口共享官方归档及 SHA-256 校验，使用 9.0.8、mongosh 2.14.3 和数据库工具 100.20.1。Debian 13、Ubuntu 24.04、Rocky Linux 9 的 x86_64 容器通过写入、查询、备份和恢复，Rocky 9 另通过面板安装与 systemd 启动。其他平台运行待验证。 [上游](https://www.mongodb.com/try/download/community-edition/releases) |
 | `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/blog/2026/11/version-2-1-3-released/) |
@@ -73,7 +73,7 @@
 | `valkey` | 已更新 | 新增 9.2.1，校验源码和编译结果，保留现有配置。Debian 13 插件编译、安装、systemd 启动和认证读写通过。 [上游](https://github.com/valkey-io/valkey/releases/tag/9.2.1) |
 | `varnish` | 软件源 | 安装发行版 Varnish 包。Debian 13 通过安装、systemd 和本地代理访问。 [上游](https://varnish-cache.org/releases/) |
 | `webhook` | 安装修复 | 缺少 pm 命令时安装仍可完成。Debian 13 验证安装和面板 HTTP 回调，测试脚本按预期输出且调用计数增加一次。 |
-| `webssh` | 功能修复 | 修复编辑最后一条常用命令时写入重复项。Debian 13 通过安装和同名命令更新测试；浏览器终端连接待验证。 |
+| `webssh` | 功能修复 | 修复编辑最后一条常用命令时写入重复项、远程连接失败后无法重试和空闲轮询阻塞。Debian 13 验证同名命令更新、Socket.IO 拒绝未登录请求、真实 SSH 重试及终端收发。浏览器界面仍需验证。 |
 | `webstats` | 依赖已更新 | 更新 LuaRocks、lsqlite3 和 GeoLite City 数据。Debian 13 通过 OpenResty 采集测试请求并写入 SQLite 日志与各项统计。 [lsqlite3](https://luarocks.org/modules/javierguerragiraldez/lsqlite3) |
 | `xhprof` | 已更新 | 面板报告页与扩展对齐 PECL 2.3.10，使用 PHP 提供的扩展目录。Debian 13 上分别用 PHP 8.4.28 和 8.6.0 编译、加载扩展并生成分析数据。 [上游](https://pecl.php.net/package/xhprof) |
 | `xui` | 安装修复 | 0.3.4.4 为当前对应项目的最后一个正式发布。固定官方归档及摘要，由 systemd 管理进程，保留现有数据库。Debian 13 验证正常启动及 HTTP 登录页。 [上游](https://github.com/FranzKafkaYu/x-ui/releases/tag/0.3.4.4) |
