@@ -7,6 +7,10 @@ import sys
 import os
 import time
 import re
+import gzip
+import shutil
+import subprocess
+import tempfile
 
 if sys.platform != 'darwin':
     os.chdir('/www/server/pmpanel')
@@ -26,7 +30,7 @@ python3 /www/server/pmpanel/plugins/mysql-community/scripts/backup.py  database 
 class backupTools:
 
     def getDbBackupList(self,dbname=''):
-        bkDir = mw.getFatherDir() + '/backup/database/mysql-community'
+        bkDir = mw.getBackupDir() + '/database/mysql-community'
         if not os.path.isdir(bkDir):
             return []
         blist = os.listdir(bkDir)
@@ -82,7 +86,7 @@ class backupTools:
             print("----------------------------------------------------------------------------")
             return
 
-        backup_path = mw.getFatherDir() + '/backup/database/mysql-community'
+        backup_path = mw.getBackupDir() + '/database/mysql-community'
         if not os.path.exists(backup_path):
             mw.execShell("mkdir -p " + backup_path)
 
@@ -92,40 +96,28 @@ class backupTools:
         mysql_root = mw.M('config').dbPos(db_path, db_name).where("id=?", (1,)).getField('mysql_root')
 
         my_conf_path = db_path + '/etc/my.cnf'
-        mycnf = mw.readFile(my_conf_path)
-        rep = r"\[mysqldump\]\nuser=root"
-        sea = "[mysqldump]\n"
-        subStr = sea + "user=root\npassword=" + mysql_root + "\n"
-        mycnf = mycnf.replace(sea, subStr)
-        if len(mycnf) > 100:
-            mw.writeFile(db_path + '/etc/my.cnf', mycnf)
+        command = [
+            db_path + '/bin/mysqldump', '--defaults-file=' + my_conf_path,
+            '--user=root', '--set-gtid-purged=off', '--single-transaction',
+            '-q', '--default-character-set=utf8mb4', name,
+        ]
+        if table_name:
+            command.append(table_name)
 
-        option = ''
-        # mode = self.recognizeDbMode('mysql-community')
-        # print(mode)
-        # if mode == 'gtid':
-        option = ' --set-gtid-purged=off '
-
-        cmd = db_path + "/bin/mysqldump --defaults-file=" + my_conf_path + " " + option + "  --single-transaction -q --default-character-set=utf8mb4 " + name + " | gzip > " + filename
-        if table_name != '':
-            cmd = db_path + "/bin/mysqldump --defaults-file=" + my_conf_path + " " + option + "  --single-transaction -q --default-character-set=utf8mb4 " + name + " " + table_name + " | gzip > " + filename
-        
-        # print(cmd)
-        os.system(cmd)
-        # mw.execShell(cmd)
-
-        mycnf = mw.readFile(db_path + '/etc/my.cnf')
-        mycnf = mycnf.replace(subStr, sea)
-        if len(mycnf) > 100:
-            mw.writeFile(db_path + '/etc/my.cnf', mycnf)
-
-        if not os.path.exists(filename):
-            endDate = time.strftime('%Y/%m/%d %X', time.localtime())
-            log = "数据库[" + name + "]备份失败!"
-            print("★[" + endDate + "] " + log)
-            print("----------------------------------------------------------------------------")
-            return
-
+        with tempfile.NamedTemporaryFile(dir=backup_path, delete=False) as temporary:
+            temporary_path = temporary.name
+            try:
+                with gzip.GzipFile(fileobj=temporary, mode='wb') as archive:
+                    with subprocess.Popen(command, env=dict(os.environ, MYSQL_PWD=mysql_root),
+                                          stdout=subprocess.PIPE) as dump:
+                        shutil.copyfileobj(dump.stdout, archive)
+                        if dump.wait():
+                            raise SystemExit("数据库[{}]备份失败".format(backup_name))
+                temporary.flush()
+                os.replace(temporary_path, filename)
+            finally:
+                if os.path.exists(temporary_path):
+                    os.unlink(temporary_path)
 
         endDate = time.strftime('%Y/%m/%d %X', time.localtime())
         outTime = time.time() - startTime

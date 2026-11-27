@@ -13,6 +13,7 @@ import time
 import json
 import threading
 import multiprocessing
+from shlex import quote
 
 import core.mw as mw
 import thisdb
@@ -495,17 +496,24 @@ fi''' % (mw.getPanelDir(),)
                 "toShell": head + param['sbody'].replace("\r\n", "\n")
             }
             if param['backup_to'] != 'localhost':
-                cfile = param['backup_to'] + "/index.py"
-                wheres['path'] = head_scripts + " && python3 " + cfile + " path " + param['sname'] + " " + str(param['save']) + " " + str(param['echo'])
-                wheres['site'] = head_scripts + " && python3 " + cfile + " site " + param['sname'] + " " + str(param['save']) + " " + str(param['echo'])
-                wheres['database'] = head_scripts + " && python3 " + cfile + " " + param['sname'] + "@" + param["sbody"] + " " + str(param['save'])
-
-            if param["stype"].find('database_') > -1:
+                provider = os.path.basename(param['backup_to'].rstrip('/'))
+                cfile = os.path.join('plugins', provider, 'index.py')
+                for kind in ('path', 'site'):
+                    args = (cfile, kind, param['sname'], param['save'], param['echo'])
+                    wheres[kind] = head_scripts + " && python3 " + ' '.join(quote(str(arg)) for arg in args)
+                selection = param['sname']
+                if param['sbody']:
+                    selection += '@' + param['sbody']
+                args = (cfile, param['stype'], selection, param['save'])
+                wheres['database'] = head_scripts + " && python3 " + ' '.join(quote(str(arg)) for arg in args)
+            elif param["stype"].find('database_') > -1:
                 plugin_name = param["stype"].replace('database_', '')
                 cfile = "plugins/"+plugin_name + "/scripts/backup.py"
                 wheres['database'] = head_scripts + " && python3 " + cfile + " database " + param['sname'] + "@" + param["sbody"] + " " + str(param['save'])
 
             shell = wheres[stype]
+            if param['backup_to'] != 'localhost' and stype in ('path', 'site', 'database'):
+                shell += " || exit $?"
             shell += '''
 echo "----------------------------------------------------------------------------"
 endDate=`date +"%Y-%m-%d %H:%M:%S"`

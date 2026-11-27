@@ -185,63 +185,31 @@ def backupAllFunc(stype):
     name = sys.argv[2]
     num = sys.argv[3]
 
-    prefix_dict = {
-        "site": "web",
-        "database": "db",
-        "path": "path",
-    }
-
-    backups = []
-    # print("stype:", stype)
-    # 提前获取-清理多余备份
-    if stype == 'site':
-        pid = mw.M('sites').where('name=?', (name,)).getField('id')
-        backups = mw.M('backup').where('type=? and pid=?', ('0', pid)).field('id,filename').select()
-    if stype == 'database':
-        db_path = mw.getServerDir() + '/mysql'
-        pid = mw.M('databases').dbPos(db_path, 'mysql').where('name=?', (name,)).getField('id')
-        backups = mw.M('backup').where('type=? and pid=?', ('1', pid)).field('id,filename').select()
-    if stype == 'path':
-        backup_dir = mw.getBackupDir()
-        backup_path = backup_dir + '/path'
-        _name = 'path_{}'.format(os.path.basename(name))
-        backups = findPathName(backup_path, _name)
-
-    # 其他类型关系性数据库(mysql类的)
-    if stype.find('database_') > -1:
-        plugin_name = stype.replace('database_', '')
-        db_path = mw.getServerDir() + '/' + plugin_name
-        pid = mw.M('databases').dbPos(db_path, 'mysql').where('name=?', (name,)).getField('id')
-        backups = mw.M('backup').where('type=? and pid=?', ('1', pid)).field('id,filename').select()
-
     backup_script = os.path.join(mw.getPanelDir(), 'scripts', 'backup.py')
     args = [stype, name, num]
-    if stype in ('path', 'site'):
+    if stype in ('site', 'path'):
         args.append(sys.argv[4] if len(sys.argv) > 4 else '')
-    if stype.find('database_') > -1:
-        plugin_name = stype.replace('database_', '')
+
+    backup_dir = mw.getBackupDir()
+    if stype.startswith('database_'):
+        plugin_name = stype[len('database_'):]
         args = ['database', name, num]
         backup_script = os.path.join(mw.getPanelDir(), 'plugins', plugin_name, 'scripts', 'backup.py')
-
-    subprocess.run([sys.executable, backup_script, *args], check=True)
-
-    # 开始执行上传信息.
-
-    if stype.find('database_') > -1:
-        bk_name = 'database'
-        plugin_name = stype.replace('database_', '')
-        bk_prefix = plugin_name + '/db'
+        directory = os.path.join(backup_dir, 'database', plugin_name)
+        prefix = 'db_' + name
         stype = 'database'
+    elif stype == 'database':
+        directory = os.path.join(backup_dir, 'database', 'mysql')
+        prefix = 'db_' + name
+    elif stype == 'site':
+        directory = os.path.join(backup_dir, 'site')
+        prefix = 'web_' + name
     else:
-        bk_prefix = prefix_dict[stype]
-        bk_name = stype
+        directory = os.path.join(backup_dir, 'path')
+        prefix = 'path_' + os.path.basename(name)
 
-    find_path = mw.getBackupDir() + '/' + bk_name + '/' + bk_prefix + '_' + name
-    if stype == 'path':
-        _name = 'path_{}'.format(os.path.basename(name))
-        find_path = mw.getBackupDir() + '/path/'+_name
-
-    directory, prefix = os.path.split(find_path)
+    backups = findPathName(directory, prefix)
+    subprocess.run([sys.executable, backup_script, *args], check=True)
     files = findPathName(directory, prefix)
     if not files:
         raise SystemExit('FTP backup did not produce an archive')

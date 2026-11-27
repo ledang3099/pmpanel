@@ -9,7 +9,7 @@
 | `acme_pandominassl_apply` | 面板集成 | 对接 acme.sh。Debian 13 已安装面板适配器；公网 DNS 验证和签发需要域名及供应商凭据。 [上游](https://github.com/acmesh-official/acme.sh/releases) |
 | `alist` | 已更新 | 3.66.0，按版本缓存并验证发布摘要，取消固定管理员密码初始化。Debian 13 安装、systemd 和 HTTP 探活通过。 [上游](https://github.com/alist-org/alist/releases/tag/v3.66.0) |
 | `apache` | 依赖已更新 | httpd 2.4.71 与 APR 1.7.6、APR-util 1.6.6 使用官方校验值。Debian 13 源码编译、服务和默认页面通过。 [Apache httpd](https://httpd.apache.org/download.cgi) [APR](https://apr.apache.org/) |
-| `backup_ftp` | 功能修复 | 移除未使用的 Paramiko 依赖，修复路径备份首次运行缺目录及未传计划任务参数。Debian 13 通过计划任务使用的入口连续执行两次路径备份、验证远端保留一份，并下载压缩包恢复文件。网站和数据库备份恢复待验证。 |
+| `backup_ftp` | 功能修复 | 修复计划任务的 FTP 插件路径、参数和数据库路由。Debian 13 验证路径备份首次执行、远端保留一份及文件恢复。另执行面板生成的网站和 MySQL Community 单表备份任务，并从 FTP 归档恢复网页及数据库数据。 |
 | `caddy` | 已是当前 | 2.11.9。Debian 13 通过安装、版本和 HTTP 监听检查。 [上游](https://github.com/caddyserver/caddy/releases) |
 | `clean` | 面板集成 | Debian 13 面板日志清理插件安装和初始化通过。 |
 | `cloudreve` | 已更新 | 新增 4.19.1 全新安装，识别 V3 数据并要求先迁移。Debian 13 安装、systemd 和站点配置 API 通过。 [官方迁移说明](https://docs.cloudreve.org/zh/maintain/upgrade-from-v3) |
