@@ -10,13 +10,27 @@ serverPath=$(dirname "$rootPath")
 sys_os=`uname`
 Install_xh()
 {
-	mkdir -p ${serverPath}/xhprof
-
-	if [ ! -d ${serverPath}/xhprof/xhprof_lib ];then
-		cp -rf $curPath/lib/* ${serverPath}/xhprof
-	fi
-
-	echo "${1}" > ${serverPath}/xhprof/version.pl
+    version=$1
+    target="$serverPath/xhprof"
+    if [ "$version" = 2.3.10 ]; then
+        source "$rootPath/scripts/tools/verified-download.sh" || return 1
+        sources="$serverPath/source/xhprof"
+        mkdir -p "$sources" || return 1
+        archive="$sources/xhprof-$version.tgz"
+        verified_download "https://pecl.php.net/get/xhprof-$version.tgz" "$archive" \
+            251aee99c2726ebc6126e1ff0bb2db6e2d5fd22056aa335e84db9f1055d59d95 || return 1
+        staging=$(mktemp -d "$sources/install.XXXXXX") || return 1
+        trap 'rm -rf -- "$staging"' EXIT
+        tar -xzf "$archive" -C "$staging" || return 1
+        mkdir -p "$target" || return 1
+        cp -R "$staging/xhprof-$version/xhprof_html" "$staging/xhprof-$version/xhprof_lib" "$target/" || return 1
+    else
+        mkdir -p "$target" || return 1
+        if [ ! -d "$target/xhprof_lib" ]; then
+            cp -R "$curPath/lib"/. "$target/" || return 1
+        fi
+    fi
+    printf '%s\n' "$version" > "$target/version.pl"
 	echo '安装完成'
 
 	if [ "$sys_os" != "Darwin" ];then
@@ -42,6 +56,8 @@ Uninstall_xh()
 action=$1
 if [ "${1}" = 'install' ];then
 	Install_xh $2
+elif [ "$action" = uninstall ]; then
+    Uninstall_xh
 else
-	Uninstall_xh $2
+    exit 1
 fi

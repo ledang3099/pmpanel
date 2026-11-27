@@ -42,7 +42,7 @@ Install_App()
 	shell_file=${curPath}/versions/${VERSION}/${OSNAME}.sh
 
 	if [ -f $shell_file ];then
-		bash -x $shell_file install
+		bash -x "$shell_file" install || return 1
 	else
 		echo '不支持...'
 		exit 1

@@ -99,7 +99,8 @@ def contentReplace(content):
     service_path = mw.getServerDir()
     content = content.replace('{$ROOT_PATH}', mw.getFatherDir())
     content = content.replace('{$SERVER_PATH}', service_path)
-    content = content.replace('{$ZABBIX_ROOT}', '/usr/share/zabbix')
+    frontend = '/usr/share/zabbix/ui' if getInstallVerion() == '8.0' else '/usr/share/zabbix'
+    content = content.replace('{$ZABBIX_ROOT}', frontend)
     content = content.replace('{$ZABBIX_PORT}', '18888')
 
     psdb = pSqliteDb('databases')
@@ -187,8 +188,10 @@ def pMysqlDb():
     return db
 
 
-def getInstalledPhpConfDir():
-    phpver = ["80","81","82","83","84"]
+def getInstalledPhpConfDir(version=None):
+    if version is None:
+        version = getInstallVerion()
+    phpver = ["85", "84", "83", "82"] if version == "8.0" else ["80", "81", "82", "83", "84", "85"]
     php_type = ['php-apt','php-yum', 'php'];
 
     for pt in php_type:
@@ -202,7 +205,7 @@ def getInstalledPhpConfDir():
                 if pt == 'php-yum':
                     return pt + '-' + ver
                 return pt + ver
-    return 'php-80'
+    return '' if version == '8.0' else 'php-80'
 
 def isInstalledPhp():
     phpver = ["80","81","82","83","84","85"]
@@ -247,6 +250,8 @@ def zabbixImportMySQLDataFile():
     ver = getInstallVerion()
     if ver == '6.0':
         return tgz_file
+    if ver == '8.0':
+        return '/usr/share/zabbix/sql-scripts/mysql/server.sql.gz'
     return '/usr/share/zabbix-sql-scripts/mysql/server.sql.gz'
 
 def zabbixImportMySQLData():
@@ -279,11 +284,19 @@ def zabbixImportMySQLData():
         mysql_bin = getMySQLBinLink()
 
         tgz_file = zabbixImportMySQLDataFile()
-        # zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | /www/server/mysql/bin/mysql --default-character-set=utf8mb4 -uzabbix -p"LGhb1f7QG6SDL5CX" zabbix
-        import_data_cmd = 'zcat '+tgz_file+' | '+mysql_bin+' --default-character-set=utf8mb4 -uzabbix -p"'+db_pass+'" zabbix'
-        # print(import_data_cmd)
-        mw.execShell(import_data_cmd)
-        # pmdb.query("set global log_bin_trust_function_creators=0")
+        import gzip
+        import shlex
+        import shutil
+        import subprocess
+
+        command = shlex.split(mysql_bin) + ['--default-character-set=utf8mb4', '-uzabbix', 'zabbix']
+        with gzip.open(tgz_file, 'rb') as schema, subprocess.Popen(
+            command, stdin=subprocess.PIPE, env=dict(os.environ, MYSQL_PWD=db_pass),
+        ) as database:
+            with database.stdin:
+                shutil.copyfileobj(schema, database.stdin)
+            if database.wait():
+                raise RuntimeError('Zabbix database schema import failed')
 
 
     ver = getInstallVerion()
@@ -461,7 +474,18 @@ def zabbixAgentLog():
     return '/var/log/zabbix/zabbix_agentd.log'
 
 
-def installPreInspection():
+def installPreInspection(version=''):
+    if version == '8.0':
+        try:
+            with open('/etc/os-release', encoding='utf-8') as release_file:
+                release = dict(line.strip().replace('"', '').split('=', 1)
+                               for line in release_file if '=' in line and not line.startswith('#'))
+        except OSError:
+            release = {}
+        supported = {'debian': ('12', '13'), 'ubuntu': ('22.04', '24.04')}
+        if release.get('VERSION_ID') not in supported.get(release.get('ID'), ()):
+            return 'Zabbix 8.0 当前支持 Debian 12/13 和 Ubuntu 22.04/24.04'
+
     cmd = "cat /etc/*-release | grep PRETTY_NAME |awk -F = '{print $2}' | awk -F '\"' '{print $2}'| awk '{print $1}'"
     sys = mw.execShell(cmd)
 
@@ -476,12 +500,15 @@ def installPreInspection():
     if not sysName in ['debian','centos','ubuntu','almalinux','rocky']:
         return '不支持该系统'
 
-    if sysName == 'debian' and not sysId in ['12']:
+    if version != '8.0' and sysName == 'debian' and sysId != '12':
         return '不支持,'+sysName+'['+sysId+'],仅支持debian12!'
 
     openresty_dir = mw.getServerDir() + "/openresty"
     if not os.path.exists(openresty_dir):
         return '需要安装Openresty插件'
+
+    if version == "8.0" and not getInstalledPhpConfDir(version):
+        return "Zabbix 8.0 需要 PHP 8.2–8.5"
 
     is_installed_php = isInstalledPhp()
     if not is_installed_php:
@@ -518,7 +545,7 @@ if __name__ == "__main__":
     elif func == 'initd_uninstall':
         print(initdUinstall())
     elif func == 'install_pre_inspection':
-        print(installPreInspection())
+        print(installPreInspection(sys.argv[2] if len(sys.argv) > 2 else ''))
     elif func == 'uninstall_pre_inspection':
         print(uninstallPreInspection())
     elif func == 'conf':

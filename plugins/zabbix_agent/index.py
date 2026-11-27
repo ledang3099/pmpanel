@@ -195,7 +195,18 @@ def initdUinstall():
     return 'ok'
 
 
-def installPreInspection():
+def installPreInspection(version=''):
+    if version == '8.0':
+        try:
+            with open('/etc/os-release', encoding='utf-8') as release_file:
+                release = dict(line.strip().replace('"', '').split('=', 1)
+                               for line in release_file if '=' in line and not line.startswith('#'))
+        except OSError:
+            release = {}
+        supported = {'debian': ('12', '13'), 'ubuntu': ('22.04', '24.04')}
+        if release.get('VERSION_ID') not in supported.get(release.get('ID'), ()):
+            return 'Zabbix 8.0 当前支持 Debian 12/13 和 Ubuntu 22.04/24.04'
+
     zabbix_dir = mw.getServerDir()+'/zabbix'
     if os.path.exists(zabbix_dir):
         return '已经安装zabbix插件'
@@ -250,7 +261,7 @@ if __name__ == "__main__":
     elif func == 'initd_uninstall':
         print(initdUinstall())
     elif func == 'install_pre_inspection':
-        print(installPreInspection())
+        print(installPreInspection(sys.argv[2] if len(sys.argv) > 2 else ''))
     elif func == 'uninstall_pre_inspection':
         print(uninstallPreInspection())
     elif func == 'conf':
