@@ -15,8 +15,11 @@ from pprint import pprint
 sys.path.append(os.getcwd() + "/plugins/cryptocurrency_trade/strategy")
 import common
 
-sys.path.append(os.getcwd() + "/class/core")
-import mw
+web_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../web'))
+if os.getcwd() != web_dir:
+    sys.path.insert(0, web_dir)
+    os.chdir(web_dir)
+from core import mw
 
 
 def run():

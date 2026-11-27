@@ -61,7 +61,18 @@ def getConf():
     return mw.getServerDir() + '/web_conf/nginx/vhost/phpldapadmin.conf'
 
 
+def isModern():
+    return os.path.isfile(getServerDir() + '/phpldapadmin-v2/artisan')
+
+
+def vhostTemplate():
+    name = 'phpldapadmin-v2.conf' if isModern() else 'phpldapadmin.conf'
+    return getPluginDir() + '/conf/' + name
+
+
 def getConfInc():
+    if isModern():
+        return getServerDir() + '/phpldapadmin-v2/.env'
     return getServerDir() + "/" + getCfg()['path'] + '/config/config.php'
 
 
@@ -82,43 +93,50 @@ def getHomePage():
 
         cfg = getCfg()
         auth = cfg['username']+':'+cfg['password']
-        rand_path = cfg['path']
-        url = 'http://' + auth + '@' + ip + ':' + port + '/' + rand_path + '/index.php'
+        path = '/' if isModern() else '/' + cfg['path'] + '/index.php'
+        url = 'http://' + auth + '@' + ip + ':' + port + path
         return mw.returnJson(True, 'OK', url)
     except Exception as e:
         return mw.returnJson(False, '插件未启动!')
 
 
-def getPhpVer(expect=74):
-    php_vers = MwSites.instance().getPhpVersion()
-    v = php_vers['data']
-    is_find = False
-    for i in range(len(v)):
-        t = str(v[i]['version'])
-        if (t == expect):
-            is_find = True
-            return str(t)
-        expect_str = str(expect)
-        new_ex = expect_str[0:1]+"."+expect_str[1:2]
-        if t.find(new_ex) > -1:
-            is_find = True
-            return str(t)
-    if not is_find:
-        if len(v) > 1:
-            return v[1]['version']
-        return v[0]['version']
-    return str(expect)
+def getPhpVer():
+    versions = MwSites.instance().getPhpVersion()
+    if isinstance(versions, dict):
+        versions = versions['data']
+    if not isModern() and any(str(version['version']) == '74' for version in versions) and supportsPhp('74'):
+        return '74'
+    eligible = []
+    for version in versions:
+        name = str(version['version'])
+        if supportsPhp(name):
+            match = re.search(r'(?:^|\D)([578])\.?([0-9])(?:\D|$)', name)
+            if match:
+                eligible.append((tuple(map(int, match.groups())), name))
+    return max(eligible, default=((), ''))[1]
+
+
+def supportsPhp(name):
+    match = re.search(r'(?:^|\D)([578])\.?([0-9])(?:\D|$)', name)
+    if not match:
+        return False
+    version = tuple(map(int, match.groups()))
+    if isModern() and version < (8, 4):
+        return False
+    conf_dir = mw.getServerDir() + '/web_conf/php/conf'
+    return os.path.isfile(os.path.join(conf_dir, f'enable-php-{name}.conf'))
 
 
 def getCachePhpVer():
-    cacheFile = getServerDir() + '/php.pl'
-    v = ''
-    if os.path.exists(cacheFile):
-        v = mw.readFile(cacheFile)
-    else:
-        v = getPhpVer()
-        mw.writeFile(cacheFile, v)
-    return v
+    cache_file = getServerDir() + '/php.pl'
+    if os.path.isfile(cache_file):
+        version = mw.readFile(cache_file).strip()
+        if supportsPhp(version):
+            return version
+    version = getPhpVer()
+    if version:
+        mw.writeFile(cache_file, version)
+    return version
 
 
 def contentReplace(content):
@@ -177,7 +195,7 @@ def returnCfg():
 
 def status():
     conf = getConf()
-    conf_inc = getServerDir() + "/" + getCfg()["path"] + '/config/config.php'
+    conf_inc = getConfInc() if os.path.isfile(getServerDir() + '/cfg.json') else ''
     # 两个文件都在，才算启动成功
     if os.path.exists(conf) and os.path.exists(conf_inc):
         return 'start'
@@ -221,6 +239,8 @@ def delPort():
 
 
 def start():
+    if not getCachePhpVer():
+        return '请先配置 PHP-FPM，phpLDAPadmin 2.x 需要 PHP 8.4 或更高版本。'
     initCfg()
     openPort()
 
@@ -232,7 +252,7 @@ def start():
         mw.execShell("mv " + pma_dir + " " + pma_dir_dst)
         setCfg('path', 'phpldapadmin_' + rand_str)
 
-    file_tpl = getPluginDir() + '/conf/phpldapadmin.conf'
+    file_tpl = vhostTemplate()
     file_run = getConf()
     if not os.path.exists(file_run):
         centent = mw.readFile(file_tpl)
@@ -248,17 +268,18 @@ def start():
         setCfg('password', password)
         mw.writeFile(pma_path, pass_cmd)
 
-    tmp = getServerDir() + "/" + getCfg()["path"] + '/tmp'
-    if not os.path.exists(tmp):
-        os.mkdir(tmp)
-        mw.execShell("chown -R www:www " + tmp)
+    if not isModern():
+        tmp = getServerDir() + "/" + getCfg()["path"] + '/tmp'
+        if not os.path.exists(tmp):
+            os.mkdir(tmp)
+            mw.execShell("chown -R www:www " + tmp)
 
-    conf_run = getServerDir() + "/" + getCfg()["path"] + '/config/config.php'
-    if not os.path.exists(conf_run):
-        conf_tpl = getPluginDir() + '/conf/config.php'
-        centent = mw.readFile(conf_tpl)
-        centent = contentReplace(centent)
-        mw.writeFile(conf_run, centent)
+        conf_run = getServerDir() + "/" + getCfg()["path"] + '/config/config.php'
+        if not os.path.exists(conf_run):
+            conf_tpl = getPluginDir() + '/conf/config.php'
+            centent = mw.readFile(conf_tpl)
+            centent = contentReplace(centent)
+            mw.writeFile(conf_run, centent)
 
     log_a = accessLog()
     log_e = errorLog()
@@ -286,7 +307,7 @@ def restart():
 
 
 def reload():
-    file_tpl = getPluginDir() + '/conf/phpldapadmin.conf'
+    file_tpl = vhostTemplate()
     file_run = getConf()
     if os.path.exists(file_run):
         centent = mw.readFile(file_tpl)
@@ -301,10 +322,12 @@ def setPhpVer():
     if not 'phpver' in args:
         return 'phpver missing'
 
+    if not supportsPhp(args['phpver']):
+        return '当前 PHP 版本不满足要求。'
     cacheFile = getServerDir() + '/php.pl'
     mw.writeFile(cacheFile, args['phpver'])
 
-    file_tpl = getPluginDir() + '/conf/phpldapadmin.conf'
+    file_tpl = vhostTemplate()
     file_run = getConf()
 
     content = mw.readFile(file_tpl)
@@ -324,6 +347,7 @@ def getSetPhpVer():
 
 def getPmaOption():
     data = getCfg()
+    data['has_custom_path'] = not isModern()
     return mw.returnJson(True, 'ok', data)
 
 
@@ -343,8 +367,8 @@ def setPmaPort():
         return data[1]
 
     port = args['port']
-    if port == '80':
-        return mw.returnJson(False, '80端不能使用!')
+    if not re.fullmatch(r'[0-9]{1,5}', port) or not 81 <= int(port) <= 65535:
+        return mw.returnJson(False, '端口必须在 81 至 65535 之间。')
 
     file = getConf()
     if not os.path.exists(file):
@@ -398,6 +422,8 @@ def setPmaPassword():
 
 
 def setPmaPath():
+    if isModern():
+        return mw.returnJson(False, 'phpLDAPadmin 2.x 使用独立站点根目录。')
     args = getArgs()
     data = checkArgs(args, ['path'])
     if not data[0]:
@@ -405,13 +431,18 @@ def setPmaPath():
 
     path = args['path']
 
-    if len(path) < 5:
-        return mw.returnJson(False, '不能小于5位!')
+    if not re.fullmatch(r'[A-Za-z0-9_-]{5,64}', path):
+        return mw.returnJson(False, '路径名须由 5 至 64 位字母、数字、下划线或连字符组成。')
 
     old_path = getServerDir() + "/" + getCfg()['path']
     new_path = getServerDir() + "/" + path
 
-    mw.execShell("mv " + old_path + " " + new_path)
+    if os.path.exists(new_path):
+        return mw.returnJson(False, '路径已存在。')
+    try:
+        os.rename(old_path, new_path)
+    except OSError:
+        return mw.returnJson(False, '无法更改路径。')
     setCfg('path', path)
     return mw.returnJson(True, '修改成功!')
 

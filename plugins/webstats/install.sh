@@ -13,35 +13,10 @@ rootPath=$(dirname "$rootPath")
 serverPath=$(dirname "$rootPath")
 
 VERSION=$2
-sys_os=`uname`
-
-HTTP_PREFIX="https://"
-LOCAL_ADDR=common
-cn=$(curl -fsSL -m 10 -s http://ipinfo.io/json | grep "\"country\": \"CN\"")
-if [ ! -z "$cn" ] || [ "$?" = "0" ] ;then
-    LOCAL_ADDR=cn
-    HTTP_PREFIX="https://"
-fi
-
-PIPSRC="https://pypi.python.org/simple"
-if [ "$LOCAL_ADDR" != "common" ];then
-    PIPSRC="https://pypi.tuna.tsinghua.edu.cn/simple"
-fi
-
-
-if [ "$sys_os" = "Darwin" ];then
-	BAK='_bak'
-else
-	BAK=''
-fi
 
 if [ -f ${rootPath}/bin/activate ];then
 	. ${rootPath}/bin/activate
 fi
-
-get_latest_release() {
-    curl -sL "https://api.github.com/repos/$1/releases/latest" | grep '"tag_name":' | cut -d'"' -f4
-}
 
 Install_App()
 {
@@ -49,99 +24,25 @@ Install_App()
 	mkdir -p $serverPath/source/webstats
 	mkdir -p $serverPath/webstats
 
-	# 下载源码安装包
-	# curl -O $serverPath/source/webstats/lua-5.1.5.tar.gz https://www.lua.org/ftp/lua-5.1.5.tar.gz
-	# cd $serverPath/source/webstats && tar xvf lua-5.1.5.tar.gz
-	# cd lua-5.1.5
-	# make linux test && make install
+    runtime="$serverPath/webstats"
+    sources="$serverPath/source/webstats"
+    source "$rootPath/scripts/tools/install-lua-sqlite.sh" || return 1
+    install_lua_sqlite "$rootPath" "$runtime" "$runtime/lua" || return 1
+    python3 -m pip install geoip2 || return 1
 
-	
-	# luarocks
-	if [ ! -f $serverPath/source/webstats/luarocks-3.5.0.tar.gz ];then
-		wget --no-check-certificate -O $serverPath/source/webstats/luarocks-3.5.0.tar.gz http://luarocks.org/releases/luarocks-3.5.0.tar.gz
-	fi
+    file=GeoLite2-City.mmdb
+    if [ ! -s "$runtime/$file" ]; then
+        source "$rootPath/scripts/tools/verified-download.sh" || return 1
+        verified_download "https://github.com/P3TERX/GeoLite.mmdb/releases/download/2026.11.25/$file" \
+            "$sources/$file" d317770c39fdf63c4b7d4914ddb21df581a8be312c047f57539e739c127ce4ef || return 1
+        install -m 0644 "$sources/$file" "$runtime/$file" || return 1
+    fi
 
-	if [ ! -d $serverPath/source/webstats/luarocks-3.5.0  ];then
-		cd $serverPath/source/webstats && tar xvf luarocks-3.5.0.tar.gz
-	fi
+    cd "$rootPath" || return 1
+    [ "$(python3 plugins/webstats/index.py start)" = ok ] || return 1
+    printf '%s\n' "$VERSION" > "$runtime/version.pl" || return 1
+    echo '网站统计安装完成'
 
-	cd $serverPath/source/webstats/luarocks-3.5.0 && ./configure --prefix=$serverPath/webstats/luarocks \
-	--with-lua-include=$serverPath/openresty/luajit/include/luajit-2.1 \
-	--with-lua-bin=$serverPath/openresty/luajit/bin
-	make -I${serverPath}/openresty/luajit/bin
-	make install
-
-	if [ ! -f $serverPath/source/webstats/lsqlite3_v096.zip ];then
-		wget --no-check-certificate -O $serverPath/source/webstats/lsqlite3_v096.zip https://github.com/ledang3099/pmpanel/releases/download/0.18.4/lsqlite3_v096.zip
-	fi
-
-	if [ ! -d $serverPath/source/webstats/lsqlite3_v096 ];then
-		cd $serverPath/source/webstats && unzip lsqlite3_v096.zip
-	fi
-
-
-	PATH=${serverPath}/openresty/luajit:${serverPath}/openresty/luajit/include/luajit-2.1:$PATH
-	export PATH=$PATH:$serverPath/webstats/luarocks/bin
-
-	if [ ! -f $serverPath/webstats/lua/lsqlite3.so ];then
-		if [ "${sys_os}" = "Darwin" ];then
-			cd $serverPath/source/webstats/lsqlite3_v096 
-			# SQLITE_DIR=/usr/local/Cellar/sqlite/3.36.0
-			BREW_DIR=`which brew`
-			BREW_DIR=${BREW_DIR/\/bin\/brew/}
-			echo "BREW_DIR:"${BREW_DIR}
-			LIB_SQLITE_DIR=/opt/homebrew/opt/sqlite
-			find_cfg=`cat Makefile | grep 'SQLITE_DIR'`
-			if [ "$find_cfg" = "" ];then
-				# LIB_SQLITE_DIR=`brew info sqlite | grep /opt/homebrew/opt/sqlite | cut -d \  -f 1 | awk 'END {print}'`
-				echo "LIB_SQLITE_DIR:"${LIB_SQLITE_DIR}
-				sed -i $BAK "s#\$(ROCKSPEC)#\$(ROCKSPEC) SQLITE_DIR=${LIB_SQLITE_DIR}#g"  Makefile
-			fi
-			make
-		else
-			cd $serverPath/source/webstats/lsqlite3_v096 && make
-		fi
-	fi
-
-	# copy to code path
-	DEFAULT_DIR=$serverPath/webstats/luarocks/lib/lua/5.1
-	if [ -f ${DEFAULT_DIR}/lsqlite3.so ];then
-		mkdir -p $serverPath/webstats/lua
-		cp -rf ${DEFAULT_DIR}/lsqlite3.so $serverPath/webstats/lua/lsqlite3.so 
-	fi
-
-	# https://github.com/P3TERX/GeoLite.mmdb
-	pip install geoip2 -i $PIPSRC
-	# if [ ! -f $serverPath/webstats/GeoLite2-City.mmdb ];then
-	# 	wget --no-check-certificate -O $serverPath/webstats/GeoLite2-City.mmdb https://github.com/P3TERX/GeoLite.mmdb/releases/download/2022.10.16/GeoLite2-City.mmdb
-	# fi
-
-	# 缓存数据
-	GEO_VERSION=$(get_latest_release "P3TERX/GeoLite.mmdb")
-	if [ ! -s $serverPath/source/webstats/GeoLite2-City.mmdb ];then
-		if [ "$LOCAL_ADDR" = "cn" ];then
-			wget -O $serverPath/source/webstats/GeoLite2-City.mmdb https://github.com/P3TERX/GeoLite.mmdb/releases/download/${GEO_VERSION}/GeoLite2-City.mmdb
-		else
-			wget --no-check-certificate -O $serverPath/source/webstats/GeoLite2-City.mmdb https://github.com/P3TERX/GeoLite.mmdb/releases/download/${GEO_VERSION}/GeoLite2-City.mmdb
-		fi
-	fi
-
-	if [ -s $serverPath/source/webstats/GeoLite2-City.mmdb ];then
-		cp -rf $serverPath/source/webstats/GeoLite2-City.mmdb $serverPath/webstats/GeoLite2-City.mmdb
-	fi
-	
-	cd $rootPath && python3 plugins/webstats/index.py start
-	echo "${VERSION}" > $serverPath/webstats/version.pl
-
-	echo '网站统计安装完成'
-
-	# delete install data
-	if [ -d $serverPath/source/webstats/lsqlite3_v096 ];then
-		rm -rf $serverPath/source/webstats/lsqlite3_v096
-	fi
-	if [ -d $serverPath/source/webstats/luarocks-3.5.0 ];then
-		rm -rf $serverPath/source/webstats/luarocks-3.5.0
-	fi
 }
 
 Uninstall_App()
@@ -152,8 +53,8 @@ Uninstall_App()
 }
 
 action=$1
-if [ "${1}" = 'install' ];then
-	Install_App
-else
-	Uninstall_App
-fi
+case "$action" in
+    install) Install_App ;;
+    uninstall) Uninstall_App ;;
+    *) exit 1 ;;
+esac

@@ -97,7 +97,7 @@ def getPhpVer():
     enabled = []
     for version in versions:
         name = str(version['version'])
-        match = re.match(r'^(\d)(?:\.)?(\d)(?:\D|$)', name)
+        match = re.match(r'(?:^|\D)(8)\.?([0-9])(?:\D|$)', name)
         if match and tuple(map(int, match.groups())) >= (8, 2):
             if os.path.isfile(os.path.join(conf_dir, f'enable-php-{name}.conf')):
                 enabled.append((tuple(map(int, match.groups())), name))

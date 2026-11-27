@@ -14,16 +14,9 @@ serverPath=$(dirname "$rootPath")
 
 action=$1
 version=$2
-sys_os=`uname`
 
 if [ -f ${rootPath}/bin/activate ];then
 	. ${rootPath}/bin/activate
-fi
-
-if [ "$sys_os" = "Darwin" ];then
-	BAK='_bak'
-else
-	BAK=''
 fi
 
 # /www/server/openresty/luajit/bin/luajit /www/server/op_waf/waf/lua/waf_common.lua
@@ -37,106 +30,41 @@ Install_App(){
 	mkdir -p $serverPath/source/op_waf
 	mkdir -p $serverPath/op_waf
 
-	# luarocks
-	if [ ! -f $serverPath/source/op_waf/luarocks-3.5.0.tar.gz ];then
-		wget --no-check-certificate -O $serverPath/source/op_waf/luarocks-3.5.0.tar.gz http://luarocks.org/releases/luarocks-3.5.0.tar.gz
-	fi
-	
-	# which luarocks
-	if [ ! -d $serverPath/op_waf/luarocks ];then
-		cd $serverPath/source/op_waf && tar xvf luarocks-3.5.0.tar.gz
-		# cd luarocks-3.9.1 && ./configure && make bootstrap
+    runtime="$serverPath/op_waf"
+    sources="$serverPath/source/op_waf"
+    source "$rootPath/scripts/tools/install-lua-sqlite.sh" || return 1
+    install_lua_sqlite "$rootPath" "$runtime" "$runtime/waf/conf" || return 1
+    source "$rootPath/scripts/tools/verified-download.sh" || return 1
 
-		cd luarocks-3.5.0 && ./configure --prefix=$serverPath/op_waf/luarocks \
-		--with-lua-include=$serverPath/openresty/luajit/include/luajit-2.1 \
-		--with-lua-bin=$serverPath/openresty/luajit/bin
-		make -I${serverPath}/openresty/luajit/bin
-		make install 
-	fi
+    geo_release=https://github.com/P3TERX/GeoLite.mmdb/releases/download/2026.11.25
+    for edition in City Country; do
+        case "$edition" in
+            City) digest=d317770c39fdf63c4b7d4914ddb21df581a8be312c047f57539e739c127ce4ef ;;
+            Country) digest=e256d9c92775f33b57579df55765c2fa1ea656c03c2461861e0f34260816be14 ;;
+        esac
+        file="GeoLite2-$edition.mmdb"
+        if [ ! -s "$runtime/$file" ]; then
+            verified_download "$geo_release/$file" "$sources/$file" "$digest" || return 1
+            install -m 0644 "$sources/$file" "$runtime/$file" || return 1
+        fi
+    done
 
+    lib_file=libmaxminddb-1.14.1.tar.gz
+    archive="$sources/$lib_file"
+    verified_download "https://github.com/maxmind/libmaxminddb/releases/download/1.14.1/$lib_file" "$archive" \
+        ca5c87d41339f8bc4daabb53e8a9356b3c995f2d2419b85d7bff823b2ecc252d || return 1
+    stage=$(mktemp -d "$sources/build.XXXXXX") || return 1
+    trap 'rm -rf -- "$stage"' EXIT
+    tar -xzf "$archive" -C "$stage" || return 1
+    cd "$stage/libmaxminddb-1.14.1" || return 1
+    ./configure --prefix="$runtime/waf/mmdb" && make && make install || return 1
 
-	# if [ ! -f $serverPath/source/op_waf/lsqlite3_v096.zip ];then
-	# 	wget --no-check-certificate -O $serverPath/source/op_waf/lsqlite3_v096.zip http://lua.sqlite.org/home/zip/lsqlite3_v096.zip?uuid=v0.9.6
-	# fi
+    cd "$rootPath" || return 1
+    [ "$(python3 plugins/op_waf/index.py start)" = ok ] || return 1
+    python3 plugins/op_waf/index.py reload || return 1
+    printf '%s\n' "$version" > "$runtime/version.pl" || return 1
+    echo '安装OP防火墙成功!'
 
-	if [ ! -f $serverPath/source/op_waf/lsqlite3_v096.zip ];then
-		wget --no-check-certificate -O $serverPath/source/op_waf/lsqlite3_v096.zip https://github.com/ledang3099/pmpanel/releases/download/0.18.4/lsqlite3_v096.zip
-	fi
-
-	if [ ! -d $serverPath/source/op_waf/lsqlite3_v096 ];then
-		cd $serverPath/source/op_waf && unzip lsqlite3_v096.zip
-	fi
-
-	PATH=${serverPath}/openresty/luajit:${serverPath}/openresty/luajit/include/luajit-2.1:$PATH
-	export PATH=$PATH:$serverPath/op_waf/luarocks/bin
-
-	if [ ! -f $serverPath/op_waf/waf/conf/lsqlite3.so ];then
-		if [ "${sys_os}" = "Darwin" ];then
-			cd $serverPath/source/op_waf/lsqlite3_v096
-			find_cfg=`cat Makefile | grep 'SQLITE_DIR'`
-			if [ "$find_cfg" = "" ];then
-				LIB_SQLITE_DIR=`brew info sqlite | grep /opt/homebrew/Cellar/sqlite | cut -d \  -f 1 | awk 'END {print}'`
-				echo $LIB_SQLITE_DIR
-				sed -i $BAK "s#\$(ROCKSPEC)#\$(ROCKSPEC) SQLITE_DIR=${LIB_SQLITE_DIR}#g"  Makefile
-			fi
-			make
-		else
-			cd $serverPath/source/op_waf/lsqlite3_v096 && make
-		fi
-	fi
-
-	# copy to code path
-	DEFAULT_DIR=$serverPath/op_waf/luarocks/lib/lua/5.1
-	if [ -f ${DEFAULT_DIR}/lsqlite3.so ];then
-		mkdir -p $serverPath/op_waf/waf/conf
-		cp -rf ${DEFAULT_DIR}/lsqlite3.so $serverPath/op_waf/waf/conf/lsqlite3.so
-	fi
-
-	cn=$(curl -fsSL -m 10 http://ipinfo.io/json | grep "\"country\": \"CN\"")
-	HTTP_PREFIX="https://"
-	if [ ! -z "$cn" ];then
-	    HTTP_PREFIX="https://gh-proxy.com/"
-	fi
-
-	# download GeoLite Data
-	GeoLite2_TAG=`curl -sL "https://api.github.com/repos/P3TERX/GeoLite.mmdb/releases/latest" | grep '"tag_name":' | cut -d'"' -f4`
-	if [ ! -f $serverPath/source/op_waf/GeoLite2-City.mmdb ];then
-		wget --no-check-certificate -O $serverPath/source/op_waf/GeoLite2-City.mmdb ${HTTP_PREFIX}github.com/P3TERX/GeoLite.mmdb/releases/download/${GeoLite2_TAG}/GeoLite2-City.mmdb
-	fi
-
-	if [ ! -f $serverPath/op_waf/GeoLite2-City.mmdb ];then
-		cp -rf $serverPath/source/op_waf/GeoLite2-City.mmdb $serverPath/op_waf/GeoLite2-City.mmdb
-	fi
-
-	if [ ! -f $serverPath/source/op_waf/GeoLite2-Country.mmdb ];then
-		wget --no-check-certificate -O $serverPath/source/op_waf/GeoLite2-Country.mmdb ${HTTP_PREFIX}github.com/P3TERX/GeoLite.mmdb/releases/download/${GeoLite2_TAG}/GeoLite2-Country.mmdb
-	fi
-
-	if [ ! -f $serverPath/op_waf/GeoLite2-Country.mmdb ];then
-		cp -rf $serverPath/source/op_waf/GeoLite2-Country.mmdb $serverPath/op_waf/GeoLite2-Country.mmdb
-	fi
-
-
-	libmaxminddb_ver='1.12.2'
-	if [ ! -f $serverPath/op_waf/waf/mmdb/lib/libmaxminddb.a ] && [ ! -f $serverPath/op_waf/waf/mmdb/lib/libmaxminddb.so ];then
-		libmaxminddb_local_path=$serverPath/source/op_waf/libmaxminddb-${libmaxminddb_ver}.tar.gz
-		libmaxminddb_url_path=${HTTP_PREFIX}github.com/maxmind/libmaxminddb/releases/download/${libmaxminddb_ver}/libmaxminddb-${libmaxminddb_ver}.tar.gz
-		if [ ! -f ${libmaxminddb_local_path} ]; then
-			wget --no-check-certificate -O ${libmaxminddb_local_path} ${libmaxminddb_url_path}
-		fi
-
-		cd $serverPath/source/op_waf && tar -zxvf ${libmaxminddb_local_path} && \
-		cd $serverPath/source/op_waf/libmaxminddb-${libmaxminddb_ver} && \
-		./configure --prefix=$serverPath/op_waf/waf/mmdb && make && make install
-	fi
-
-	echo "${version}" > $serverPath/op_waf/version.pl
-	echo '安装OP防火墙成功!'
-
-	cd ${rootPath} && python3 ${rootPath}/plugins/op_waf/index.py start
-	echo "cd ${rootPath} && python3 ${rootPath}/plugins/op_waf/index.py start"
-	sleep 2
-	cd ${rootPath} && python3 ${rootPath}/plugins/op_waf/index.py reload
 }
 
 Uninstall_App(){
@@ -148,8 +76,8 @@ Uninstall_App(){
 
 
 action=$1
-if [ "${1}" = 'install' ];then
-	Install_App
-else
-	Uninstall_App
-fi
+case "$action" in
+    install) Install_App ;;
+    uninstall) Uninstall_App ;;
+    *) exit 1 ;;
+esac

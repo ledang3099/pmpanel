@@ -17,20 +17,14 @@ sysName=`uname`
 VERSION=$2
 Install_app()
 {
-	mkdir -p $serverPath/source
-	mkdir -p $serverPath/source/xui
-	mkdir -p $serverPath/xui
+    if [ "$VERSION" != 1.0 ]; then return 1; fi
+    bash "$curPath/install_xui.sh" || return 1
+    cd "$rootPath" || return 1
+    [ "$(python3 plugins/xui/index.py start)" = ok ] || return 1
+    mkdir -p "$serverPath/xui" || return 1
+    printf '%s\n' "$VERSION" > "$serverPath/xui/version.pl" || return 1
+    echo '安装完成'
 
-	echo "$VERSION" > $serverPath/xui/version.pl
-
-	bash ${curPath}/install_xui.sh
-
-
-	# start xray
-	cd /usr/local/x-ui && bin/xray-linux-amd64 -c bin/config.json
-
-	cd ${rootPath} && python3 plugins/xui/index.py start
-	echo '安装完成'
 }
 
 Uninstall_app()
@@ -44,8 +38,8 @@ Uninstall_app()
 }
 
 action=$1
-if [ "${1}" = 'install' ];then
-	Install_app $2
-else
-	Uninstall_app $2
-fi
+case "$action" in
+    install) Install_app ;;
+    uninstall) Uninstall_app ;;
+    *) exit 1 ;;
+esac

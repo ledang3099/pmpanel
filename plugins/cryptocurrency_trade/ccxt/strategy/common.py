@@ -14,8 +14,11 @@ from pprint import pprint
 from datetime import datetime
 
 # print(os.getcwd())
-sys.path.append(os.getcwd() + "/class/core")
-import mw
+web_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../web'))
+if os.getcwd() != web_dir:
+    sys.path.insert(0, web_dir)
+    os.chdir(web_dir)
+from core import mw
 
 exchange = ccxt.poloniex()
 
@@ -136,7 +139,7 @@ def initEx():
     data = getUserCfgData()
     # print(data)
     if (len(data) > 0):
-        exchange = ccxt.okex({
+        exchange = ccxt.okx({
             "apiKey": data['app_key'],
             "secret":  data['secret'],
             "password": data['password'],

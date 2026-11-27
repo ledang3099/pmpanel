@@ -8,7 +8,8 @@ Description=Rapira PHP {$VERSION} application server
 After=network.target
 
 [Service]
-Environment="LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{$SERVER_PATH}/rapira/{$VERSION}/link/lib"
+Environment="LD_LIBRARY_PATH={$SERVER_PATH}/rapira/{$VERSION}/link/lib"
+Environment="PHPRC={$SERVER_PATH}/rapira/{$VERSION}"
 ExecStart={$SERVER_PATH}/rapira/{$VERSION}/bin/rapira serve {$SERVER_PATH}/rapira/{$VERSION}/rapira.toml
 ExecReload=/bin/kill -USR2 $MAINPID
 PrivateTmp=false

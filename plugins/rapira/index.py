@@ -11,7 +11,6 @@ import shutil
 try:
     import tomllib
 except ImportError:
-    print(str(ImportError.Error()))
     import tomli as tomllib
 
 
@@ -158,7 +157,10 @@ def initReplace(version):
     if not os.path.exists(toml_file):
         content = mw.readFile(toml_file_tpl)
         content = commonReplace(content, version)
-        mw.writeFile(toml_file,content)
+        http_port, observability_port = ('8001', '9181') if version == '85' else ('8000', '9180')
+        content = content.replace('{$HTTP_PORT}', http_port)
+        content = content.replace('{$OBSERVABILITY_PORT}', observability_port)
+        mw.writeFile(toml_file, content)
 
     # 模版例子
     exp_ds_file_tpl = getPluginDir()+"/exp/dispatcher.php"
