@@ -36,24 +36,30 @@ Install_App()
 	mkdir -p $serverPath/source
 	mkdir -p $serverPath/source/alist
 
-	FILE_TGZ=alist-${ALIST_NAME}-${ALIST_ARCH_NAME}.tar.gz
-
-	ALIST_DIR=$serverPath/source/alist
-
-	if [ ! -f $ALIST_DIR/${FILE_TGZ} ];then
-		wget --no-check-certificate -O $ALIST_DIR/${FILE_TGZ} https://github.com/alist-org/alist/releases/download/v${VERSION}/${FILE_TGZ}
-	fi
-	
-	mkdir -p $serverPath/alist
-
-	cd $ALIST_DIR && tar -zxvf ${FILE_TGZ}  -C $serverPath/alist
-	echo "${VERSION}" > $serverPath/alist/version.pl
-
-	cd ${rootPath} && python3 ${rootPath}/plugins/alist/index.py start
-	cd ${rootPath} && python3 ${rootPath}/plugins/alist/index.py initd_install
-
-	cd $serverPath/alist && ./alist admin set admin
-	# cd /www/server/alist && ./alist admin set admin
+    FILE_TGZ="alist-${ALIST_NAME}-${ALIST_ARCH_NAME}.tar.gz"
+    ALIST_DIR="$serverPath/source/alist"
+    url="https://github.com/alist-org/alist/releases/download/v${VERSION}/${FILE_TGZ}"
+    destination="$serverPath/alist/alist"
+    if [ "$VERSION" = 3.66.0 ]; then
+        case "$ALIST_NAME-$ALIST_ARCH_NAME" in
+            linux-amd64) digest=06a2ab394c1bce4d29b84021192aa75350f556bd1a1e98d321ad760170b5ed31 ;;
+            linux-arm64) digest=675d8cb633830ebeefc8d172ccad3f17ea85b9d28daa4d969cfb73e9d01f83d3 ;;
+            darwin-amd64) digest=21bef6a127788a4b3903860493337a9c4b472e776a5f8414f87f0207f5a1d288 ;;
+            darwin-arm64) digest=b9657f62df0f9648a309fe6db7ad6fef806b228df98076c363af9390d57f1bb4 ;;
+            *) return 1 ;;
+        esac
+        source "$rootPath/scripts/tools/verified-download.sh" || return 1
+        source "$rootPath/scripts/tools/install-release-binary.sh" || return 1
+        install_release_binary "$url" "$digest" "$ALIST_DIR/$VERSION/$FILE_TGZ" "$destination" || return 1
+    else
+        mkdir -p "$ALIST_DIR/$VERSION" "$serverPath/alist" || return 1
+        curl -fsSL "$url" -o "$ALIST_DIR/$VERSION/$FILE_TGZ" || return 1
+        tar -xzf "$ALIST_DIR/$VERSION/$FILE_TGZ" -C "$serverPath/alist" || return 1
+    fi
+    printf '%s\n' "$VERSION" > "$serverPath/alist/version.pl"
+    cd "$rootPath" || return 1
+    python3 plugins/alist/index.py start || return 1
+    python3 plugins/alist/index.py initd_install || return 1
 
 	echo '安装完成'
 }
@@ -88,6 +94,8 @@ Uninstall_App()
 action=$1
 if [ "${1}" = 'install' ];then
 	Install_App
+elif [ "$action" = uninstall ]; then
+    Uninstall_App
 else
-	Uninstall_App
+    exit 1
 fi
