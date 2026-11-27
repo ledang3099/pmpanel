@@ -61,7 +61,7 @@ function rsOverview() {
             html += '<div class="rs-alert warn">未检测到 rsync 程序, 请重新安装插件。</div>';
         } else if (d.rsync_outdated) {
             html += '<div class="rs-alert warn">当前 rsync ' + rsEsc(d.rsync_version) + ' 低于 3.4.3, 存在 2026 年公开的守护进程漏洞(CVE-2026-29518 等)。' +
-                '请在软件管理中重新安装本插件以编译 rsync ' + rsEsc(d.rsync_target) + '; 如系统软件包已打安全补丁可忽略。</div>';
+                '请在应用市场中重新安装本插件以编译 rsync ' + rsEsc(d.rsync_target) + '; 如系统软件包已打安全补丁可忽略。</div>';
         } else {
             html += '<div class="rs-alert ok">rsync ' + rsEsc(d.rsync_version) + (d.rsync_own_build ? ' (插件编译版本)' : ' (系统软件包)') + '</div>';
         }
