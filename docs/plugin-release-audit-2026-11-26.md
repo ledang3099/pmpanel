@@ -41,8 +41,8 @@
 | `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/blog/2026/11/version-2-1-3-released/) |
 | `msonedrive` | 依赖已更新 | 更新 Requests-OAuthlib 2.0.0，Debian 13 生成并校验本地 OAuth 授权 URL。实际 OAuth 和上传需有效账户。 [上游](https://pypi.org/project/requests-oauthlib/) |
 | `mtproxy` | 已更新 | 固定 mtg 2.3.0 官方归档和摘要，修复空密钥生成，保留既有密钥。Debian 13 验证服务启动和 TCP 监听。 [上游](https://github.com/9seconds/mtg/releases) |
-| `mysql` | 已更新 | 源码 8.4.13.1、9.7.4.1、26.10.0.1。构建使用系统 OpenSSL，Debian/Ubuntu 补充 WebAuthn 依赖，并按 Linux 容器内存限制减少默认构建并发。保护已被其他软件占用的 `mysql.service`，并沿用面板设置的表名大小写。Debian 13 已通过 26.10 源码配置并进入编译，使用 Oracle 官方 26.10 二进制验证了面板初始化函数和模板。源码完整构建待验证。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
-| `mysql-community` | 已更新 | 8.4.13.1、9.7.4.1、26.10.0.1 的 Linux x86_64 安装使用 Oracle 官方最小二进制归档。修复初始化误读宿主 MariaDB 配置。Debian 13 实际运行三个版本的面板安装入口，均通过服务启动、账号认证、SQL 写入与查询及服务重启。26.10 测试停服后重新安装，运行中拒绝覆盖二进制。核对 Linux aarch64 与 macOS arm64 下载地址。 [上游补丁](https://dev.mysql.com/community/security/advisories/2026-11-24/) [二进制分发说明](https://dev.mysql.com/doc/refman/26.10/en/binary-installation.html) |
+| `mysql` | 已更新 | 源码 8.4.13.1、9.7.4.1、26.10.0.1。构建使用系统 OpenSSL，Debian/Ubuntu 补充 WebAuthn 依赖，并按 Linux 容器内存限制减少默认构建并发。保护已被占用的 `mysql.service`，初始化保留面板设置的表名大小写并等待服务就绪。Debian 13 通过 26.10.0.1 源码构建、面板初始化、服务启用、认证 SQL 写入与查询及重启。8.4 和 9.7 源码构建待验证。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
+| `mysql-community` | 已更新 | 8.4.13.1、9.7.4.1、26.10.0.1 的 Linux x86_64 安装使用 Oracle 官方最小二进制归档。修复初始化误读宿主 MariaDB 配置。Debian 13 实际运行三个版本的面板安装入口，均通过服务启动、账号认证、SQL 写入与查询及服务重启。8.4 验证测试库备份和恢复，26.10 验证拒绝运行中覆盖及停服后重装。核对 Linux aarch64 与 macOS arm64 下载地址。 [上游补丁](https://dev.mysql.com/community/security/advisories/2026-11-24/) [二进制分发说明](https://dev.mysql.com/doc/refman/26.10/en/binary-installation.html) |
 | `nezha` | 已更新 | 新增固定版本 2.7.0。Debian 13 完成安装，面板首页返回 HTTP 200。 [上游](https://github.com/nezhahq/nezha/releases/tag/v2.7.0) |
 | `ollama` | 已更新 | 固定 0.40.18 官方安装器摘要，面板交由供应商 systemd 单元管理。Debian 13 验证启动和版本 API。 [上游](https://github.com/ollama/ollama/releases/tag/v0.40.18) |
 | `op_load_balance` | 面板集成 | Debian 13 使用插件生成的配置经 OpenResty 实测，轮询把 HTTP 请求分发给两个本地后端。主动健康检查将返回 HTTP 503 的后端标记为不可用，并把请求转至健康后端。 |
@@ -52,7 +52,7 @@
 | `php` | 已更新 | 8.2.36、8.3.37、8.4.28、8.5.13 已核对 SHA-256，新增 8.6.0。Debian 13 已编译五个系列的运行时并做执行检查。历史分支保留停止维护标识和现有回补。 [上游](https://www.php.net/supported-versions.php) |
 | `php-apt` | 已更新 | 使用 APT 候选包判断更新，新增 8.6，按上游配置 Sury 签名仓库，修正内置 OPcache 配置。Debian 13 通过安装、已是最新版时的升级命令、FPM 配置及加载 OPcache 的 FastCGI 请求。 [软件源](https://packages.sury.org/php/pool/main/p/php8.6/) |
 | `php-guard` | 面板集成 | Debian 13 安装 PHP 管理适配器通过。 |
-| `php-yum` | 已更新 | 8.2–8.6 使用 Remi 仓库判断并执行升级，修正 Rocky 等发行版的仓库安装。Rocky Linux 9 通过 PHP 8.6.0 安装、已是最新版时的升级命令、PHP-FPM 配置检查和启动。 [软件源](https://rpms.remirepo.net/) |
+| `php-yum` | 已更新 | 8.2–8.6 使用 Remi 仓库判断并执行升级，修正 Rocky 等发行版的仓库安装。Rocky Linux 9 通过五个系列的安装和已是最新版时的升级命令，8.2–8.5 验证真实 FastCGI 响应，8.6 验证 FPM 配置和启动。 [软件源](https://rpms.remirepo.net/) |
 | `phpldapadmin` | 已更新 | 新增 2.3.13 全新安装，独立站点根目录、PHP-FPM 8.4+ 与 LDAP 配置。Debian 13 完成 Composer 和前端构建，OpenResty 验证 HTTP 认证，与本地 OpenLDAP 联调打开登录页。1.x 配置迁移与登录后编辑待验证。 [上游](https://github.com/leenooks/phpLDAPadmin/releases/tag/2.3.13) |
 | `phpmyadmin` | 安装修复 | 5.2.3 为上游当前稳定版，校验发布归档。Debian 13 通过 OpenResty 和 PHP-FPM 登录页检查。 [上游](https://www.phpmyadmin.net/downloads/) |
 | `postgresql` | 已更新 | 新增 19.0 全新安装，15–18 补丁已与官网一致，14 保留停止维护标识。Debian 13 编译 19.0、初始化集群，并通过 SQL 建表、写入和查询。 [上游](https://www.postgresql.org/support/versioning/) |

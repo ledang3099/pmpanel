@@ -688,7 +688,7 @@ def my8cmd(version, method):
                 mw.execShell('systemctl start mysql')
 
             for x in range(10):
-                mydb_status = process_status()
+                mydb_status = status(version)
                 if mydb_status == 'start':
                     initMysql8Pwd()
                     break
