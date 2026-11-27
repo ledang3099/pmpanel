@@ -184,7 +184,8 @@ Install_mysql()
 		-DWITH_UNIT_TESTS=OFF \
 		-DDOWNLOAD_BOOST=0 \
 		-DWITH_BOOST=${mysqlDir}/mysql-${VERSION}/boost/ || return 1
-		make -j"${MYSQL_BUILD_JOBS:-$cpuCore}" && make install || return 1
+		source "$rootPath/plugins/mysql/lib/build-jobs.sh" || return 1
+		make -j"$(mysql_build_jobs "$cpuCore")" && make install || return 1
 
 		if [ -d $serverPath/mysql ];then
 			rm -rf ${mysqlDir}/mysql-${VERSION}

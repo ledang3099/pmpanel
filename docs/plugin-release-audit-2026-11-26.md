@@ -25,7 +25,7 @@
 | `gogs` | 已更新 | 新增 0.14.4，校验官方归档，修复 Debian 13 systemd 启动失败。服务和初始设置页面通过。 [上游](https://github.com/gogs/gogs/releases/tag/v0.14.4) |
 | `gorse` | 已更新 | 新增 0.5.11，适配新配置格式和服务缓存路径。全新安装采用 SQLite；Debian 13 启动后健康接口确认数据及缓存连接成功。 [上游](https://github.com/gorse-io/gorse/releases/tag/v0.5.11) |
 | `grafana` | 已更新 | 新增 Grafana OSS 13.3.2，修正服务启动路径及旧默认服务定义。Debian 13 安装、systemd 和数据库健康接口通过。 [上游](https://github.com/grafana/grafana/releases/tag/v13.3.2) |
-| `haproxy` | 已更新 | 2.6.36、2.8.32、3.0.31、3.2.27；新增 3.4.8，使用官方 SHA-256。Debian 13 编译并启动 3.4.8。 [上游](https://www.haproxy.org/) |
+| `haproxy` | 已更新 | 2.6.36、2.8.32、3.0.31、3.2.27，新增 3.4.8，使用官方 SHA-256。Debian 13 编译并启动 3.4.8，HTTP 请求经代理转发后返回预期内容。 [上游](https://www.haproxy.org/) |
 | `imail` | 面板集成 | 0.0.19 为对应项目当前最后的正式发布。Debian 13 验证安装、服务启动和 HTTP 登录跳转。SMTP、IMAP 与真实域名配置待验证。 [上游](https://github.com/midoks/imail/releases) |
 | `keepalived` | 已更新 | 2.4.3，修正 systemd 模板，取消新安装默认绑定示例 VIP。Debian 13 编译、配置检查、启动及重载通过。VRRP 主备切换待验证。 [上游](https://www.keepalived.org/download/) |
 | `lam` | 已更新 | 新增 LDAP Account Manager 9.7，校验下载摘要并修正 PHP-FPM 版本识别。Debian 13 通过 OpenResty、PHP 8.4 与认证登录页检查。LAM 的 LDAP 写入待验证。 [上游](https://github.com/LDAPAccountManager/lam/releases/tag/9.7) |
@@ -41,11 +41,11 @@
 | `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/blog/2026/11/version-2-1-3-released/) |
 | `msonedrive` | 依赖已更新 | 更新 Requests-OAuthlib 2.0.0，Debian 13 生成并校验本地 OAuth 授权 URL。实际 OAuth 和上传需有效账户。 [上游](https://pypi.org/project/requests-oauthlib/) |
 | `mtproxy` | 已更新 | 固定 mtg 2.3.0 官方归档和摘要，修复空密钥生成，保留既有密钥。Debian 13 验证服务启动和 TCP 监听。 [上游](https://github.com/9seconds/mtg/releases) |
-| `mysql` | 已更新 | 源码 8.4.13.1、9.7.4.1、26.10.0.1。构建使用系统 OpenSSL，Debian/Ubuntu 补充 WebAuthn 依赖。保护已被其他软件占用的 `mysql.service`，并沿用面板设置的表名大小写。Debian 13 已通过 26.10 源码配置并进入编译，使用 Oracle 官方 26.10 二进制验证了面板初始化函数和模板。源码完整构建待验证。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
+| `mysql` | 已更新 | 源码 8.4.13.1、9.7.4.1、26.10.0.1。构建使用系统 OpenSSL，Debian/Ubuntu 补充 WebAuthn 依赖，并按 Linux 容器内存限制减少默认构建并发。保护已被其他软件占用的 `mysql.service`，并沿用面板设置的表名大小写。Debian 13 已通过 26.10 源码配置并进入编译，使用 Oracle 官方 26.10 二进制验证了面板初始化函数和模板。源码完整构建待验证。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
 | `mysql-community` | 已更新 | 8.4.13.1、9.7.4.1、26.10.0.1 的 Linux x86_64 安装使用 Oracle 官方最小二进制归档。修复初始化误读宿主 MariaDB 配置。Debian 13 实际运行三个版本的面板安装入口，均通过服务启动、账号认证、SQL 写入与查询及服务重启。26.10 测试停服后重新安装，运行中拒绝覆盖二进制。核对 Linux aarch64 与 macOS arm64 下载地址。 [上游补丁](https://dev.mysql.com/community/security/advisories/2026-11-24/) [二进制分发说明](https://dev.mysql.com/doc/refman/26.10/en/binary-installation.html) |
 | `nezha` | 已更新 | 新增固定版本 2.7.0。Debian 13 完成安装，面板首页返回 HTTP 200。 [上游](https://github.com/nezhahq/nezha/releases/tag/v2.7.0) |
 | `ollama` | 已更新 | 固定 0.40.18 官方安装器摘要，面板交由供应商 systemd 单元管理。Debian 13 验证启动和版本 API。 [上游](https://github.com/ollama/ollama/releases/tag/v0.40.18) |
-| `op_load_balance` | 面板集成 | Debian 13 已安装面板适配器。使用插件生成的配置经 OpenResty 实测，轮询把 HTTP 请求分发给两个本地后端。主动健康检查待验证。 |
+| `op_load_balance` | 面板集成 | Debian 13 使用插件生成的配置经 OpenResty 实测，轮询把 HTTP 请求分发给两个本地后端。主动健康检查将返回 HTTP 503 的后端标记为不可用，并把请求转至健康后端。 |
 | `op_waf` | 依赖已更新 | 面板自带的 OpenResty WAF 更新 LuaRocks 3.13.0、lsqlite3 0.9.7、libmaxminddb 1.14.1 和 GeoLite 数据。Debian 13 通过 LuaJIT SQLite 查询、GeoLite 查找和 OpenResty 启动。 [LuaRocks](https://github.com/luarocks/luarocks/releases/tag/v3.13.0) [MaxMind](https://github.com/maxmind/libmaxminddb/releases/tag/1.14.1) |
 | `openresty` | 安装修复 | 主线 1.31.9.1。修复升级后旧进程占用端口和动态模块未切换，使用明确的 PID 文件和 systemd 进程组。Debian 13 源码构建、ModSecurity 模块和重启前后 HTTP 通过。 [上游](https://github.com/openresty/openresty/releases) |
 | `pgadmin` | 已更新 | 固定 pgAdmin 4 9.19，改用官方非交互数据库初始化。Debian 13 通过应用初始化、systemd、Unix socket 健康接口和登录页面。 [上游](https://www.pgadmin.org/docs/pgadmin4/9.19/server_deployment.html) |
