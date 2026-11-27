@@ -48,6 +48,12 @@ if [ -d $serverPath/mysql ];then
 	exit 0
 fi
 
+unit_file=$(systemctl show --property=FragmentPath --value mysql.service 2>/dev/null)
+if [ -n "$unit_file" ] && ! grep -Fq "ExecStart=$serverPath/mysql/bin/mysqld " "$unit_file"; then
+	echo "The mysql.service unit belongs to another installation: $unit_file" >&2
+	exit 1
+fi
+
 if [ "${action}" = "uninstall" ];then
 	
 	if [ -f /usr/lib/systemd/system/mysql.service ] || [ -f /lib/systemd/system/mysql.service ];then

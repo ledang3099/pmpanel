@@ -41,7 +41,7 @@
 | `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/blog/2026/11/version-2-1-3-released/) |
 | `msonedrive` | 依赖已更新 | 更新 Requests-OAuthlib 2.0.0，Debian 13 生成并校验本地 OAuth 授权 URL。实际 OAuth 和上传需有效账户。 [上游](https://pypi.org/project/requests-oauthlib/) |
 | `mtproxy` | 已更新 | 固定 mtg 2.3.0 官方归档和摘要，修复空密钥生成，保留既有密钥。Debian 13 验证服务启动和 TCP 监听。 [上游](https://github.com/9seconds/mtg/releases) |
-| `mysql` | 已更新 | 源码 8.4.13.1、9.7.4.1、26.10.0.1。构建使用系统 OpenSSL，Debian/Ubuntu 补充 WebAuthn 依赖；初始化隔离宿主配置，并沿用面板设置的表名大小写。Debian 13 已通过 26.10 源码配置并进入编译，使用 Oracle 官方 26.10 二进制验证了面板初始化函数和模板。源码完整构建待验证。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
+| `mysql` | 已更新 | 源码 8.4.13.1、9.7.4.1、26.10.0.1。构建使用系统 OpenSSL，Debian/Ubuntu 补充 WebAuthn 依赖。保护已被其他软件占用的 `mysql.service`，并沿用面板设置的表名大小写。Debian 13 已通过 26.10 源码配置并进入编译，使用 Oracle 官方 26.10 二进制验证了面板初始化函数和模板。源码完整构建待验证。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
 | `mysql-community` | 已更新 | 8.4.13.1、9.7.4.1、26.10.0.1 的 Linux x86_64 安装使用 Oracle 官方最小二进制归档。修复初始化误读宿主 MariaDB 配置。Debian 13 实际运行三个版本的面板安装入口，均通过服务启动、账号认证、SQL 写入与查询及服务重启。26.10 测试停服后重新安装，运行中拒绝覆盖二进制。核对 Linux aarch64 与 macOS arm64 下载地址。 [上游补丁](https://dev.mysql.com/community/security/advisories/2026-11-24/) [二进制分发说明](https://dev.mysql.com/doc/refman/26.10/en/binary-installation.html) |
 | `nezha` | 已更新 | 新增固定版本 2.7.0。Debian 13 完成安装，面板首页返回 HTTP 200。 [上游](https://github.com/nezhahq/nezha/releases/tag/v2.7.0) |
 | `ollama` | 已更新 | 固定 0.40.18 官方安装器摘要，面板交由供应商 systemd 单元管理。Debian 13 验证启动和版本 API。 [上游](https://github.com/ollama/ollama/releases/tag/v0.40.18) |
@@ -77,5 +77,5 @@
 | `webstats` | 依赖已更新 | 更新 LuaRocks、lsqlite3 和 GeoLite City 数据。Debian 13 通过 OpenResty 采集测试请求并写入 SQLite 日志与各项统计。 [lsqlite3](https://luarocks.org/modules/javierguerragiraldez/lsqlite3) |
 | `xhprof` | 已更新 | 面板报告页与扩展对齐 PECL 2.3.10，使用 PHP 提供的扩展目录。Debian 13 上分别用 PHP 8.4.28 和 8.6.0 编译、加载扩展并生成分析数据。 [上游](https://pecl.php.net/package/xhprof) |
 | `xui` | 安装修复 | 0.3.4.4 为当前对应项目的最后一个正式发布。固定官方归档及摘要，由 systemd 管理进程，保留现有数据库。Debian 13 验证正常启动及 HTTP 登录页。 [上游](https://github.com/FranzKafkaYu/x-ui/releases/tag/0.3.4.4) |
-| `zabbix` | 已更新 | 新增 Debian/Ubuntu 的 8.0 LTS 安装选项，适配新版前端和 SQL 包路径。Debian 13 用隔离 MariaDB 导入官方 schema，Zabbix server 8.0.0 启动通过。面板自动初始化仍需端到端验证。 [上游](https://www.zabbix.com/documentation/8.0/en/manual/installation/requirements) |
+| `zabbix` | 已更新 | 新增 Debian/Ubuntu 的 8.0 LTS，修复 PHP-FPM 与数据库识别、自动建库、schema 导入及 OpenResty 日志目录。Debian 13 从面板正常安装入口用 MySQL Community 8.4 自动建库并启动 Zabbix 8.0.0，验证全局数据库设置恢复、PHP 8.4 前端 HTTP 200、API 登录、主机查询和退出。 [上游](https://www.zabbix.com/documentation/8.0/en/manual/installation/requirements) |
 | `zabbix_agent` | 已更新 | 新增 Debian/Ubuntu 的 8.0 LTS 安装选项。Debian 13 通过插件安装、systemd 启动和 zabbix_get 的 agent.ping。 [上游](https://www.zabbix.com/download_sources) |

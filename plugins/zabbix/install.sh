@@ -51,8 +51,10 @@ Install_App()
 
 	mkdir -p "$serverPath/zabbix" && printf "%s\n" "$VERSION" > "$serverPath/zabbix/version.pl" || return 1
 	#初始化 
-	cd ${rootPath} && python3 ${rootPath}/plugins/zabbix/index.py start
-	cd ${rootPath} && python3 ${rootPath}/plugins/zabbix/index.py initd_install
+	cd "$rootPath" || return 1
+	python3 plugins/zabbix/index.py start || return $?
+	systemctl is-active --quiet zabbix-server || return $?
+	python3 plugins/zabbix/index.py initd_install || return $?
 
 
 	if [ -d /etc/zabbix/web ];then
