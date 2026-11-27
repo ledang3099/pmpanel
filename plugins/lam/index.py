@@ -97,7 +97,7 @@ def getPhpVer():
     enabled = []
     for version in versions:
         name = str(version['version'])
-        match = re.match(r'(?:^|\D)(8)\.?([0-9])(?:\D|$)', name)
+        match = re.search(r'(?:^|\D)(8)\.?([0-9])(?:\D|$)', name)
         if match and tuple(map(int, match.groups())) >= (8, 2):
             if os.path.isfile(os.path.join(conf_dir, f'enable-php-{name}.conf')):
                 enabled.append((tuple(map(int, match.groups())), name))
@@ -443,6 +443,10 @@ if __name__ == "__main__":
         print(getConf())
     elif func == 'version':
         print(installVersion())
+    elif func == 'deployed_version':
+        app_dir = os.path.join(getServerDir(), getCfg()['path'])
+        with open(os.path.join(app_dir, 'VERSION'), encoding='utf-8') as version_file:
+            print(version_file.read().strip())
     elif func == 'get_cfg':
         print(returnCfg())
     elif func == 'config_inc':

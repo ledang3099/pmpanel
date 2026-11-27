@@ -26,14 +26,14 @@
 | `gorse` | 已更新 | 新增 0.5.11，适配新配置格式和服务缓存路径。全新安装采用 SQLite；Debian 13 启动后健康接口确认数据及缓存连接成功。 [上游](https://github.com/gorse-io/gorse/releases/tag/v0.5.11) |
 | `grafana` | 已更新 | 新增 Grafana OSS 13.3.2，修正服务启动路径及旧默认服务定义。Debian 13 安装、systemd 和数据库健康接口通过。 [上游](https://github.com/grafana/grafana/releases/tag/v13.3.2) |
 | `haproxy` | 已更新 | 2.6.36、2.8.32、3.0.31、3.2.27，新增 3.4.8，使用官方 SHA-256。Debian 13 编译并启动 3.4.8，HTTP 请求经代理转发后返回预期内容。 [上游](https://www.haproxy.org/) |
-| `imail` | 安装修复 | 0.0.19 为对应项目最后的正式发布。固定官方归档 SHA-256，重装保留自定义目录。Debian 13 验证安装、systemd 重启和 HTTP 初始化页面。SMTP、IMAP 与真实域名配置待验证。 [上游](https://github.com/midoks/imail/releases) |
+| `imail` | 安装修复 | 0.0.19 为对应项目最后的正式发布。固定官方归档 SHA-256，重装保留自定义目录，初始化所需的 Git 由安装器检查。Debian 13 通过 HTTP 初始化、SMTP 应用密码认证和 IMAP 文件夹读取。真实域名的 DNS 验证和邮件投递待验证。 [上游](https://github.com/midoks/imail/releases) |
 | `keepalived` | 已更新 | 2.4.3，修正 systemd 模板，取消新安装默认绑定示例 VIP。Debian 13 编译、配置检查、启动及重载通过。连接到独立容器网桥的两个节点通过 VRRP 主备切换，主节点停止后 VIP 转移到备节点。 [上游](https://www.keepalived.org/download/) |
-| `lam` | 已更新 | 新增 LDAP Account Manager 9.7，校验下载摘要并修正 PHP-FPM 版本识别。Debian 13 通过 OpenResty、PHP 8.4 与认证登录页检查。LAM 的 LDAP 写入待验证。 [上游](https://github.com/LDAPAccountManager/lam/releases/tag/9.7) |
+| `lam` | 已更新 | 新增 LDAP Account Manager 9.7，校验下载摘要，识别 APT 和 Remi 的 PHP-FPM，并补装所选 PHP 的 GMP 与 LDAP 扩展。Debian 13 使用 Chrome 登录并创建 LDAP 组，LDAP 查询确认写入。Rocky Linux 9 验证 Remi 扩展安装和 FPM 重启。9.0 现有配置迁移待验证，须按上游说明先保存旧版配置。 [版本发布](https://github.com/LDAPAccountManager/lam/releases/tag/9.7) [升级说明](https://docs.ldap-account-manager.org/static/doc/manual/ch02s02.html) |
 | `ldap` | 安装修复 | 发行版 OpenLDAP，安装后显式启动 slapd。Debian 13 通过根 DSE 的 namingContexts 查询。 |
 | `loki` | 已更新 | 新增 Loki 3.7.10 与 Alloy 1.22.0。安装时转换旧 Promtail 配置，验证后切换采集服务。Debian 13 验证日志采集、写入和查询。 [上游迁移指南](https://grafana.com/docs/alloy/latest/set-up/migrate/from-promtail/) |
 | `lvs` | 安装修复 | 继续安装发行版 IPVS 工具，修复预装 `ipvsadm` 时面板未登记插件。Debian 13 验证该安装入口，并在隔离网桥上通过内核 IPVS 将 HTTP 请求转发至真实后端。 |
 | `manticoresearch` | 安装修复 | APT 入口使用官方仓库并适配 32.1.3 合并后的主包。Debian 13 安装、systemd 和 SQL 版本查询通过。 [上游](https://github.com/manticoresoftware/manticoresearch/releases) |
-| `mariadb` | 已更新 | 新增 13.1.2 滚动版 Linux x86_64 全新安装，验证官方归档和认证 SQL 读写。修正 12.3 安装记录，保持现有 LTS 选择和推荐。跨版本数据迁移待验证。 [上游](https://mariadb.org/mariadb-server-13-1-is-now-stable-and-13-2-reaches-release-candidate/) |
+| `mariadb` | 已更新 | 新增 13.1.2 滚动版 Linux x86_64 全新安装，验证官方归档和认证 SQL 读写。修正 12.3 安装记录，保持现有 LTS 选择和推荐。Debian 13 使用独立实例验证从 11.8.9 到 13.1.2 的 SQL 导出和还原，包含外键、视图、JSON 数据和中文。 [上游](https://mariadb.org/mariadb-server-13-1-is-now-stable-and-13-2-reaches-release-candidate/) |
 | `memcached` | 已是当前 | 1.6.45。Debian 13 通过插件安装和缓存读写。 [上游](https://www.memcached.org/downloads) |
 | `migration_api` | 功能修复 | 移除与 shell 不兼容的工作进程启动方式。分片超时按接收端确认的偏移重读并限制重试。Debian 13 验证进程启动，并用实际接收函数模拟确认丢失，最终文件 SHA-256 一致。真实跨面板网站及数据库迁移待验证。 |
 | `modsecurity` | 主分支新增 | 主分支集成 ModSecurity 3.0.17、NGINX connector 1.0.4 和 OWASP CRS 4.31.0。Debian 13 通过源码编译、动态模块装载、配置语法和普通 HTTP 请求。 [上游](https://github.com/owasp-modsecurity/ModSecurity/releases/tag/v3.0.17) |
@@ -53,7 +53,7 @@
 | `php-apt` | 已更新 | 使用 APT 候选包判断更新，新增 8.6，配置 Sury 签名仓库并修正内置 OPcache。安装通用扩展时延后面板触发的逐项重启。Debian 13 验证 8.2–8.6 的安装、已是最新版时的升级命令和 FastCGI 版本响应，并验证 8.6 加载 OPcache。 [软件源](https://packages.sury.org/php/pool/main/p/php8.6/) |
 | `php-guard` | 面板集成 | Debian 13 安装 PHP 管理适配器通过。 |
 | `php-yum` | 已更新 | 8.2–8.6 使用 Remi 仓库判断并执行升级，修正 Rocky 等发行版的仓库安装。Rocky Linux 9 通过五个系列的安装、已是最新版时的升级命令和 FastCGI 版本响应。 [软件源](https://rpms.remirepo.net/) |
-| `phpldapadmin` | 已更新 | 新增 2.3.13 全新安装，独立站点根目录、PHP-FPM 8.4+ 与 LDAP 配置。Debian 13 完成 Composer 和前端构建，OpenResty 验证 HTTP 认证，与本地 OpenLDAP 联调打开登录页。1.x 配置迁移与登录后编辑待验证。 [上游](https://github.com/leenooks/phpLDAPadmin/releases/tag/2.3.13) |
+| `phpldapadmin` | 已更新 | 新增 2.3.13 全新安装，独立站点根目录、PHP-FPM 8.4+ 与 LDAP 配置。Debian 13 完成 Composer 和前端构建，经 OpenResty 在 Chrome 中通过两层认证。通过 LDIF 导入创建 LDAP 组并修改描述，LDAP 查询确认写入。1.x 配置迁移待验证。 [上游](https://github.com/leenooks/phpLDAPadmin/releases/tag/2.3.13) |
 | `phpmyadmin` | 安装修复 | 5.2.3 为上游当前稳定版，校验发布归档。Debian 13 通过 OpenResty 和 PHP-FPM 登录页检查。 [上游](https://www.phpmyadmin.net/downloads/) |
 | `postgresql` | 已更新 | 新增 19.0 全新安装，15–18 补丁已与官网一致，14 保留停止维护标识。Debian 13 编译 19.0、初始化集群，并通过 SQL 建表、写入和查询。 [上游](https://www.postgresql.org/support/versioning/) |
 | `prometheus` | 已更新 | 新增 3.16.0，修正 Linux arm64 归档选择。Debian 13 完成安装，readiness 接口通过。 [上游](https://github.com/prometheus/prometheus/releases/tag/v3.16.0) |

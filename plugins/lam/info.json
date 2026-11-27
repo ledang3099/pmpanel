@@ -6,7 +6,7 @@
 	"ps":"LDAP管理工具(LAM)",
 	"versions":["9.0", "9.7"],
 	"shell":"install.sh",
-	"checks":"server/lam",
+	"checks":"server/lam/version.pl",
 	"path": "server/lam",
 	"author":"gruberroland",
 	"home":"https://github.com/LDAPAccountManager",

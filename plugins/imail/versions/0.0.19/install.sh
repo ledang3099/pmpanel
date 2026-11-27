@@ -31,6 +31,18 @@ Install_App()
     if [ -f "$rootPath/bin/activate" ]; then
         source "$rootPath/bin/activate" || return 1
     fi
+    if [ "$os" = Linux ] && ! command -v git >/dev/null; then
+        if command -v apt-get >/dev/null; then
+            apt-get install -y git || return 1
+        elif command -v dnf >/dev/null; then
+            dnf install -y git || return 1
+        elif command -v yum >/dev/null; then
+            yum install -y git || return 1
+        else
+            echo 'iMail setup requires git.' >&2
+            return 1
+        fi
+    fi
 
     source "$rootPath/scripts/tools/verified-download.sh" || return 1
     cache="$serverPath/source/imail"
