@@ -6,6 +6,7 @@ import os
 import time
 import re
 import json
+import subprocess
 
 # print(sys.platform)
 if sys.platform != "darwin":
@@ -171,14 +172,13 @@ def deleteFile():
     return mw.returnJson(False, "删除失败")
 
 def findPathName(path, filename):
-    f = os.scandir(path)
-    l = []
-    for ff in f:
-        t = {}
-        if ff.name.find(filename) > -1:
-            t['filename'] = path + '/' + ff.name
-            l.append(t)
-    return l
+    if not os.path.isdir(path):
+        return []
+    with os.scandir(path) as entries:
+        return [
+            {'filename': entry.path} for entry in entries
+            if entry.is_file() and entry.name.startswith(filename + '_') and entry.name.endswith('.gz')
+        ]
 
 def backupAllFunc(stype):
 
@@ -214,14 +214,16 @@ def backupAllFunc(stype):
         pid = mw.M('databases').dbPos(db_path, 'mysql').where('name=?', (name,)).getField('id')
         backups = mw.M('backup').where('type=? and pid=?', ('1', pid)).field('id,filename').select()
 
-    args = stype + " " + name + " " + num
-    cmd = 'python3 ' + mw.getPanelDir() + '/scripts/backup.py ' + args
+    backup_script = os.path.join(mw.getPanelDir(), 'scripts', 'backup.py')
+    args = [stype, name, num]
+    if stype in ('path', 'site'):
+        args.append(sys.argv[4] if len(sys.argv) > 4 else '')
     if stype.find('database_') > -1:
         plugin_name = stype.replace('database_', '')
-        args = "database " + name + " " + num
-        cmd = 'python3 ' + mw.getPanelDir() + '/plugins/' + plugin_name + '/scripts/backup.py ' + args
+        args = ['database', name, num]
+        backup_script = os.path.join(mw.getPanelDir(), 'plugins', plugin_name, 'scripts', 'backup.py')
 
-    os.system(cmd)
+    subprocess.run([sys.executable, backup_script, *args], check=True)
 
     # 开始执行上传信息.
 
@@ -239,16 +241,16 @@ def backupAllFunc(stype):
         _name = 'path_{}'.format(os.path.basename(name))
         find_path = mw.getBackupDir() + '/path/'+_name
 
-    find_new_file = "ls " + find_path + "_* | grep '.gz' | cut -d \\  -f 1 | awk 'END {print}'"
-
-    filename = mw.execShell(find_new_file)[0].strip()
-    if filename == "":
-        mw.echoInfo("not find upload file!")
-        return ''
+    directory, prefix = os.path.split(find_path)
+    files = findPathName(directory, prefix)
+    if not files:
+        raise SystemExit('FTP backup did not produce an archive')
+    filename = max(item['filename'] for item in files)
 
     mw.echoInfo("准备上传文件 {}".format(filename))
     ftp = FtpPSClient()
-    ftp.uploadFile(filename, stype)
+    if not ftp.uploadFile(filename, stype):
+        raise SystemExit('FTP backup upload failed')
 
     # print(backups)
     backups = sorted(backups, key=lambda x: x['filename'], reverse=False)

@@ -7,6 +7,7 @@ import time
 import re
 import json
 import datetime
+import subprocess
 import yaml
 
 web_dir = os.getcwd() + "/web"
@@ -1969,6 +1970,17 @@ def installPreInspectionDebainCheck(sysId,version):
 def installPreInspection(version):
     if mw.isAppleSystem():
         return 'ok'
+
+    if version == '9.0' and os.path.isfile('/etc/os-release'):
+        with open('/etc/os-release') as release_file:
+            distro = next((line[3:].strip().strip('"') for line in release_file if line.startswith('ID=')), '')
+        if distro in ('almalinux', 'centos', 'debian', 'rhel', 'rocky', 'ubuntu'):
+            plugin = getPluginDir()
+            result = subprocess.run(
+                ['bash', os.path.join(plugin, 'versions', '9.0', 'linux.sh'), '--check'],
+                cwd=plugin, capture_output=True, text=True,
+            )
+            return 'ok' if result.returncode == 0 else result.stderr.strip()
 
     cmd = "cat /etc/*-release | grep PRETTY_NAME |awk -F = '{print $2}' | awk -F '\"' '{print $2}'| awk '{print $1}'"
     sys = mw.execShell(cmd)

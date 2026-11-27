@@ -56,6 +56,11 @@ Install_app()
     fi
     cd "$curPath" || return 1
 	shell_file=${curPath}/versions/${VERSION}/${OSNAME}.sh
+	if [ "$VERSION" = 9.0 ]; then
+		case "$OSNAME" in
+			alma|rocky|rhel) shell_file="$curPath/versions/9.0/linux.sh" ;;
+		esac
+	fi
 
 	if [ -f $shell_file ];then
 		bash -x $shell_file

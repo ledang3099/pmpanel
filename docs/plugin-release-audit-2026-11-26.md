@@ -9,7 +9,7 @@
 | `acme_pandominassl_apply` | 面板集成 | 对接 acme.sh。Debian 13 已安装面板适配器；公网 DNS 验证和签发需要域名及供应商凭据。 [上游](https://github.com/acmesh-official/acme.sh/releases) |
 | `alist` | 已更新 | 3.66.0，按版本缓存并验证发布摘要，取消固定管理员密码初始化。Debian 13 安装、systemd 和 HTTP 探活通过。 [上游](https://github.com/alist-org/alist/releases/tag/v3.66.0) |
 | `apache` | 依赖已更新 | httpd 2.4.71 与 APR 1.7.6、APR-util 1.6.6 使用官方校验值。Debian 13 源码编译、服务和默认页面通过。 [Apache httpd](https://httpd.apache.org/download.cgi) [APR](https://apr.apache.org/) |
-| `backup_ftp` | 面板集成 | 移除未使用的 Paramiko 依赖。Debian 13 用插件上传测试备份到 Pure-FTPd，取回内容一致，并通过插件删除远程文件。定时调度和应用级恢复待验证。 |
+| `backup_ftp` | 功能修复 | 移除未使用的 Paramiko 依赖，修复路径备份首次运行缺目录及未传计划任务参数。Debian 13 通过计划任务使用的入口连续执行两次路径备份、验证远端保留一份，并下载压缩包恢复文件。网站和数据库备份恢复待验证。 |
 | `caddy` | 已是当前 | 2.11.9。Debian 13 通过安装、版本和 HTTP 监听检查。 [上游](https://github.com/caddyserver/caddy/releases) |
 | `clean` | 面板集成 | Debian 13 面板日志清理插件安装和初始化通过。 |
 | `cloudreve` | 已更新 | 新增 4.19.1 全新安装，识别 V3 数据并要求先迁移。Debian 13 安装、systemd 和站点配置 API 通过。 [官方迁移说明](https://docs.cloudreve.org/zh/maintain/upgrade-from-v3) |
@@ -37,7 +37,7 @@
 | `memcached` | 已是当前 | 1.6.45。Debian 13 通过插件安装和缓存读写。 [上游](https://www.memcached.org/downloads) |
 | `migration_api` | 面板集成 | Debian 13 已安装面板迁移 API；跨服务器迁移待验证。 |
 | `modsecurity` | 主分支新增 | 主分支集成 ModSecurity 3.0.17、NGINX connector 1.0.4 和 OWASP CRS 4.31.0。Debian 13 通过源码编译、动态模块装载、配置语法和普通 HTTP 请求。 [上游](https://github.com/owasp-modsecurity/ModSecurity/releases/tag/v3.0.17) |
-| `mongodb` | 已更新 | Debian x86_64 的 9.0 安装路径使用 9.0.8 与发行版匹配的官方包，同时更新 mongosh 2.14.3 和数据库工具 100.20.1。Debian 13 通过写入、查询、备份和恢复。其他发行版入口仍需验证。 [上游](https://www.mongodb.com/docs/manual/release-notes/9.0/) |
+| `mongodb` | 已更新 | Debian、Ubuntu 和 RHEL 系 9.0 安装入口共享官方归档及 SHA-256 校验，使用 9.0.8、mongosh 2.14.3 和数据库工具 100.20.1。Debian 13、Ubuntu 24.04、Rocky Linux 9 的 x86_64 容器通过写入、查询、备份和恢复，Rocky 9 另通过面板安装与 systemd 启动。其他平台运行待验证。 [上游](https://www.mongodb.com/try/download/community-edition/releases) |
 | `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/blog/2026/11/version-2-1-3-released/) |
 | `msonedrive` | 依赖已更新 | 更新 Requests-OAuthlib 2.0.0，Debian 13 生成并校验本地 OAuth 授权 URL。实际 OAuth 和上传需有效账户。 [上游](https://pypi.org/project/requests-oauthlib/) |
 | `mtproxy` | 已更新 | 固定 mtg 2.3.0 官方归档和摘要，修复空密钥生成，保留既有密钥。Debian 13 验证服务启动和 TCP 监听。 [上游](https://github.com/9seconds/mtg/releases) |
