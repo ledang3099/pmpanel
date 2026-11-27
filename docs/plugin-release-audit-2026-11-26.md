@@ -41,30 +41,30 @@
 | `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/blog/2026/11/version-2-1-3-released/) |
 | `msonedrive` | 依赖已更新 | 更新 Requests-OAuthlib 2.0.0，Debian 13 生成并校验本地 OAuth 授权 URL。实际 OAuth 和上传需有效账户。 [上游](https://pypi.org/project/requests-oauthlib/) |
 | `mtproxy` | 已更新 | 固定 mtg 2.3.0 官方归档和摘要，修复空密钥生成，保留既有密钥。Debian 13 验证服务启动和 TCP 监听。 [上游](https://github.com/9seconds/mtg/releases) |
-| `mysql` | 已更新 | 源码 8.4.13.1、9.7.4.1、26.10.0.1。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
-| `mysql-community` | 已更新 | 8.4.13.1、9.7.4.1、26.10.0.1 官方 Linux x86_64 归档均用隔离数据目录初始化，SQL 读写通过。核对 Linux aarch64 与 macOS arm64 下载地址。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
+| `mysql` | 已更新 | 源码 8.4.13.1、9.7.4.1、26.10.0.1。构建使用系统 OpenSSL，Debian/Ubuntu 补充 WebAuthn 依赖；初始化隔离宿主配置，并沿用面板设置的表名大小写。Debian 13 已通过 26.10 源码配置并进入编译，源码版的完整构建和服务测试待验证。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
+| `mysql-community` | 已更新 | 8.4.13.1、9.7.4.1、26.10.0.1 的 Linux x86_64 安装使用 Oracle 官方最小二进制归档。修复初始化误读宿主 MariaDB 配置。Debian 13 实际运行三个版本的面板安装入口，均通过服务启动、账号认证、SQL 写入与查询及服务重启。核对 Linux aarch64 与 macOS arm64 下载地址。 [上游补丁](https://dev.mysql.com/community/security/advisories/2026-11-24/) [二进制分发说明](https://dev.mysql.com/doc/refman/26.10/en/binary-installation.html) |
 | `nezha` | 已更新 | 新增固定版本 2.7.0。Debian 13 完成安装，面板首页返回 HTTP 200。 [上游](https://github.com/nezhahq/nezha/releases/tag/v2.7.0) |
 | `ollama` | 已更新 | 固定 0.40.18 官方安装器摘要，面板交由供应商 systemd 单元管理。Debian 13 验证启动和版本 API。 [上游](https://github.com/ollama/ollama/releases/tag/v0.40.18) |
-| `op_load_balance` | 面板集成 | Debian 13 已安装面板适配器，OpenResty 配置检查通过。流量分发待验证。 |
+| `op_load_balance` | 面板集成 | Debian 13 已安装面板适配器。使用插件生成的配置经 OpenResty 实测，轮询把 HTTP 请求分发给两个本地后端。主动健康检查待验证。 |
 | `op_waf` | 依赖已更新 | 面板自带的 OpenResty WAF 更新 LuaRocks 3.13.0、lsqlite3 0.9.7、libmaxminddb 1.14.1 和 GeoLite 数据。Debian 13 通过 LuaJIT SQLite 查询、GeoLite 查找和 OpenResty 启动。 [LuaRocks](https://github.com/luarocks/luarocks/releases/tag/v3.13.0) [MaxMind](https://github.com/maxmind/libmaxminddb/releases/tag/1.14.1) |
 | `openresty` | 安装修复 | 主线 1.31.9.1。修复升级后旧进程占用端口和动态模块未切换，使用明确的 PID 文件和 systemd 进程组。Debian 13 源码构建、ModSecurity 模块和重启前后 HTTP 通过。 [上游](https://github.com/openresty/openresty/releases) |
 | `pgadmin` | 已更新 | 固定 pgAdmin 4 9.19，改用官方非交互数据库初始化。Debian 13 通过应用初始化、systemd、Unix socket 健康接口和登录页面。 [上游](https://www.pgadmin.org/docs/pgadmin4/9.19/server_deployment.html) |
 | `php` | 已更新 | 8.2.36、8.3.37、8.4.28、8.5.13 已核对 SHA-256，新增 8.6.0。Debian 13 已编译五个系列的运行时并做执行检查。历史分支保留停止维护标识和现有回补。 [上游](https://www.php.net/supported-versions.php) |
-| `php-apt` | 已更新 | 使用 APT 候选包判断更新，新增 8.6，按上游配置 Sury 签名仓库，修正内置 OPcache 配置。Debian 13 通过安装、FPM 配置和 FastCGI 请求。 [软件源](https://packages.sury.org/php/pool/main/p/php8.6/) |
+| `php-apt` | 已更新 | 使用 APT 候选包判断更新，新增 8.6，按上游配置 Sury 签名仓库，修正内置 OPcache 配置。Debian 13 通过安装、已是最新版时的升级命令、FPM 配置及加载 OPcache 的 FastCGI 请求。 [软件源](https://packages.sury.org/php/pool/main/p/php8.6/) |
 | `php-guard` | 面板集成 | Debian 13 安装 PHP 管理适配器通过。 |
-| `php-yum` | 已更新 | 8.2–8.6 使用 Remi 仓库判断并执行升级，修正 Rocky 等发行版的仓库安装。Rocky Linux 9 已成功安装 PHP 8.6.0，PHP-FPM 配置检查和启动通过。 [软件源](https://rpms.remirepo.net/) |
+| `php-yum` | 已更新 | 8.2–8.6 使用 Remi 仓库判断并执行升级，修正 Rocky 等发行版的仓库安装。Rocky Linux 9 通过 PHP 8.6.0 安装、已是最新版时的升级命令、PHP-FPM 配置检查和启动。 [软件源](https://rpms.remirepo.net/) |
 | `phpldapadmin` | 已更新 | 新增 2.3.13 全新安装，独立站点根目录、PHP-FPM 8.4+ 与 LDAP 配置。Debian 13 完成 Composer 和前端构建，OpenResty 验证 HTTP 认证，与本地 OpenLDAP 联调打开登录页。1.x 配置迁移与登录后编辑待验证。 [上游](https://github.com/leenooks/phpLDAPadmin/releases/tag/2.3.13) |
 | `phpmyadmin` | 安装修复 | 5.2.3 为上游当前稳定版，校验发布归档。Debian 13 通过 OpenResty 和 PHP-FPM 登录页检查。 [上游](https://www.phpmyadmin.net/downloads/) |
 | `postgresql` | 已更新 | 新增 19.0 全新安装，15–18 补丁已与官网一致，14 保留停止维护标识。Debian 13 编译 19.0、初始化集群，并通过 SQL 建表、写入和查询。 [上游](https://www.postgresql.org/support/versioning/) |
 | `prometheus` | 已更新 | 新增 3.16.0，修正 Linux arm64 归档选择。Debian 13 完成安装，readiness 接口通过。 [上游](https://github.com/prometheus/prometheus/releases/tag/v3.16.0) |
-| `pureftp` | 已更新 | 1.0.54，支持从旧版发起升级并保留 PureDB 配置。Debian 13 编译和服务启动通过，虚拟用户完成登录、上传、下载和删除。现有账户迁移待验证。 [上游](https://github.com/jedisct1/pure-ftpd/releases/tag/1.0.54) |
+| `pureftp` | 已更新 | 1.0.54。Debian 13 编译和服务启动通过。当 1.0.54 已安装且已有虚拟用户时执行升级命令，账号文件和 PureDB 摘要保持一致，原账号仍可登录、上传、下载和删除。跨版本升级待验证。 [上游](https://github.com/jedisct1/pure-ftpd/releases/tag/1.0.54) |
 | `rapira` | 已更新 | 0.9.2 分别嵌入 PHP 8.4.28 与 8.5.13。Debian 13 两个系列源码构建、并行启用及 HTTP 请求通过，8.4 的 curl 扩展编译和加载通过。原有安装需备份并单独验证扩展迁移。 [上游](https://github.com/rapira-rs/rapira/releases/tag/v0.9.2) |
 | `redis` | 已更新 | 新增 8.12.0，校验源码及编译结果并保留现有配置。Debian 13 通过源码编译、PING 和键值读写。 [上游](https://github.com/redis/redis/releases/tag/8.12.0) |
 | `rsyncd` | 跳过 | 由维护者在主分支处理。 |
 | `simpleping` | 已更新 | 安装器下载 2.0，修正目录显示。Debian 13 安装及 systemd 启动通过。 [上游](https://github.com/midoks/simpleping/releases) |
 | `sphinx` | 已更新 | 新增 3.9.1，验证官方二进制摘要并检查 x86_64 AVX2。Debian 13 验证服务及 SphinxQL 写入和搜索。 [上游](https://sphinxsearch.com/downloads/) |
 | `supervisor` | 已更新 | 固定 4.3.0，修复 systemd 在 Debian 解析程序路径失败。Debian 13 验证插件安装、启动及管理测试任务。 [上游](https://pypi.org/project/supervisor/) |
-| `swap` | 面板集成 | 系统 swap 配置，无独立应用版本。 |
+| `swap` | 面板集成 | 系统 swap 配置，无独立应用版本。通过状态读取和测试文件的 `mkswap` 初始化。启用和停用待验证。 |
 | `sys-opt` | 面板集成 | Debian 13 已安装系统参数插件。容器未修改宿主内核参数。 |
 | `system_safe` | 安装修复 | 使用面板 Python 环境加载 psutil。Debian 13 服务正常启动；文件属性锁定待验证。 |
 | `tamper_proof_py` | 兼容修复 | 为 Python 3.12+ 安装 asyncore 兼容包。Debian 13 已确认 pyinotify 能加载、初始化，并启动服务。 [上游](https://pypi.org/project/pyasyncore/) |

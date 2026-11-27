@@ -521,16 +521,19 @@ def initMysql8Data():
     datadir = getDataDir()
     if not os.path.exists(datadir + '/mysql'):
         serverdir = getServerDir()
-        user = pGetDbUser()
-        # cmd = 'cd ' + serverdir + ' && ./bin/mysqld --basedir=' + serverdir + ' --datadir=' + \
-        #     datadir + ' --initialize'
-
-        cmd = 'cd ' + serverdir + ' && ./bin/mysqld --basedir=' + serverdir + ' --datadir=' + \
-            datadir + ' --initialize-insecure'
-
-        # print(cmd)
-        data = mw.execShell(cmd)
-        # print(data)
+        command = [serverdir + '/bin/mysqld', '--no-defaults', '--basedir=' + serverdir,
+                   '--datadir=' + datadir, '--initialize-insecure']
+        # MySQL saves this setting at initialization and rejects a later mismatch.
+        table_names = re.search(r'^\s*lower[-_]case[-_]table[-_]names\s*=\s*([012])\b',
+                                mw.readFile(getConf()), re.MULTILINE)
+        if table_names:
+            command.append('--lower-case-table-names=' + table_names.group(1))
+        result = subprocess.run(command, cwd=serverdir, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True)
+        if result.returncode:
+            raise SystemExit('MySQL initialization failed:\n' + result.stdout)
+        if not mw.isAppleSystem():
+            subprocess.run(['chown', '-R', 'mysql:mysql', datadir], check=True)
         return False
     return True
 

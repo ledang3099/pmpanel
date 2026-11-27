@@ -63,6 +63,11 @@ bash -x "$curPath/versions/$2/install.sh" "$1" || exit $?
 
 if [[ "${action}" = "install" ]] && [[ -d $serverPath/mysql ]]; then
 	#初始化 
-	cd ${rootPath} && python3 plugins/mysql/index.py start ${type}
-	cd ${rootPath} && python3 plugins/mysql/index.py initd_install ${type}
+	cd "$rootPath" || exit 1
+	python3 plugins/mysql/index.py start "$type" || exit $?
+	if [ "$(python3 plugins/mysql/index.py status "$type")" != 'start' ]; then
+		echo "MySQL failed to start. Check the MySQL error log." >&2
+		exit 1
+	fi
+	python3 plugins/mysql/index.py initd_install "$type"
 fi

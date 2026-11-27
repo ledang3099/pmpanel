@@ -149,11 +149,11 @@ fi
 
 
 if [ "${action}" = "install" ];then
-	#初始化
-
-	if [ "$?" != "0" ];then
-		exit $?
+	cd "$rootPath" || exit 1
+	python3 "$rootPath/plugins/mysql-community/index.py" start "$type" || exit $?
+	if [ "$(python3 "$rootPath/plugins/mysql-community/index.py" status "$type")" != 'start' ]; then
+		echo "MySQL Community failed to start. Check the MySQL error log." >&2
+		exit 1
 	fi
-	cd ${rootPath} && python3 ${rootPath}/plugins/mysql-community/index.py start ${type}
-	cd ${rootPath} && python3 ${rootPath}/plugins/mysql-community/index.py initd_install ${type}
+	python3 "$rootPath/plugins/mysql-community/index.py" initd_install "$type"
 fi
