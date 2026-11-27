@@ -9,7 +9,7 @@
 | `acme_pandominassl_apply` | 面板集成 | 对接 acme.sh。Debian 13 已安装面板适配器；公网 DNS 验证和签发需要域名及供应商凭据。 [上游](https://github.com/acmesh-official/acme.sh/releases) |
 | `alist` | 已更新 | 3.66.0，按版本缓存并验证发布摘要，取消固定管理员密码初始化。Debian 13 安装、systemd 和 HTTP 探活通过。 [上游](https://github.com/alist-org/alist/releases/tag/v3.66.0) |
 | `apache` | 依赖已更新 | httpd 2.4.71 与 APR 1.7.6、APR-util 1.6.6 使用官方校验值。Debian 13 源码编译、服务和默认页面通过。 [Apache httpd](https://httpd.apache.org/download.cgi) [APR](https://apr.apache.org/) |
-| `backup_ftp` | 面板集成 | Debian 13 已安装面板 FTP 备份任务；另有 Pure-FTPd 文件读写测试。备份调度与恢复待验证。 |
+| `backup_ftp` | 面板集成 | 移除未使用的 Paramiko 依赖。Debian 13 用插件上传测试备份到 Pure-FTPd，取回内容一致，并通过插件删除远程文件。定时调度和应用级恢复待验证。 |
 | `caddy` | 已是当前 | 2.11.9。Debian 13 通过安装、版本和 HTTP 监听检查。 [上游](https://github.com/caddyserver/caddy/releases) |
 | `clean` | 面板集成 | Debian 13 面板日志清理插件安装和初始化通过。 |
 | `cloudreve` | 已更新 | 新增 4.19.1 全新安装，识别 V3 数据并要求先迁移。Debian 13 安装、systemd 和站点配置 API 通过。 [官方迁移说明](https://docs.cloudreve.org/zh/maintain/upgrade-from-v3) |
@@ -41,8 +41,8 @@
 | `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/blog/2026/11/version-2-1-3-released/) |
 | `msonedrive` | 依赖已更新 | 更新 Requests-OAuthlib 2.0.0，Debian 13 生成并校验本地 OAuth 授权 URL。实际 OAuth 和上传需有效账户。 [上游](https://pypi.org/project/requests-oauthlib/) |
 | `mtproxy` | 已更新 | 固定 mtg 2.3.0 官方归档和摘要，修复空密钥生成，保留既有密钥。Debian 13 验证服务启动和 TCP 监听。 [上游](https://github.com/9seconds/mtg/releases) |
-| `mysql` | 已更新 | 源码 8.4.13.1、9.7.4.1、26.10.0.1。构建使用系统 OpenSSL，Debian/Ubuntu 补充 WebAuthn 依赖；初始化隔离宿主配置，并沿用面板设置的表名大小写。Debian 13 已通过 26.10 源码配置并进入编译，源码版的完整构建和服务测试待验证。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
-| `mysql-community` | 已更新 | 8.4.13.1、9.7.4.1、26.10.0.1 的 Linux x86_64 安装使用 Oracle 官方最小二进制归档。修复初始化误读宿主 MariaDB 配置。Debian 13 实际运行三个版本的面板安装入口，均通过服务启动、账号认证、SQL 写入与查询及服务重启。核对 Linux aarch64 与 macOS arm64 下载地址。 [上游补丁](https://dev.mysql.com/community/security/advisories/2026-11-24/) [二进制分发说明](https://dev.mysql.com/doc/refman/26.10/en/binary-installation.html) |
+| `mysql` | 已更新 | 源码 8.4.13.1、9.7.4.1、26.10.0.1。构建使用系统 OpenSSL，Debian/Ubuntu 补充 WebAuthn 依赖；初始化隔离宿主配置，并沿用面板设置的表名大小写。Debian 13 已通过 26.10 源码配置并进入编译，使用 Oracle 官方 26.10 二进制验证了面板初始化函数和模板。源码完整构建待验证。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
+| `mysql-community` | 已更新 | 8.4.13.1、9.7.4.1、26.10.0.1 的 Linux x86_64 安装使用 Oracle 官方最小二进制归档。修复初始化误读宿主 MariaDB 配置。Debian 13 实际运行三个版本的面板安装入口，均通过服务启动、账号认证、SQL 写入与查询及服务重启。26.10 测试停服后重新安装，运行中拒绝覆盖二进制。核对 Linux aarch64 与 macOS arm64 下载地址。 [上游补丁](https://dev.mysql.com/community/security/advisories/2026-11-24/) [二进制分发说明](https://dev.mysql.com/doc/refman/26.10/en/binary-installation.html) |
 | `nezha` | 已更新 | 新增固定版本 2.7.0。Debian 13 完成安装，面板首页返回 HTTP 200。 [上游](https://github.com/nezhahq/nezha/releases/tag/v2.7.0) |
 | `ollama` | 已更新 | 固定 0.40.18 官方安装器摘要，面板交由供应商 systemd 单元管理。Debian 13 验证启动和版本 API。 [上游](https://github.com/ollama/ollama/releases/tag/v0.40.18) |
 | `op_load_balance` | 面板集成 | Debian 13 已安装面板适配器。使用插件生成的配置经 OpenResty 实测，轮询把 HTTP 请求分发给两个本地后端。主动健康检查待验证。 |
@@ -72,7 +72,7 @@
 | `tgbot` | 已更新 | 固定 PyTelegramBotAPI 4.37.1，并修复 Debian 的启动脚本解释器。通过两条后台进程启动，真实机器人发信需要有效令牌。 [上游](https://pypi.org/project/pyTelegramBotAPI/) |
 | `valkey` | 已更新 | 新增 9.2.1，校验源码和编译结果，保留现有配置。Debian 13 插件编译、安装、systemd 启动和认证读写通过。 [上游](https://github.com/valkey-io/valkey/releases/tag/9.2.1) |
 | `varnish` | 软件源 | 安装发行版 Varnish 包。Debian 13 通过安装、systemd 和本地代理访问。 [上游](https://varnish-cache.org/releases/) |
-| `webhook` | 安装修复 | 缺少 pm 命令时安装仍可完成。Debian 13 安装通过，实际回调执行待验证。 |
+| `webhook` | 安装修复 | 缺少 pm 命令时安装仍可完成。Debian 13 验证安装和面板 HTTP 回调，测试脚本按预期输出且调用计数增加一次。 |
 | `webssh` | 功能修复 | 修复编辑最后一条常用命令时写入重复项。Debian 13 通过安装和同名命令更新测试；浏览器终端连接待验证。 |
 | `webstats` | 依赖已更新 | 更新 LuaRocks、lsqlite3 和 GeoLite City 数据。Debian 13 通过 OpenResty 采集测试请求并写入 SQLite 日志与各项统计。 [lsqlite3](https://luarocks.org/modules/javierguerragiraldez/lsqlite3) |
 | `xhprof` | 已更新 | 面板报告页与扩展对齐 PECL 2.3.10，使用 PHP 提供的扩展目录。Debian 13 上分别用 PHP 8.4.28 和 8.6.0 编译、加载扩展并生成分析数据。 [上游](https://pecl.php.net/package/xhprof) |

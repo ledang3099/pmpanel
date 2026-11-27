@@ -280,8 +280,17 @@ def process_status():
     return 'start'
 
 def status(version=''):
-    pid = getPidFile()
-    if not os.path.exists(pid):
+    if mw.isSupportSystemctl():
+        result = subprocess.run(['systemctl', 'is-active', '--quiet', getPluginName()])
+        return 'start' if result.returncode == 0 else 'stop'
+
+    try:
+        with open(getPidFile()) as pid_file:
+            pid = int(pid_file.read().strip())
+        if pid <= 0:
+            return 'stop'
+        os.kill(pid, 0)
+    except (OSError, ValueError):
         return 'stop'
     return 'start'
 

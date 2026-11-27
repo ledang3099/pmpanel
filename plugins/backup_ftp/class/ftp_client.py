@@ -11,7 +11,6 @@ import time
 import re
 import json
 
-import paramiko
 import ftplib
 
 web_dir = os.getcwd() + "/web"

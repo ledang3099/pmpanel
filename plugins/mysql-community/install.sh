@@ -122,6 +122,14 @@ if [ ! -d $curPath/versions/$2 ];then
 	exit 0
 fi
 
+if [ "$action" = "install" ] && [ -f "$serverPath/mysql-community/etc/my.cnf" ]; then
+	current_status=$(cd "$rootPath" && python3 plugins/mysql-community/index.py status "$type") || exit $?
+	if [ "$current_status" = "start" ]; then
+		echo "Stop MySQL Community before reinstalling its binaries." >&2
+		exit 1
+	fi
+fi
+
 if [ "${action}" = "uninstall" ];then
 	
 	cd ${rootPath} && python3 ${rootPath}/plugins/mysql-community/index.py stop ${type}
