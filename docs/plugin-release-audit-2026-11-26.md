@@ -57,7 +57,7 @@
 | `phpmyadmin` | 安装修复 | 5.2.3 为上游当前稳定版，校验发布归档。Debian 13 通过 OpenResty 和 PHP-FPM 登录页检查。 [上游](https://www.phpmyadmin.net/downloads/) |
 | `postgresql` | 已更新 | 新增 19.0 全新安装，15–18 补丁已与官网一致，14 保留停止维护标识。Debian 13 编译 19.0、初始化集群，并通过 SQL 建表、写入和查询。 [上游](https://www.postgresql.org/support/versioning/) |
 | `prometheus` | 已更新 | 新增 3.16.0，修正 Linux arm64 归档选择。Debian 13 完成安装，readiness 接口通过。 [上游](https://github.com/prometheus/prometheus/releases/tag/v3.16.0) |
-| `pureftp` | 已更新 | 1.0.54。Debian 13 编译和服务启动通过。当 1.0.54 已安装且已有虚拟用户时执行升级命令，账号文件和 PureDB 摘要保持一致，原账号仍可登录、上传、下载和删除。跨版本升级待验证。 [上游](https://github.com/jedisct1/pure-ftpd/releases/tag/1.0.54) |
+| `pureftp` | 已更新 | Debian 13 验证源码编译和服务启动、重复执行升级命令，以及用面板命令从原目录版本 1.0.49 升到 1.0.54。两次升级均保留账号文件和 PureDB，跨版本升级后可用原虚拟账号登录、下载原文件、上传和删除。 [上游](https://github.com/jedisct1/pure-ftpd/releases/tag/1.0.54) |
 | `rapira` | 已更新 | 0.9.2 分别嵌入 PHP 8.4.28 与 8.5.13。Debian 13 两个系列源码构建、并行启用及 HTTP 请求通过，8.4 的 curl 扩展编译和加载通过。原有安装需备份并单独验证扩展迁移。 [上游](https://github.com/rapira-rs/rapira/releases/tag/v0.9.2) |
 | `redis` | 已更新 | 新增 8.12.0，校验源码及编译结果并保留现有配置。Debian 13 通过源码编译、PING 和键值读写。 [上游](https://github.com/redis/redis/releases/tag/8.12.0) |
 | `rsyncd` | 跳过 | 由维护者在主分支处理。 |
