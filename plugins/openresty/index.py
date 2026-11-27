@@ -217,7 +217,7 @@ def confReplace():
     mw.execShell('cp -rf ' + src_resty_dir + ' ' + dst_resty_dir)
 
 
-def initDreplace():
+def initDreplace(register_systemd=True):
 
     file_tpl = getInitDTpl()
     service_path = mw.getServerDir()
@@ -231,8 +231,8 @@ def initDreplace():
 
     # init.d
     file_bin = initD_path + '/' + getPluginName()
-    if not os.path.exists(initD_path):
-        os.mkdir(initD_path)
+    if not os.path.exists(file_bin):
+        os.makedirs(initD_path, exist_ok=True)
 
         # initd replace
         content = mw.readFile(file_tpl)
@@ -264,6 +264,9 @@ def initDreplace():
         mw.execShell('echo %s|sudo -S %s' % (sudoPwd, cmd_mod))
         cmd_s = 'chmod u+s ' + ng_exe_bin
         mw.execShell('echo %s|sudo -S %s' % (sudoPwd, cmd_s))
+
+    if not register_systemd:
+        return file_bin
 
     # systemd
     # /usr/lib/systemd/system
@@ -364,6 +367,48 @@ def stop():
 
 def restart():
     return restyOp_restart()
+
+
+def hasSystemdUnit():
+    if not sys.platform.startswith('linux'):
+        return False
+    try:
+        result = subprocess.run(
+            ['systemctl', 'show', '--property=LoadState', '--value', 'openresty.service'],
+            capture_output=True, text=True,
+        )
+    except FileNotFoundError:
+        return False
+    return result.returncode == 0 and result.stdout.strip() == 'loaded'
+
+
+def panelUpgradeAction():
+    # The legacy init script searches for other nginx processes if its PID file is missing.
+    try:
+        with open(getServerDir() + '/nginx/logs/nginx.pid') as pid_file:
+            pid = int(pid_file.read().strip())
+        if pid > 1:
+            os.kill(pid, 0)
+            return 'restart'
+    except (FileNotFoundError, ProcessLookupError, ValueError):
+        pass
+    return 'start'
+
+
+def restartForUpgrade():
+    use_systemd = hasSystemdUnit()
+    init_file = initDreplace(register_systemd=use_systemd)
+    commands = [[getServerDir() + '/bin/openresty', '-t']]
+    if use_systemd:
+        commands.extend([['systemctl', 'restart', 'openresty'], ['systemctl', 'enable', 'openresty']])
+    else:
+        commands.append([init_file, panelUpgradeAction()])
+
+    for command in commands:
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode:
+            return (result.stderr or result.stdout).strip() or f'{command[0]} failed ({result.returncode})'
+    return 'ok'
 
 
 def reload():
@@ -702,6 +747,8 @@ if __name__ == "__main__":
         print(stop())
     elif func == 'restart':
         print(restart())
+    elif func == 'restart_for_upgrade':
+        print(restartForUpgrade())
     elif func == 'reload':
         print(reload())
     elif func == 'initd_status':

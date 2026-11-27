@@ -25,7 +25,6 @@ rootPath=$(dirname "$curPath")
 rootPath=$(dirname "$rootPath")
 serverPath=$(dirname "$rootPath")
 
-sysName=`uname`
 action=$1
 type=$2
 
@@ -54,14 +53,8 @@ if [ "${action}" = "upgrade" ];then
 
 	#初始化 
     cd "$rootPath" || exit 1
-    result=$(python3 plugins/openresty/index.py start) || exit 1
+    result=$(python3 plugins/openresty/index.py restart_for_upgrade) || exit 1
     if [ "$result" != ok ]; then printf '%s\n' "$result" >&2; exit 1; fi
-    if [ "$sysName" = Linux ]; then
-        systemctl restart openresty && systemctl enable openresty || exit 1
-    else
-        result=$(python3 plugins/openresty/index.py restart) || exit 1
-        if [ "$result" != ok ]; then printf '%s\n' "$result" >&2; exit 1; fi
-    fi
     printf '%s\n' "$VERSION" > "$serverPath/openresty/version.pl" || exit 1
     exit 0
 fi
