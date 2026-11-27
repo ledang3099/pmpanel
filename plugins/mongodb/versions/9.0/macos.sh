@@ -1,102 +1,63 @@
-#!/bin/bash
-PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin:/opt/homebrew/bin
-export PATH
+#!/usr/bin/env bash
 
-# 安全下载:先写入临时文件,成功后原子重命名,避免下载失败残留不完整文件导致重试被跳过
-download() {
-    local url="$1"
-    local out="$2"
-    if [ -f "$out" ]; then
-        return 0
+set -e
+
+panel=$(cd "$(dirname "$0")/../../../.." && pwd)
+server=$(dirname "$panel")
+sources="$server/source/mongodb"
+target="$server/mongodb/bin"
+
+case "$(uname -m)" in
+    arm64)
+        arch=arm64
+        shell_arch=arm64
+        server_sha=8e057ec463a52cfdea4b1b8f5d5108a622d9116dfff76332854b3627db772833
+        shell_sha=d1a226a2fa1eb6c68c7203aea933d2283b1430481fbd68e08967e51feb596ff5
+        tools_sha=2d49b4bd58477ce7ffbad2c4d1a686f2befa3ce27e8c7cf8fcd2869d8f73063a
+        ;;
+    x86_64)
+        arch=x86_64
+        shell_arch=x64
+        server_sha=8e8d7d147ff5cca0ece5acd2097b2ac21cbe096df75a737f756cf4bf99a71d4c
+        shell_sha=06891d5c7d8a1d24845badab5e4398e63022a12bad5863b25e16ea959d67b2a3
+        tools_sha=de677258cb2dd2f8dfce714021dcf5ebdd812b07f391118d3af5200370d2f67c
+        ;;
+    *) exit 1 ;;
+esac
+
+if [ -x "$target/mongod" ] && ! "$target/mongod" --version | grep -q '^db version v9\.0\.'; then
+    echo 'MongoDB 9.0 requires a supported major-version migration before replacing the existing server.' >&2
+    exit 1
+fi
+
+archive="mongodb-macos-$arch-9.0.8.tgz"
+shell="mongosh-2.14.3-darwin-$shell_arch.zip"
+tools="mongodb-database-tools-macos-$arch-100.20.1.zip"
+
+source "$panel/scripts/tools/verified-download.sh"
+mkdir -p "$sources"
+verified_download "https://fastdl.mongodb.org/osx/$archive" "$sources/$archive" "$server_sha"
+verified_download "https://downloads.mongodb.com/compass/$shell" "$sources/$shell" "$shell_sha"
+verified_download "https://fastdl.mongodb.org/tools/db/$tools" "$sources/$tools" "$tools_sha"
+
+stage=$(mktemp -d "$sources/install.XXXXXX")
+trap 'rm -rf -- "$stage"' EXIT
+mkdir "$stage/server"
+tar -xzf "$sources/$archive" --strip-components=1 -C "$stage/server"
+unzip -q "$sources/$shell" -d "$stage"
+unzip -q "$sources/$tools" -d "$stage"
+server_bin="$stage/server/bin"
+shell_bin="$stage/${shell%.zip}/bin"
+tools_bin="$stage/${tools%.zip}/bin"
+"$server_bin/mongod" --version >/dev/null
+"$shell_bin/mongosh" --version >/dev/null
+"$tools_bin/mongodump" --version >/dev/null
+
+mkdir -p "$target"
+for binary in "$server_bin/"* "$shell_bin/"* "$tools_bin/"*; do
+    candidate=$(mktemp "$target/.install.XXXXXX")
+    if ! install -m 0755 "$binary" "$candidate" || ! mv -f -- "$candidate" "$target/${binary##*/}"; then
+        rm -f -- "$candidate"
+        exit 1
     fi
-    local tmp="${out}.downloading"
-    rm -f "$tmp"
-    if command -v wget >/dev/null 2>&1; then
-        wget --no-check-certificate -O "$tmp" "$url"
-    else
-        curl -fLk -o "$tmp" "$url"
-    fi
-    if [ $? -ne 0 ] || [ ! -s "$tmp" ]; then
-        rm -f "$tmp"
-        echo "download failed: $url"
-        return 1
-    fi
-    mv -f "$tmp" "$out"
-    echo "download $out successful!"
-    return 0
-}
-
-
-curPath=`pwd`
-rootPath=$(dirname "$curPath")
-rootPath=$(dirname "$rootPath")
-rootPath=$(dirname "$rootPath")
-serverPath=$(dirname "$rootPath")
-SYS_ARCH=`arch`
-
-VERSION=9.0.8
-MG_DIR=$serverPath/source/mongodb
-mkdir -p $MG_DIR
-
-# https://fastdl.mongodb.org/osx/mongodb-macos-arm64-8.0.3.tgz
-FILE_NAME=mongodb-macos-x86_64-${VERSION}
-if [ "arm64" = "${SYS_ARCH}" ];then
-	FILE_NAME=mongodb-macos-arm64-${VERSION}
-fi
-FILE_NAME_TGZ=${FILE_NAME}.tgz
-
-download "https://fastdl.mongodb.org/osx/${FILE_NAME_TGZ}" "$MG_DIR/${FILE_NAME_TGZ}"
-
-if [ ! -d $MG_DIR/${FILE_NAME} ];then 
-	cd $MG_DIR && tar -zxvf ${FILE_NAME_TGZ}
-fi
-
-if [ ! -f $serverPath/mongodb/bin/mongod ];then
-	mkdir -p $serverPath/mongodb
-	cd $MG_DIR/${FILE_NAME} && cp -rf ./bin $serverPath/mongodb
-fi
-
-# https://downloads.mongodb.com/compass/mongosh-2.2.5-darwin-x64.zip
-# https://downloads.mongodb.com/compass/mongosh-2.2.5-darwin-arm64.zip
-#--------------- mongosh tool install ------------------ #
-TOOL_VERSION=2.2.5
-TOOL_FILE_NAME=mongosh-${TOOL_VERSION}-darwin-x64
-if [ "aarch64" = ${SYS_ARCH} ];then
-	TOOL_FILE_NAME=mongosh-${TOOL_VERSION}-darwin-arm64
-fi
-
-if [ "arm64" = ${SYS_ARCH} ];then
-	TOOL_FILE_NAME=mongosh-${TOOL_VERSION}-darwin-arm64
-fi
-TOOL_FILE_NAME_TGZ=${TOOL_FILE_NAME}.zip
-download "https://downloads.mongodb.com/compass/${TOOL_FILE_NAME_TGZ}" "$MG_DIR/${TOOL_FILE_NAME_TGZ}"
-
-if [ ! -d $MG_DIR/${TOOL_FILE_NAME_TGZ} ];then 
-	cd $MG_DIR && unzip ${TOOL_FILE_NAME_TGZ}
-fi
-
-cd ${MG_DIR}/${TOOL_FILE_NAME} && cp -rf ./bin $serverPath/mongodb
-cd ${MG_DIR} && rm -rf ${MG_DIR}/${TOOL_FILE_NAME}
-
-
-
-# https://fastdl.mongodb.org/tools/db/mongodb-database-tools-macos-arm64-100.9.4.zip
-TOOL_VERSION=100.9.4
-TOOL_FILE_NAME=mongodb-database-tools-macos-x86_64-${TOOL_VERSION}
-if [ "aarch64" = ${SYS_ARCH} ];then
-	TOOL_FILE_NAME=mongodb-database-tools-macos-arm64-${TOOL_VERSION}
-fi
-
-if [ "arm64" = ${SYS_ARCH} ];then
-	TOOL_FILE_NAME=mongodb-database-tools-macos-arm64-${TOOL_VERSION}
-fi
-
-TOOL_FILE_NAME_TGZ=${TOOL_FILE_NAME}.zip
-download "https://fastdl.mongodb.org/tools/db/${TOOL_FILE_NAME_TGZ}" "$MG_DIR/${TOOL_FILE_NAME_TGZ}"
-
-if [ ! -d $MG_DIR/${TOOL_FILE_NAME_TGZ} ];then 
-	cd $MG_DIR && unzip ${TOOL_FILE_NAME_TGZ}
-fi
-
-cd ${MG_DIR}/${TOOL_FILE_NAME} && cp -rf ./bin $serverPath/mongodb
-cd ${MG_DIR} && rm -rf ${MG_DIR}/${TOOL_FILE_NAME}
+done

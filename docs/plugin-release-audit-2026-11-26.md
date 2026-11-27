@@ -37,7 +37,7 @@
 | `memcached` | 已是当前 | 1.6.45。Debian 13 通过插件安装和缓存读写。 [上游](https://www.memcached.org/downloads) |
 | `migration_api` | 功能修复 | 修复迁移进程启动、分片重试、网站解压完成确认及 SQL 导入错误处理。两个 Debian 13 面板通过真实 API 迁移静态站点和源码安装的 MySQL 26.10。目标 OpenResty 能读取迁移后的文件和符号链接。目标 MySQL 使用迁移后的普通账户读取中文测试数据，自定义导入目录得到清理，源端 MySQL 配置未写入临时密码。双方需使用支持同步解压的面板版本。 |
 | `modsecurity` | 主分支新增 | 主分支集成 ModSecurity 3.0.17、NGINX connector 1.0.4 和 OWASP CRS 4.31.0。Debian 13 通过源码编译、动态模块装载、配置语法和普通 HTTP 请求。 [上游](https://github.com/owasp-modsecurity/ModSecurity/releases/tag/v3.0.17) |
-| `mongodb` | 已更新 | Debian、Ubuntu 和 RHEL 系 9.0 安装入口共享官方归档及 SHA-256 校验，使用 9.0.8、mongosh 2.14.3 和数据库工具 100.20.1。Debian 13、Ubuntu 24.04、Rocky Linux 9 的 x86_64 容器通过写入、查询、备份和恢复，Rocky 9 另通过面板安装与 systemd 启动。其他平台运行待验证。 [上游](https://www.mongodb.com/try/download/community-edition/releases) |
+| `mongodb` | 已更新 | Debian、Ubuntu 和 RHEL 系 9.0 安装入口共享官方归档及 SHA-256 校验，使用 9.0.8、mongosh 2.14.3 和数据库工具 100.20.1。Debian 13、Ubuntu 24.04、Rocky Linux 9 的 x86_64 容器通过写入、查询、备份和恢复，Rocky 9 另通过面板安装与 systemd 启动。macOS 对齐这三个版本并校验归档。修复官方压缩包内部目录名不同、MongoDB 9.0 不支持后台 fork，以及启动失败却更新版本记录的问题。Apple Silicon 原生和 Rosetta 下的 x86_64 均通过面板安装、启停、重启及读写和备份还原。Apple Silicon 验证错误配置保留原版本记录。其余 Linux 架构和发行版待验证。 [上游](https://www.mongodb.com/try/download/community-edition/releases) |
 | `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/download/) |
 | `msonedrive` | 依赖已更新 | 更新 Requests-OAuthlib 2.0.0，Debian 13 生成并校验本地 OAuth 授权 URL。实际 OAuth 和上传需有效账户。 [上游](https://pypi.org/project/requests-oauthlib/) |
 | `mtproxy` | 已更新 | 固定 mtg 2.3.0 官方归档和摘要，修复空密钥生成，保留既有密钥。Debian 13 验证服务启动和 TCP 监听。 [上游](https://github.com/9seconds/mtg/releases) |

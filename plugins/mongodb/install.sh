@@ -33,10 +33,13 @@ VERSION=$2
 sysName=`uname`
 echo "use system: ${sysName}"
 
-OSNAME=`bash ${rootPath}/scripts/getos.sh`
-
-if [ "" = "$OSNAME" ];then
-	OSNAME=`cat ${rootPath}/data/osname.pl`
+if [ "$sysName" = Darwin ]; then
+    OSNAME=macos
+else
+    OSNAME=$(bash "$rootPath/scripts/getos.sh")
+    if [ -z "$OSNAME" ]; then
+        OSNAME=$(cat "$rootPath/data/osname.pl")
+    fi
 fi
 
 if [ "macos" != "$OSNAME" ];then
@@ -75,18 +78,23 @@ Install_app()
 	fi
 
 	if [ "$?" = "0" ];then
-		mkdir -p $serverPath/mongodb
-		echo "${VERSION}" > $serverPath/mongodb/version.pl
-		echo 'mongodb安装完成'
-
-		#初始化 
+		mkdir -p "$serverPath/mongodb" || return 1
 		cd "$rootPath" || return 1
+        local result
         if [ "$action" = upgrade ]; then
-            python3 plugins/mongodb/index.py restart || return 1
+            result=$(PMPANEL_MONGODB_INSTALL_VERSION="$VERSION" python3 plugins/mongodb/index.py restart) || return 1
         else
-            python3 plugins/mongodb/index.py start || return 1
+            result=$(PMPANEL_MONGODB_INSTALL_VERSION="$VERSION" python3 plugins/mongodb/index.py start) || return 1
         fi
-		cd ${rootPath} && python3 ${rootPath}/plugins/mongodb/index.py initd_install
+        if [ "$result" != ok ]; then
+            printf '%s\n' "$result" >&2
+            return 1
+        fi
+        if [ "$OSNAME" != macos ]; then
+            python3 plugins/mongodb/index.py initd_install || return 1
+        fi
+        printf '%s\n' "$VERSION" > "$serverPath/mongodb/version.pl" || return 1
+        echo 'mongodb安装完成'
 	fi
 
 	if [ "${VERSION}" = "3.0" ];then
