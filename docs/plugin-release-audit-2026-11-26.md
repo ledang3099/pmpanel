@@ -50,9 +50,9 @@
 | `openresty` | 安装修复 | 主线 1.31.9.1。修复升级后旧进程占用端口和动态模块未切换，使用明确的 PID 文件和 systemd 进程组。Debian 13 源码构建、ModSecurity 模块和重启前后 HTTP 通过。 [上游](https://github.com/openresty/openresty/releases) |
 | `pgadmin` | 已更新 | 固定 pgAdmin 4 9.19，改用官方非交互数据库初始化。Debian 13 通过应用初始化、systemd、Unix socket 健康接口和登录页面。 [上游](https://www.pgadmin.org/docs/pgadmin4/9.19/server_deployment.html) |
 | `php` | 已更新 | 8.2.36、8.3.37、8.4.28、8.5.13 已核对 SHA-256，新增 8.6.0。Debian 13 已编译五个系列的运行时并做执行检查。历史分支保留停止维护标识和现有回补。 [上游](https://www.php.net/supported-versions.php) |
-| `php-apt` | 已更新 | 使用 APT 候选包判断更新，新增 8.6，按上游配置 Sury 签名仓库，修正内置 OPcache 配置。Debian 13 通过安装、已是最新版时的升级命令、FPM 配置及加载 OPcache 的 FastCGI 请求。 [软件源](https://packages.sury.org/php/pool/main/p/php8.6/) |
+| `php-apt` | 已更新 | 使用 APT 候选包判断更新，新增 8.6，配置 Sury 签名仓库并修正内置 OPcache。安装通用扩展时延后面板触发的逐项重启。Debian 13 验证 8.2–8.6 的安装、已是最新版时的升级命令和 FastCGI 版本响应，并验证 8.6 加载 OPcache。 [软件源](https://packages.sury.org/php/pool/main/p/php8.6/) |
 | `php-guard` | 面板集成 | Debian 13 安装 PHP 管理适配器通过。 |
-| `php-yum` | 已更新 | 8.2–8.6 使用 Remi 仓库判断并执行升级，修正 Rocky 等发行版的仓库安装。Rocky Linux 9 通过五个系列的安装和已是最新版时的升级命令，8.2–8.5 验证真实 FastCGI 响应，8.6 验证 FPM 配置和启动。 [软件源](https://rpms.remirepo.net/) |
+| `php-yum` | 已更新 | 8.2–8.6 使用 Remi 仓库判断并执行升级，修正 Rocky 等发行版的仓库安装。Rocky Linux 9 通过五个系列的安装、已是最新版时的升级命令和 FastCGI 版本响应。 [软件源](https://rpms.remirepo.net/) |
 | `phpldapadmin` | 已更新 | 新增 2.3.13 全新安装，独立站点根目录、PHP-FPM 8.4+ 与 LDAP 配置。Debian 13 完成 Composer 和前端构建，OpenResty 验证 HTTP 认证，与本地 OpenLDAP 联调打开登录页。1.x 配置迁移与登录后编辑待验证。 [上游](https://github.com/leenooks/phpLDAPadmin/releases/tag/2.3.13) |
 | `phpmyadmin` | 安装修复 | 5.2.3 为上游当前稳定版，校验发布归档。Debian 13 通过 OpenResty 和 PHP-FPM 登录页检查。 [上游](https://www.phpmyadmin.net/downloads/) |
 | `postgresql` | 已更新 | 新增 19.0 全新安装，15–18 补丁已与官网一致，14 保留停止维护标识。Debian 13 编译 19.0、初始化集群，并通过 SQL 建表、写入和查询。 [上游](https://www.postgresql.org/support/versioning/) |

@@ -100,10 +100,10 @@ if [ "${action}" = "install" ] && [ -d ${serverPath}/php-apt/${type} ];then
 	
 	#初始化 
 	cd ${rootPath} && python3 ${rootPath}/plugins/php-apt/index.py start ${type}
-	cd ${rootPath} && python3 ${rootPath}/plugins/php-apt/index.py restart ${type}
 	cd ${rootPath} && python3 ${rootPath}/plugins/php-apt/index.py initd_install ${type}
 
 	# 安装通用扩展
+	export PM_PHP_APT_DEFER_RESTART=1
 	echo "install PHP-APT[${type}] extend start"
 	cd ${rootPath}/plugins/php-apt/versions && bash common.sh ${apt_ver} install curl
 	cd ${rootPath}/plugins/php-apt/versions && bash common.sh ${apt_ver} install gd
@@ -122,6 +122,7 @@ if [ "${action}" = "install" ] && [ -d ${serverPath}/php-apt/${type} ];then
 	cd ${rootPath}/plugins/php-apt/versions && bash common.sh ${apt_ver} install zip
 	cd ${rootPath}/plugins/php-apt/versions && bash common.sh ${apt_ver} install mongodb
 	cd ${rootPath}/plugins/php-apt/versions && bash common.sh ${apt_ver} install opcache
+	unset PM_PHP_APT_DEFER_RESTART
 	echo "install PHP-APT[${type}] extend end"
 
 	if [ ! -f /usr/local/bin/composer ];then
