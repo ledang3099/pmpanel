@@ -2,7 +2,7 @@
 
 核对始于 2026-11-26，覆盖当时软件管理的 72 个条目，并记录主分支随后新增的 ModSecurity。发行信息来自上游官方发布页、GitHub Releases 或发行版软件源。aaPanel 用于补查同类功能和依赖，例如 PHP、MySQL、Pure-FTPd、Redis 与 PHP Guardian。 [aaPanel 软件商店](https://www.aapanel.com/docs/Function/AppStore.html)
 
-安装器的下载地址或发布元数据已经核对的变更列在表中。软件源条目的实际补丁版本取决于系统和启用的仓库。候选版本尚未完成现有配置、迁移或平台验证。
+安装器的下载地址或发布元数据已经核对的变更列在表中。软件源条目的实际补丁版本取决于系统和启用的仓库。各插件的测试平台、迁移范围及待验证的情形见下表。
 
 | 插件 | 结果 | 核对记录 |
 | --- | --- | --- |
@@ -15,7 +15,7 @@
 | `cloudreve` | 已更新 | 新增 4.19.1 全新安装，识别 V3 数据并要求先迁移。Debian 13 安装、systemd 和站点配置 API 通过。 [官方迁移说明](https://docs.cloudreve.org/zh/maintain/upgrade-from-v3) |
 | `cryptocurrency_trade` | 已更新 | 固定 CCXT 4.5.94 和 TA-Lib 0.8.3.post1，Debian 13 通过安装、OKX 行情样例解析和指标计算。真实账户和订单待验证。 [CCXT](https://pypi.org/project/ccxt/) [TA-Lib](https://pypi.org/project/TA-Lib/) |
 | `data_query` | 面板集成 | Debian 13 已安装面板数据查询插件。 |
-| `docker` | 安装修复 | Debian/Ubuntu 改走 Docker 官方签名软件源，安装器校验真实引擎连接。Debian 13 安装 29.10.1，在隔离容器的本地配置下 API 探活通过。内层容器解包的 unshare 被宿主隔离限制拒绝。 [上游](https://docs.docker.com/engine/install/debian/) |
+| `docker` | 安装修复 | Debian/Ubuntu 改走 Docker 官方签名软件源，安装器校验真实引擎连接。Debian 13 独立虚拟机通过面板安装 Docker 29.10.1、Compose 和 Buildx。由本地 Dockerfile 构建镜像，并使用 Docker CLI 和面板 Python 客户端实际启动容器。 [上游](https://docs.docker.com/engine/install/debian/) |
 | `doh` | 已更新 | 新增 0.11.1，校验 Linux x86_64 和 aarch64 压缩包。Debian 13 安装与 systemd 启动通过。 [上游](https://github.com/DNSCrypt/doh-server/releases/tag/0.11.1) |
 | `dynamic-tracking` | 已更新 | 固定 Brendan Gregg 官方 FlameGraph 源码提交和摘要。Debian 13 完成安装并从测试堆栈生成 SVG。 [上游](https://github.com/brendangregg/FlameGraph) |
 | `dztasks` | 安装修复 | 1.2 为最新官方版本。修正 Linux arm64 归档名，校验归档并保留现有扩展。Debian 13 验证服务、登录页面跳转和示例扩展文件。 [上游](https://github.com/midoks/dztasks/releases/tag/1.2) |
@@ -26,7 +26,7 @@
 | `gorse` | 已更新 | 新增 0.5.11，适配新配置格式和服务缓存路径。全新安装采用 SQLite；Debian 13 启动后健康接口确认数据及缓存连接成功。 [上游](https://github.com/gorse-io/gorse/releases/tag/v0.5.11) |
 | `grafana` | 已更新 | 新增 Grafana OSS 13.3.2，修正服务启动路径及旧默认服务定义。Debian 13 安装、systemd 和数据库健康接口通过。 [上游](https://github.com/grafana/grafana/releases/tag/v13.3.2) |
 | `haproxy` | 已更新 | 2.6.36、2.8.32、3.0.31、3.2.27，新增 3.4.8，使用官方 SHA-256。Debian 13 编译并启动 3.4.8，HTTP 请求经代理转发后返回预期内容。 [上游](https://www.haproxy.org/) |
-| `imail` | 安装修复 | 0.0.19 为对应项目最后的正式发布。固定官方归档 SHA-256，重装保留自定义目录，初始化所需的 Git 由安装器检查。Debian 13 通过 HTTP 初始化、SMTP 应用密码认证和 IMAP 文件夹读取。真实域名的 DNS 验证和邮件投递待验证。 [上游](https://github.com/midoks/imail/releases) |
+| `imail` | 安装修复 | 0.0.19 为对应项目最后的正式发布。固定官方归档 SHA-256，重装保留自定义目录，初始化所需的 Git 由安装器检查。Debian 13 通过 HTTP 初始化，并在隔离测试域名验证 A、MX、SPF、DKIM、DMARC。验证 SMTP 应用密码认证和提交、SMTP 收信及 IMAP 读取正文。上游 0.0.19 拒绝带 SIZE 参数的 SMTP MAIL 命令，普通 IMAP SEARCH 也未通过。公网邮件投递待验证。 [上游](https://github.com/midoks/imail/releases) |
 | `keepalived` | 已更新 | 2.4.3，修正 systemd 模板，取消新安装默认绑定示例 VIP。Debian 13 编译、配置检查、启动及重载通过。连接到独立容器网桥的两个节点通过 VRRP 主备切换，主节点停止后 VIP 转移到备节点。 [上游](https://www.keepalived.org/download/) |
 | `lam` | 已更新 | 新增 LDAP Account Manager 9.7，校验下载摘要，识别 APT 和 Remi 的 PHP-FPM，并补装所选 PHP 的 GMP 与 LDAP 扩展。Debian 13 使用 Chrome 登录并创建 LDAP 组，LDAP 查询确认写入。Rocky Linux 9 验证 Remi 扩展安装和 FPM 重启。9.0 现有配置迁移待验证，须按上游说明先保存旧版配置。 [版本发布](https://github.com/LDAPAccountManager/lam/releases/tag/9.7) [升级说明](https://docs.ldap-account-manager.org/static/doc/manual/ch02s02.html) |
 | `ldap` | 安装修复 | 发行版 OpenLDAP，安装后显式启动 slapd。Debian 13 通过根 DSE 的 namingContexts 查询。 |
@@ -35,7 +35,7 @@
 | `manticoresearch` | 安装修复 | APT 入口使用官方仓库并适配 32.1.3 合并后的主包。Debian 13 安装、systemd 和 SQL 版本查询通过。 [上游](https://github.com/manticoresoftware/manticoresearch/releases) |
 | `mariadb` | 已更新 | 新增 13.1.2 滚动版 Linux x86_64 全新安装，验证官方归档和认证 SQL 读写。修正 12.3 安装记录，保持现有 LTS 选择和推荐。Debian 13 使用独立实例验证从 11.8.9 到 13.1.2 的 SQL 导出和还原，包含外键、视图、JSON 数据和中文。 [上游](https://mariadb.org/mariadb-server-13-1-is-now-stable-and-13-2-reaches-release-candidate/) |
 | `memcached` | 已是当前 | 1.6.45。Debian 13 通过插件安装和缓存读写。 [上游](https://www.memcached.org/downloads) |
-| `migration_api` | 功能修复 | 移除与 shell 不兼容的工作进程启动方式。分片超时按接收端确认的偏移重读并限制重试。Debian 13 验证进程启动，并用实际接收函数模拟确认丢失，最终文件 SHA-256 一致。真实跨面板网站及数据库迁移待验证。 |
+| `migration_api` | 功能修复 | 修复迁移进程启动、分片重试、网站解压完成确认及 SQL 导入错误处理。两个 Debian 13 面板通过真实 API 迁移静态站点和源码安装的 MySQL 26.10。目标 OpenResty 能读取迁移后的文件和符号链接。目标 MySQL 使用迁移后的普通账户读取中文测试数据，自定义导入目录得到清理，源端 MySQL 配置未写入临时密码。双方需使用支持同步解压的面板版本。 |
 | `modsecurity` | 主分支新增 | 主分支集成 ModSecurity 3.0.17、NGINX connector 1.0.4 和 OWASP CRS 4.31.0。Debian 13 通过源码编译、动态模块装载、配置语法和普通 HTTP 请求。 [上游](https://github.com/owasp-modsecurity/ModSecurity/releases/tag/v3.0.17) |
 | `mongodb` | 已更新 | Debian、Ubuntu 和 RHEL 系 9.0 安装入口共享官方归档及 SHA-256 校验，使用 9.0.8、mongosh 2.14.3 和数据库工具 100.20.1。Debian 13、Ubuntu 24.04、Rocky Linux 9 的 x86_64 容器通过写入、查询、备份和恢复，Rocky 9 另通过面板安装与 systemd 启动。其他平台运行待验证。 [上游](https://www.mongodb.com/try/download/community-edition/releases) |
 | `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/download/) |

@@ -1220,25 +1220,27 @@ def importDbExternal():
         return mw.returnJson(False, '未找SQL文件')
 
     pwd = pSqliteDb('config').where('id=?', (1,)).getField('mysql_root')
-    sock = getSocketFile()
-
-    my_cnf = getConf()
-
-    myPass(True, pwd)
-    mysql_cmd = getServerDir() + '/bin/mysql --defaults-file=' + my_cnf + \
-        ' -uroot -p"' + pwd + '" -f ' + name + ' < ' + import_sql
-
-    # print(mysql_cmd)
-    rdata = mw.execShell(mysql_cmd)
-    myPass(False, pwd)
-    # print(rdata)
-    if ext != 'sql':
-        os.remove(import_sql)
-
-    if rdata[1].lower().find('error') > -1:
-        return mw.returnJson(False, rdata[1])
-
+    command = [
+        getServerDir() + '/bin/mysql',
+        '--defaults-file=' + getConf(),
+        '--user=root',
+        '--',
+        name,
+    ]
+    env = os.environ.copy()
+    env['MYSQL_PWD'] = pwd or ''
+    try:
+        with open(import_sql, 'rb') as sql:
+            result = subprocess.run(command, stdin=sql, capture_output=True, text=False, env=env)
+    except OSError as exc:
+        return mw.returnJson(False, str(exc))
+    finally:
+        if ext != 'sql':
+            os.remove(import_sql)
+    if result.returncode != 0:
+        return mw.returnJson(False, result.stderr.decode(errors='replace'))
     return mw.returnJson(True, 'ok')
+
 
 def importDbExternalProgress():
     args = getArgs()

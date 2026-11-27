@@ -14,8 +14,8 @@ serverPath=$(dirname "$rootPath")
 VERSION=1.0
 
 Install_App(){
-	mkdir -p $serverPath/migration_api
-	echo "${VERSION}" > $serverPath/migration_api/version.pl
+	mkdir -p "$serverPath/migration_api/config" || return 1
+	echo "${VERSION}" > "$serverPath/migration_api/version.pl" || return 1
 	echo '正在安装脚本文件...'
 }
 
