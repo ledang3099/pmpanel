@@ -51,7 +51,10 @@ Install_app()
 	echo '正在安装脚本文件...'
 	mkdir -p $serverPath/source
 
-	cd ${rootPath}/plugins/php/lib && bash openssl_11.sh
+	if [ "$VERSION" != 9.0 ]; then
+        cd "${rootPath}/plugins/php/lib" && bash openssl_11.sh
+    fi
+    cd "$curPath" || return 1
 	shell_file=${curPath}/versions/${VERSION}/${OSNAME}.sh
 
 	if [ -f $shell_file ];then
@@ -72,7 +75,12 @@ Install_app()
 		echo 'mongodb安装完成'
 
 		#初始化 
-		cd ${rootPath} && python3 ${rootPath}/plugins/mongodb/index.py start
+		cd "$rootPath" || return 1
+        if [ "$action" = upgrade ]; then
+            python3 plugins/mongodb/index.py restart || return 1
+        else
+            python3 plugins/mongodb/index.py start || return 1
+        fi
 		cd ${rootPath} && python3 ${rootPath}/plugins/mongodb/index.py initd_install
 	fi
 

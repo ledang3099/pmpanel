@@ -43,21 +43,24 @@ Install_App()
 {
 	echo '正在安装脚本文件...'
 	mkdir -p $serverPath/source/grafana
-	mkdir -p $serverPath/loki
-	echo "${VERSION}" > $serverPath/loki/version.pl
 
 	shell_file=${curPath}/versions/${VERSION}/linux.sh
 
 	if [ -f $shell_file ];then
-		bash -x $shell_file install ${VERSION}
+		bash -x "$shell_file" install "$VERSION" || return 1
 	else
 		echo '不支持...'
 		exit 1
 	fi
 
+    if [ "$VERSION" = 3.7.10 ] && [ -f "$serverPath/loki/bin/promtail" ]; then
+        systemctl disable --now promtail || return 1
+    fi
+    printf '%s\n' "$VERSION" > "$serverPath/loki/version.pl" || return 1
 	#初始化 
-	cd ${rootPath} && python3 ${rootPath}/plugins/loki/index.py start
-	cd ${rootPath} && python3 ${rootPath}/plugins/loki/index.py initd_install
+	cd "$rootPath" || return 1
+    [ "$(python3 plugins/loki/index.py restart)" = ok ] || return 1
+	[ "$(python3 plugins/loki/index.py initd_install)" = ok ] || return 1
 
 	echo 'Grafana/Loki安装完成'
 }

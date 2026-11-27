@@ -1,101 +1,62 @@
-#!/bin/bash
-PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin:/opt/homebrew/bin
-export PATH
+#!/usr/bin/env bash
 
-# 安全下载:先写入临时文件,成功后原子重命名,避免下载失败残留不完整文件导致重试被跳过
-download() {
-    local url="$1"
-    local out="$2"
-    if [ -f "$out" ]; then
-        return 0
-    fi
-    local tmp="${out}.downloading"
-    rm -f "$tmp"
-    if command -v wget >/dev/null 2>&1; then
-        wget --no-check-certificate -O "$tmp" "$url"
-    else
-        curl -fLk -o "$tmp" "$url"
-    fi
-    if [ $? -ne 0 ] || [ ! -s "$tmp" ]; then
-        rm -f "$tmp"
-        echo "download failed: $url"
+install_mongodb_debian() (
+    panel=$(cd ../.. && pwd) || return 1
+    server=$(dirname "$panel")
+    . /etc/os-release
+
+    if [ "$ID" != debian ] || [ "$(uname -m)" != x86_64 ]; then
+        echo 'MongoDB 9.0 Debian builds require Debian x86_64' >&2
         return 1
     fi
-    mv -f "$tmp" "$out"
-    echo "download $out successful!"
-    return 0
-}
 
+    case "$VERSION_ID" in
+        12)
+            server_sha=a78b3e96379fb447c6045af84b1e6853540048fb1878db20f410720ccc0caa27
+            tools_sha=8f25dcd1d769560fae1b5e724dc0c5eba54f2410dd293a9bab62be055507e521
+            ;;
+        13)
+            server_sha=667faae2f310eabb79846507a15bcb8a2888f6a1324bd77eea8b85ddfe7692a5
+            tools_sha=5a74b5bebfe1421f338a25ecd80f8e6173f6d47241ea243564b0a1c9f2278b3b
+            ;;
+        *) return 1 ;;
+    esac
 
-curPath=`pwd`
-rootPath=$(dirname "$curPath")
-rootPath=$(dirname "$rootPath")
-rootPath=$(dirname "$rootPath")
-serverPath=$(dirname "$rootPath")
+    target="$server/mongodb/bin"
+    if [ -x "$target/mongod" ] && ! "$target/mongod" --version | grep -q '^db version v9\.0\.'; then
+        echo 'MongoDB 9.0 requires a supported major-version migration before replacing the existing server.' >&2
+        return 1
+    fi
 
-VERSION=9.0.8
-SYS_ARCH=`arch`
-SYS_VERSION_ID=`cat /etc/*-release | grep VERSION_ID | awk -F = '{print $2}' | awk -F "\"" '{print $2}'`
-SYS_NAME=${SYS_VERSION_ID/./}
+    source "$panel/scripts/tools/verified-download.sh" || return 1
+    sources="$server/source/mongodb"
+    mkdir -p "$sources" || return 1
+    archive="mongodb-linux-x86_64-debian${VERSION_ID}-9.0.8.tgz"
+    shell="mongosh-2.14.3-linux-x64.tgz"
+    tools="mongodb-database-tools-debian${VERSION_ID}-x86_64-100.20.1.tgz"
+    verified_download "https://fastdl.mongodb.org/linux/$archive" "$sources/$archive" "$server_sha" || return 1
+    verified_download "https://downloads.mongodb.com/compass/$shell" "$sources/$shell" \
+        2f9082b19c3daa4469865cb2d13ba64eea9f5b447371ecd25f175bb99320d575 || return 1
+    verified_download "https://fastdl.mongodb.org/tools/db/$tools" "$sources/$tools" "$tools_sha" || return 1
 
+    stage=$(mktemp -d "$sources/install.XXXXXX") || return 1
+    trap 'rm -rf -- "$stage"' EXIT
+    for package in "$archive" "$shell" "$tools"; do
+        tar -xzf "$sources/$package" -C "$stage" || return 1
+    done
+    "$stage/${archive%.tgz}/bin/mongod" --version >/dev/null || return 1
+    "$stage/${shell%.tgz}/bin/mongosh" --version >/dev/null || return 1
+    "$stage/${tools%.tgz}/bin/mongodump" --version >/dev/null || return 1
+    mkdir -p "$target" || return 1
+    for package in "$archive" "$shell" "$tools"; do
+        for binary in "$stage/${package%.tgz}/bin/"*; do
+            candidate=$(mktemp "$target/.install.XXXXXX") || return 1
+            if ! install -m 0755 "$binary" "$candidate" || ! mv -f -- "$candidate" "$target/${binary##*/}"; then
+                rm -f -- "$candidate"
+                return 1
+            fi
+        done
+    done
+)
 
-SYS_NAME="12"
-FILE_NAME=mongodb-linux-${SYS_ARCH}-debian${SYS_NAME}-${VERSION}
-FILE_NAME_TGZ=${FILE_NAME}.tgz
-
-
-MG_DIR=$serverPath/source/mongodb
-mkdir -p $MG_DIR
-
-download "https://fastdl.mongodb.org/linux/${FILE_NAME_TGZ}" "$MG_DIR/${FILE_NAME_TGZ}"
-
-if [ ! -d $MG_DIR/${FILE_NAME_TGZ} ];then 
-	cd $MG_DIR && tar -zxvf ${FILE_NAME_TGZ}
-fi
-
-if [ ! -f $serverPath/mongodb/bin/mongod ];then
-	mkdir -p $serverPath/mongodb
-	cd $MG_DIR/${FILE_NAME} && cp -rf ./bin $serverPath/mongodb
-fi
-
-cd ${MG_DIR} && rm -rf ${MG_DIR}/${FILE_NAME}
-
-
-#--------------- mongosh tool install ------------------ #
-TOOL_VERSION=2.2.5
-TOOL_FILE_NAME=mongosh-${TOOL_VERSION}-linux-x64
-if [ "aarch64" = ${SYS_ARCH} ];then
-	TOOL_FILE_NAME=mongosh-${TOOL_VERSION}-linux-arm64
-fi
-TOOL_FILE_NAME_TGZ=${TOOL_FILE_NAME}.tgz
-download "https://downloads.mongodb.com/compass/${TOOL_FILE_NAME_TGZ}" "$MG_DIR/${TOOL_FILE_NAME_TGZ}"
-
-if [ ! -d $MG_DIR/${TOOL_FILE_NAME_TGZ} ];then 
-	cd $MG_DIR && tar -zxvf ${TOOL_FILE_NAME_TGZ}
-fi
-
-cd ${MG_DIR}/${TOOL_FILE_NAME} && cp -rf ./bin $serverPath/mongodb
-cd ${MG_DIR} && rm -rf ${MG_DIR}/${TOOL_FILE_NAME}
-
-
-#--------------- mongodb database install ------------------ #
-TOOL_VERSION=100.9.4
-TOOL_FILE_NAME=mongodb-database-tools-debian${SYS_NAME}-x86_64-${TOOL_VERSION}
-if [ "aarch64" = ${SYS_ARCH} ];then
-	TOOL_FILE_NAME=mongodb-database-tools-debian${SYS_NAME}-arm64-${TOOL_VERSION}
-fi
-
-if [ "arm64" = ${SYS_ARCH} ];then
-	TOOL_FILE_NAME=mongodb-database-tools-debian${SYS_NAME}-arm64-${TOOL_VERSION}
-fi
-
-TOOL_FILE_NAME_TGZ=${TOOL_FILE_NAME}.tgz
-download "https://fastdl.mongodb.org/tools/db/${TOOL_FILE_NAME_TGZ}" "$MG_DIR/${TOOL_FILE_NAME_TGZ}"
-
-if [ ! -d $MG_DIR/${TOOL_FILE_NAME_TGZ} ];then 
-	cd $MG_DIR && tar -zxvf ${TOOL_FILE_NAME_TGZ}
-fi
-
-cd ${MG_DIR}/${TOOL_FILE_NAME} && cp -rf ./bin $serverPath/mongodb
-cd ${MG_DIR} && rm -rf ${MG_DIR}/${TOOL_FILE_NAME}
-
+install_mongodb_debian

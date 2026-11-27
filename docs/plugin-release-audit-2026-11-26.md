@@ -30,13 +30,13 @@
 | `keepalived` | 已更新 | 2.4.3，官方归档与发布页摘要一致。 [上游](https://www.keepalived.org/download/) |
 | `lam` | 已更新 | 新增 LDAP Account Manager 9.7，改为按所选版本下载。 [上游](https://github.com/LDAPAccountManager/lam/releases/tag/9.7) |
 | `ldap` | 软件源 | LDAP 软件由发行版仓库提供，1.0 为封装版本。 |
-| `loki` | 候选待验证 | 上游 3.7.10 有 Loki 包，已核对的新版资产缺少现有脚本要求的 Promtail 包。需先迁移采集端。 [上游](https://github.com/grafana/loki/releases/tag/v3.7.10) |
+| `loki` | 已更新 | 新增 Loki 3.7.10 与 Alloy 1.22.0。安装时转换旧 Promtail 配置，验证后切换采集服务。Debian 13 验证日志采集、写入和查询。 [上游迁移指南](https://grafana.com/docs/alloy/latest/set-up/migrate/from-promtail/) |
 | `lvs` | 软件源 | 依赖 Linux 内核 IPVS 和发行版工具，无独立面板运行时更新。 |
 | `manticoresearch` | 候选待验证 | 上游标签 release-32.1.3。现有入口混合软件源与源码，需按发行版核对。 [上游](https://github.com/manticoresoftware/manticoresearch/releases) |
 | `mariadb` | 部分已是当前 | 已核对 10.11.20、11.4.14、11.8.10、12.3.4 与仓库一致。13.1.2 是滚动 GA，待验证数据库迁移和平台包。 [上游](https://mariadb.com/downloads/) |
 | `memcached` | 已是当前 | 1.6.45。 [上游](https://www.memcached.org/downloads) |
 | `migration_api` | 面板集成 | 面板迁移 API，无独立上游版本。 |
-| `mongodb` | 候选待验证 | 现有入口按系列及发行版分发。需核对每个仓库与跨主版本 Feature Compatibility Version 迁移。 [上游](https://www.mongodb.com/try/download/community) |
+| `mongodb` | 已更新 | Debian x86_64 的 9.0 安装路径使用 9.0.8 与发行版匹配的官方包，同时更新 mongosh 2.14.3 和数据库工具 100.20.1。Debian 13 通过写入、查询、备份和恢复。其他发行版入口仍需验证。 [上游](https://www.mongodb.com/docs/manual/release-notes/9.0/) |
 | `mosquitto` | 已更新 | 2.0.23 与 2.1.4，更新源码摘要并在编译失败时停止。 [上游](https://mosquitto.org/blog/2026/11/version-2-1-3-released/) |
 | `msonedrive` | 面板集成 | Microsoft OneDrive 备份适配器。SDK 与 API 兼容性需在真实账户验证。 |
 | `mtproxy` | 候选待验证 | 上游 mtg 2.3.0。面板的 1.0 是封装版本，需核对运行参数及已有配置。 [上游](https://github.com/9seconds/mtg/releases) |
@@ -59,7 +59,7 @@
 | `pureftp` | 已更新 | 1.0.54，支持从旧版发起升级并保留 PureDB 配置。 [上游](https://github.com/jedisct1/pure-ftpd/releases/tag/1.0.54) |
 | `rapira` | 候选待验证 | 单独的 PHP 运行时提供方。需确认发行包和补丁，不用 PHP 官方版本号替代。 |
 | `redis` | 已更新 | 新增 8.12.0。早期系列继续供既有应用兼容。 [上游](https://github.com/redis/redis/releases/tag/8.12.0) |
-| `rsyncd` | 已更新 | 合入维护者的 3.5.2 更新。源代码构建及同步功能验证另行记录。 [上游](https://github.com/RsyncProject/rsync/releases/tag/v3.5.2) |
+| `rsyncd` | 已更新 | 合入维护者的 3.5.2 更新。Debian 13 已通过源码编译、服务启动和文件校验复制。 [上游](https://github.com/RsyncProject/rsync/releases/tag/v3.5.2) |
 | `simpleping` | 已更新 | 安装器已下载 2.0，修正目录显示。 [上游](https://github.com/midoks/simpleping/releases) |
 | `sphinx` | 候选待验证 | 当前 3.1.1，需核对新包和下载授权。 [上游](https://sphinxsearch.com/downloads/) |
 | `supervisor` | 软件源 | Python 包版本随安装渠道变化。 [上游](https://pypi.org/project/supervisor/) |
@@ -74,7 +74,7 @@
 | `webhook` | 面板集成 | 面板回调功能，无独立应用版本。 |
 | `webssh` | 面板集成 | 面板终端功能，SSH 依赖独立维护。 |
 | `webstats` | 候选待验证 | 封装多个第三方分析组件，暂无单一可替换的新版包。 |
-| `xhprof` | 候选待验证 | 上游 2.3.10。需验证各 PHP ABI，尤其是新加入的 8.6。 [上游](https://github.com/longxinH/xhprof/releases) |
+| `xhprof` | 已更新 | 面板报告页与扩展对齐 PECL 2.3.10，使用 PHP 提供的扩展目录。Debian 13 上分别用 PHP 8.4.28 和 8.6.0 编译、加载扩展并生成分析数据。 [上游](https://pecl.php.net/package/xhprof) |
 | `xui` | 候选待验证 | 上游 0.3.4.4。需核对服务管理和数据库兼容性。 [上游](https://github.com/FranzKafkaYu/x-ui/releases) |
-| `zabbix` | 候选待验证 | 8.0.0 已发布。当前依赖各发行版仓库，需验证前端 PHP 和数据库迁移。 [上游](https://www.zabbix.com/release_notes) |
-| `zabbix_agent` | 候选待验证 | 当前按 7.0 系列配置软件源，需验证 8.0 与服务器版本配对。 [上游](https://www.zabbix.com/release_notes) |
+| `zabbix` | 已更新 | 新增 Debian/Ubuntu 的 8.0 LTS 安装选项，适配新版前端和 SQL 包路径。Debian 13 用隔离 MariaDB 导入官方 schema，Zabbix server 8.0.0 启动通过。面板自动初始化仍需端到端验证。 [上游](https://www.zabbix.com/documentation/8.0/en/manual/installation/requirements) |
+| `zabbix_agent` | 已更新 | 新增 Debian/Ubuntu 的 8.0 LTS 安装选项。Debian 13 通过插件安装、systemd 启动和 zabbix_get 的 agent.ping。 [上游](https://www.zabbix.com/download_sources) |

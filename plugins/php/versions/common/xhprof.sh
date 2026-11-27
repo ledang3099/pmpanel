@@ -21,13 +21,10 @@ if [ "$version" -lt "70" ];then
 	LIBV=0.9.4
 fi
 
-LIB_PATH_NAME=lib/php
-if [ -d $serverPath/php/${version}/lib64 ];then
-	LIB_PATH_NAME=lib64
-fi
-
-NON_ZTS_FILENAME=`ls $serverPath/php/${version}/${LIB_PATH_NAME}/extensions | grep no-debug-non-zts`
-extFile=$serverPath/php/${version}/${LIB_PATH_NAME}/extensions/${NON_ZTS_FILENAME}/${LIBNAME}.so
+php_bin="$serverPath/php/$version/bin"
+[ -x "$php_bin/php-config" ] || exit 1
+extension_dir=$("$php_bin/php-config" --extension-dir) || exit 1
+extFile="$extension_dir/${LIBNAME}.so"
 
 if [ "$sysName" = "Darwin" ];then
 	BAK='_bak'
@@ -45,38 +42,40 @@ Install_lib()
 	fi
 	
 	if [ ! -f "$extFile" ];then
-		php_lib=$sourcePath/php_lib
-		mkdir -p $php_lib
-		if [ ! -d $php_lib/${LIBNAME}-${LIBV} ];then
-			if [ ! -f $php_lib/${LIBNAME}-${LIBV}.tgz ];then
-				wget --no-check-certificate -O $php_lib/${LIBNAME}-${LIBV}.tgz http://pecl.php.net/get/${LIBNAME}-${LIBV}.tgz
-			fi
-			cd $php_lib && tar xvf ${LIBNAME}-${LIBV}.tgz
-		fi
-		cd $php_lib/${LIBNAME}-${LIBV}/extension
+        php_lib="$sourcePath/php_lib"
+        mkdir -p "$php_lib" || return 1
+        archive="$php_lib/$LIBNAME-$LIBV.tgz"
+        if [ "$LIBV" = 2.3.10 ]; then
+            source "$rootPath/scripts/tools/verified-download.sh" || return 1
+            verified_download "https://pecl.php.net/get/$LIBNAME-$LIBV.tgz" "$archive" \
+                251aee99c2726ebc6126e1ff0bb2db6e2d5fd22056aa335e84db9f1055d59d95 || return 1
+        elif [ ! -f "$archive" ]; then
+            curl -fsSL "https://pecl.php.net/get/$LIBNAME-$LIBV.tgz" -o "$archive" || return 1
+        fi
+        staging=$(mktemp -d "$php_lib/xhprof-build.XXXXXX") || return 1
+        trap 'rm -rf -- "$staging"' EXIT
+        tar -xzf "$archive" -C "$staging" || return 1
+        cd "$staging/$LIBNAME-$LIBV/extension" || return 1
 
 		OPTIONS=''
 		if [ "${SYS_ARCH}" = "aarch64" ] && [ "$version" -lt "56" ];then
 			OPTIONS="$OPTIONS --build=aarch64-unknown-linux-gnu --host=aarch64-unknown-linux-gnu"
 		fi
 
-		$serverPath/php/$version/bin/phpize
-		./configure --enable-xhprof \
-		--with-php-config=$serverPath/php/$version/bin/php-config $OPTIONS
-		make clean && make && make install && make clean
+        "$php_bin/phpize" || return 1
+        ./configure --enable-xhprof --with-php-config="$php_bin/php-config" $OPTIONS || return 1
+        make && make install || return 1
 
-		cd $php_lib && rm -rf $php_lib/${LIBNAME}-${LIBV}
 	fi
 	
 	if [ ! -f "$extFile" ];then
 		echo "ERROR!"
-		return
+		return 1
 	fi
 
-	if [ ! -f /tmp/xhprof ];then
-		mkdir -p /tmp/xhprof
-		chown -R www:www /tmp/xhprof
-	fi
+	if [ ! -d /tmp/xhprof ]; then
+        install -d -m 0700 -o www -g www /tmp/xhprof || return 1
+    fi
 
 	echo "" >> $serverPath/php/$version/etc/php.ini
 	echo "[${LIBNAME}]" >> $serverPath/php/$version/etc/php.ini
