@@ -38,7 +38,7 @@
 | `migration_api` | 功能修复 | 移除与 shell 不兼容的工作进程启动方式。分片超时按接收端确认的偏移重读并限制重试。Debian 13 验证进程启动，并用实际接收函数模拟确认丢失，最终文件 SHA-256 一致。真实跨面板网站及数据库迁移待验证。 |
 | `modsecurity` | 主分支新增 | 主分支集成 ModSecurity 3.0.17、NGINX connector 1.0.4 和 OWASP CRS 4.31.0。Debian 13 通过源码编译、动态模块装载、配置语法和普通 HTTP 请求。 [上游](https://github.com/owasp-modsecurity/ModSecurity/releases/tag/v3.0.17) |
 | `mongodb` | 已更新 | Debian、Ubuntu 和 RHEL 系 9.0 安装入口共享官方归档及 SHA-256 校验，使用 9.0.8、mongosh 2.14.3 和数据库工具 100.20.1。Debian 13、Ubuntu 24.04、Rocky Linux 9 的 x86_64 容器通过写入、查询、备份和恢复，Rocky 9 另通过面板安装与 systemd 启动。其他平台运行待验证。 [上游](https://www.mongodb.com/try/download/community-edition/releases) |
-| `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/blog/2026/11/version-2-1-3-released/) |
+| `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/download/) |
 | `msonedrive` | 依赖已更新 | 更新 Requests-OAuthlib 2.0.0，Debian 13 生成并校验本地 OAuth 授权 URL。实际 OAuth 和上传需有效账户。 [上游](https://pypi.org/project/requests-oauthlib/) |
 | `mtproxy` | 已更新 | 固定 mtg 2.3.0 官方归档和摘要，修复空密钥生成，保留既有密钥。Debian 13 验证服务启动和 TCP 监听。 [上游](https://github.com/9seconds/mtg/releases) |
 | `mysql` | 已更新 | 源码 8.4.13.1、9.7.4.1、26.10.0.1。构建使用系统 OpenSSL，Debian/Ubuntu 补充 WebAuthn 依赖，并按 Linux 容器内存限制减少默认构建并发。保护已被占用的 `mysql.service`，初始化保留面板设置的表名大小写并等待服务就绪。Debian 13 通过 26.10.0.1 源码构建、面板初始化、服务启用、认证 SQL 写入与查询及重启。按维护者要求跳过 8.4 和 9.7 源码构建。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
@@ -64,8 +64,8 @@
 | `simpleping` | 已更新 | 安装器下载 2.0，修正目录显示。Debian 13 安装及 systemd 启动通过。 [上游](https://github.com/midoks/simpleping/releases) |
 | `sphinx` | 已更新 | 新增 3.9.1，验证官方二进制摘要并检查 x86_64 AVX2。Debian 13 验证服务及 SphinxQL 写入和搜索。 [上游](https://sphinxsearch.com/downloads/) |
 | `supervisor` | 已更新 | 固定 4.3.0，修复 systemd 在 Debian 解析程序路径失败。Debian 13 验证插件安装、启动及管理测试任务。 [上游](https://pypi.org/project/supervisor/) |
-| `swap` | 面板集成 | 系统 swap 配置，无独立应用版本。通过状态读取和测试文件的 `mkswap` 初始化。启用和停用待验证。 |
-| `sys-opt` | 面板集成 | Debian 13 已安装系统参数插件。容器未修改宿主内核参数。 |
+| `swap` | 面板集成 | 系统 swap 配置，无独立应用版本。修复状态误用总交换空间、调整大小前停止旧交换文件及错误被忽略的问题。Debian 13 独立虚拟机验证旧安装续用、全新安装、启停、重启、调整大小和卸载，独立交换文件保持可用。新交换文件激活失败时恢复旧文件和启用状态，磁盘空间不足时在写入前报错。 |
+| `sys-opt` | 面板集成 | Debian 13 没有旧配置时使用 `/etc/sysctl.d/99-pmpanel.conf`，并返回内核加载错误。独立虚拟机验证修改 `vm.swappiness`、由 systemd 启动服务加载、无效值报错以及旧配置仍可加载。 |
 | `system_safe` | 功能修复 | 使用面板 Python 环境加载 psutil，缺少文件属性命令时安装 e2fsprogs。Debian 13 验证服务启动及测试文件属性保护，实测含空格的路径可设为只读、写入被拒绝，移除保护后可写并恢复原权限。 |
 | `tamper_proof_py` | 兼容修复 | 为 Python 3.12+ 安装 asyncore 兼容包。Debian 13 已确认 pyinotify 能加载、初始化，并启动服务。 [上游](https://pypi.org/project/pyasyncore/) |
 | `task_manager` | 兼容修复 | 通过 Cython 3 重新生成 pypcap 1.3.0，并使用 Python 缓冲区 API。Debian 13/Python 3.13 编译扩展并通过 BPF 测试数据检查。 [上游](https://pypi.org/project/pypcap/) |

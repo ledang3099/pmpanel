@@ -6,6 +6,7 @@ import os
 import json
 import re
 import sys
+import subprocess
 
 web_dir = os.getcwd() + "/web"
 if os.path.exists(web_dir):
@@ -59,27 +60,24 @@ def contentReplace(content):
 
 
 def status():
-    return 'start'
-
-
-def start():
-    mw.execShell('sysctl -p')
-    return "ok"
-
-
-def stop():
-    mw.execShell('sysctl -p')
-    return 'ok'
-
-
-def restart():
-    mw.execShell('sysctl -p')
-    return 'ok'
+    return 'start' if os.path.isfile(sysConf()) else 'stop'
 
 
 def reload():
-    mw.execShell('sysctl -p')
-    return 'ok'
+    result = subprocess.run(['sysctl', '-p', ensureSysConf()], capture_output=True)
+    return 'ok' if result.returncode == 0 else 'fail'
+
+
+def start():
+    return reload()
+
+
+def stop():
+    return reload()
+
+
+def restart():
+    return reload()
 
 
 def configTpl():
@@ -98,13 +96,26 @@ def readConfigTpl():
     if not data[0]:
         return data[1]
 
-    content = mw.readFile(args['file'])
+    path = args['file']
+    tpl_dir = os.path.join(getPluginDir(), 'tpl')
+    if os.path.dirname(path) != tpl_dir or os.path.basename(path) not in os.listdir(tpl_dir):
+        return mw.returnJson(False, '配置模板不存在。')
+    content = mw.readFile(path)
     content = contentReplace(content)
     return mw.returnJson(True, 'ok', content)
 
 
 def sysConf():
-    return '/etc/sysctl.conf'
+    legacy = '/etc/sysctl.conf'
+    managed = '/etc/sysctl.d/99-pmpanel.conf'
+    return legacy if os.path.isfile(legacy) and not os.path.isfile(managed) else managed
+
+
+def ensureSysConf():
+    path = sysConf()
+    with open(path, 'a', encoding='utf-8'):
+        pass
+    return path
 
 
 def secRunLog():
@@ -151,7 +162,7 @@ if __name__ == "__main__":
     elif func == 'reload':
         print(reload())
     elif func == 'conf':
-        print(sysConf())
+        print(ensureSysConf())
     elif func == 'config_tpl':
         print(configTpl())
     elif func == 'read_config_tpl':

@@ -4,7 +4,7 @@ Description=Swap Process Manager
 After=network.target
 
 [Service]
-Type=forking
+Type=oneshot
 ExecStart={$SERVER_PATH}/swap/init.d/swap start
 ExecStop={$SERVER_PATH}/swap/init.d/swap stop
 RemainAfterExit=yes
