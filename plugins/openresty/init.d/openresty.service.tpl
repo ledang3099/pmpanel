@@ -4,10 +4,11 @@ After=network.target
 
 [Service]
 Type=forking
+PIDFile={$SERVER_PATH}/openresty/nginx/logs/nginx.pid
 ExecStart={$SERVER_PATH}/openresty/bin/openresty -c {$SERVER_PATH}/openresty/nginx/conf/nginx.conf
-ExecStop={$SERVER_PATH}/openresty/bin/openresty -s stop
 ExecReload={$SERVER_PATH}/openresty/bin/openresty -s reload
-KillMode=process
+KillSignal=SIGQUIT
+KillMode=mixed
 Restart=on-failure
 
 [Install]

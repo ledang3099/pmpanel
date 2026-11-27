@@ -128,6 +128,11 @@ def confReplace():
     content = mw.readFile(getConfTpl())
     content = content.replace('{$SERVER_PATH}', service_path)
 
+    module_dir = getServerDir() + '/httpd/modules'
+    for module in ('brotli', 'unixd'):
+        if not os.path.isfile(os.path.join(module_dir, 'mod_' + module + '.so')):
+            content = re.sub(r'^LoadModule ' + module + r'_module .*\n', '', content, flags=re.MULTILINE)
+
     # 主配置文件
     nconf = getServerDir() + '/httpd/conf/httpd.conf'
     mw.writeFile(nconf, content)

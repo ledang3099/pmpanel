@@ -38,25 +38,10 @@ else
 	useradd -g www -s /bin/bash www
 fi
 
-if [ "${action}" = "upgrade" ];then
-	sh -x $curPath/versions/$2/install.sh $1
-	
-	echo "${VERSION}" > $serverPath/apache/version.pl
-
-	mkdir -p $serverPath/web_conf/php/conf
-	echo 'set $PHP_ENV 0;' > $serverPath/web_conf/php/conf/enable-php-00.conf
-
-	#初始化 
-	cd ${rootPath} && python3 ${rootPath}/plugins/apache/index.py start
-	cd ${rootPath} && python3 ${rootPath}/plugins/apache/index.py initd_install
-	exit 0
+if [ "$type" != 2.4 ]; then
+    echo '缺少安装脚本版本。' >&2
+    exit 1
 fi
-
-
-if [ "${2}" = "" ];then
-	echo '缺少安装脚本版本...'
-	exit 0
-fi 
 
 if [ "${action}" = "uninstall" ];then
 	if [ -f /usr/lib/systemd/system/httpd.service ] || [ -f /lib/systemd/system/httpd.service ];then
@@ -73,15 +58,17 @@ if [ "${action}" = "uninstall" ];then
 	rm -rf $serverPath/apache
 fi
 
-sh -x $curPath/versions/$2/install.sh $1
+bash "$curPath/versions/$type/install.sh" "$action" || exit 1
 
-if [ "${action}" = "install" ] && [ -d $serverPath/apache ];then
-	echo "${VERSION}" > $serverPath/apache/version.pl
-
-	mkdir -p $serverPath/web_conf/php/conf
-	echo 'set $PHP_ENV 0;' > $serverPath/web_conf/php/conf/enable-php-00.conf
-
-	#初始化 
-	cd ${rootPath} && python3 ${rootPath}/plugins/apache/index.py start
-	cd ${rootPath} && python3 ${rootPath}/plugins/apache/index.py initd_install
+if [ "$action" = install ] || [ "$action" = upgrade ]; then
+    mkdir -p "$serverPath/web_conf/php/conf" || exit 1
+    printf 'set $PHP_ENV 0;\n' > "$serverPath/web_conf/php/conf/enable-php-00.conf"
+    cd "$rootPath" || exit 1
+    result=$(python3 plugins/apache/index.py start) || exit 1
+    if [ "$result" != ok ]; then printf '%s\n' "$result" >&2; exit 1; fi
+    if [ "$sysName" = Linux ]; then
+        if [ "$action" = upgrade ]; then systemctl restart httpd || exit 1; fi
+        systemctl is-active --quiet httpd && systemctl enable httpd || exit 1
+    fi
+    printf '%s\n' "$VERSION" > "$serverPath/apache/version.pl"
 fi

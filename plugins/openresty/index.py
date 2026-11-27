@@ -269,7 +269,10 @@ def initDreplace():
     # /usr/lib/systemd/system
     systemDir = mw.systemdCfgDir()
     systemService = systemDir + '/openresty.service'
-    if os.path.exists(systemDir) and not os.path.exists(systemService):
+    current_unit = mw.readFile(systemService) if os.path.exists(systemService) else ''
+    old_stop = 'ExecStop=' + getServerDir() + '/bin/openresty -s stop'
+    legacy_unit = old_stop in current_unit and 'KillMode=process' in current_unit
+    if os.path.exists(systemDir) and (legacy_unit or not os.path.exists(systemService)):
         systemServiceTpl = getPluginDir() + '/init.d/openresty.service.tpl'
         se_content = mw.readFile(systemServiceTpl)
         se_content = se_content.replace('{$SERVER_PATH}', service_path)

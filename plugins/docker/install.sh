@@ -39,30 +39,41 @@ fi
 
 Install_Docker()
 {
-	# which docker
-	# if [ "$?" = "0" ];then
-	# 	echo '安装已经完成docker'
-	# 	exit 0
-	# fi
+    if ! command -v docker >/dev/null || ! command -v dockerd >/dev/null; then
+        if [ -f /etc/os-release ]; then source /etc/os-release; fi
+        case "$ID" in
+            debian|ubuntu)
+                apt-get install -y ca-certificates curl || return 1
+                install -d -m 0755 /etc/apt/keyrings || return 1
+                curl --proto '=https' --proto-redir '=https' -fsSL "https://download.docker.com/linux/$ID/gpg" \
+                    -o /etc/apt/keyrings/docker.asc.new || return 1
+                chmod 0644 /etc/apt/keyrings/docker.asc.new || return 1
+                mv -f /etc/apt/keyrings/docker.asc.new /etc/apt/keyrings/docker.asc || return 1
+                if [ ! -f /etc/apt/sources.list.d/docker.list ] && [ ! -f /etc/apt/sources.list.d/docker.sources ]; then
+                    codename=${UBUNTU_CODENAME:-$VERSION_CODENAME}
+                    arch=$(dpkg --print-architecture) || return 1
+                    if [ -z "$codename" ]; then return 1; fi
+                    printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/%s %s stable\n' \
+                        "$arch" "$ID" "$codename" > /etc/apt/sources.list.d/docker.list || return 1
+                fi
+                apt-get update || return 1
+                apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin || return 1
+                ;;
+            *)
+                installer=$(mktemp) || return 1
+                trap 'unlink "$installer"' EXIT
+                curl --proto '=https' --proto-redir '=https' -fsSL https://get.docker.com -o "$installer" &&
+                    bash "$installer" || return 1
+                ;;
+        esac
+    fi
 
-	echo '正在安装脚本文件...'
-	mkdir -p $serverPath/source
-
-	if [ ! -d  $serverPath/docker ];then
-		curl -fsSL https://get.docker.com | bash
-		mkdir -p $serverPath/docker
-	fi
-
-	pip install docker
-	pip install pytz
-	
-	if [ -d $serverPath/docker ];then
-		echo "${VERSION}" > $serverPath/docker/version.pl
-		echo '安装Docker完成'
-
-		cd ${rootPath} && python3 ${rootPath}/plugins/docker/index.py start
-		cd ${rootPath} && python3 ${rootPath}/plugins/docker/index.py initd_install
-	fi
+    python3 -m pip install --upgrade docker pytz || return 1
+    systemctl enable --now docker || return 1
+    docker version --format '{{.Server.Version}}' || return 1
+    mkdir -p "$serverPath/docker" || return 1
+    printf '%s\n' "$VERSION" > "$serverPath/docker/version.pl" || return 1
+    echo '安装Docker完成'
 }
 
 Uninstall_Docker()
