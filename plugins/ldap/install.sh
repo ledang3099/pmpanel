@@ -22,7 +22,8 @@ VERSION=$2
 Install_App()
 {
 	echo '正在安装脚本文件...'
-	apt install -y slapd ldap-utils
+	apt-get install -y slapd ldap-utils || return 1
+    systemctl daemon-reload && systemctl start slapd || return 1
 
 	mkdir -p $serverPath/ldap
 	echo "${VERSION}" > $serverPath/ldap/version.pl

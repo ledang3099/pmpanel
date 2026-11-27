@@ -48,10 +48,17 @@ if [ "${action}" = "uninstall" ];then
 	fi
 fi
 
-sh -x $curPath/versions/$2/install.sh $1
+bash -x "$curPath/versions/$type/install.sh" "$action" || exit 1
 
 if [ "${action}" = "install" ] && [ -d $serverPath/mariadb ];then
-	#初始化 
-	cd ${rootPath} && python3 ${rootPath}/plugins/mariadb/index.py start ${type}
-	cd ${rootPath} && python3 ${rootPath}/plugins/mariadb/index.py initd_install ${type}
+    cd "$rootPath" || exit 1
+    if [ -f bin/activate ]; then source bin/activate; fi
+    result=$(python3 plugins/mariadb/index.py start "$type") || exit 1
+    printf '%s\n' "$result"
+    if [ "$type" = 13.1 ]; then
+        systemctl is-active --quiet mariadb || exit 1
+        systemctl enable mariadb || exit 1
+    else
+        python3 plugins/mariadb/index.py initd_install "$type" || exit 1
+    fi
 fi

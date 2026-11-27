@@ -33,22 +33,15 @@ Install_app()
 	mkdir -p $serverPath/supervisor/log
 	mkdir -p $serverPath/supervisor/run
 
-	echo 'supervisor install...'
-	if [ "centos" = "$OSNAME" ] || [ "fedora" = "$OSNAME" ];then
-    	pip install  supervisor
-    elif [ "ubuntu" = "$OSNAME" ] || [ "debian" = "$OSNAME" ] ;then
-    	pip install supervisor
-	else
-		pip install supervisor
-    	# brew install supervisor
-	fi
+    python3 -m pip install supervisor==4.3.0 || return 1
+    cd "$rootPath" || return 1
+    [ "$(python3 plugins/supervisor/index.py start)" = ok ] || return 1
+    if [ "$(uname)" = Linux ]; then
+        systemctl is-active --quiet supervisor && systemctl enable supervisor || return 1
+    fi
+    printf '%s\n' "$VERSION" > "$serverPath/supervisor/version.pl" || return 1
+    echo '安装完成[supervisor]'
 
-	echo "${VERSION}" > $serverPath/supervisor/version.pl
-
-	cd ${rootPath} && python3 plugins/supervisor/index.py start
-	cd ${rootPath} && python3 plugins/supervisor/index.py initd_install
-	
-	echo '安装完成[supervisor]'
 }
 
 Uninstall_app()

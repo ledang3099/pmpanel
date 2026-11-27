@@ -6,6 +6,10 @@ import os
 import time
 import re
 import json
+import secrets
+import sqlite3
+import subprocess
+from pathlib import Path
 
 web_dir = os.getcwd() + "/web"
 if os.path.exists(web_dir):
@@ -178,24 +182,47 @@ def cleanNginxLog():
             cmd = "echo '' > " + i
             mw.execShell(cmd)
 
-def getPythonName():
-    cmd = "ls /www/server/pgadmin/run/lib/ | grep python | cut -d \\  -f 1 | awk 'END {print}'"
-    data = mw.execShell(cmd)
-    return data[0].strip();
+def pgAdminPath():
+    python = getServerDir() + '/run/bin/python'
+    purelib = subprocess.check_output(
+        [python, '-c', "from sysconfig import get_path; print(get_path('purelib'))"],
+        text=True,
+    ).strip()
+    return Path(purelib) / 'pgadmin4'
 
-def initPgConfFile():
-    pyname = getPythonName()
-    file_tpl = getPluginDir() + '/conf/config_local.py'
-    dst_file = getServerDir()+'/run/lib/'+pyname+'/site-packages/pgadmin4/config_local.py'
-    if not os.path.exists(dst_file):
-        service_path = mw.getServerDir()
-        content = mw.readFile(file_tpl)
-        content = content.replace('{$DATA_PATH}', service_path+'/'+getPluginName()+'/data')
-        mw.writeFile(dst_file, content)
+
+def initPgConfFile(package):
+    template = getPluginDir() + '/conf/config_local.py'
+    destination = package / 'config_local.py'
+    if not destination.exists():
+        content = mw.readFile(template).replace('{$DATA_PATH}', getServerDir() + '/data')
+        destination.write_text(content)
+
+
+def initPgDatabase(package):
+    database = Path(getServerDir()) / 'data/pgadmin4/pgadmin4.db'
+    if database.is_file():
+        with sqlite3.connect(database.as_uri() + '?mode=ro', uri=True) as connection:
+            has_users = connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'user'").fetchone()
+            if has_users and connection.execute('SELECT 1 FROM "user" LIMIT 1').fetchone():
+                return
+
+    cfg = getCfg()
+    email = cfg.get('web_pg_username') or 'pmpanel.' + secrets.token_hex(6) + '@example.com'
+    password = cfg.get('web_pg_password') or secrets.token_urlsafe(18)
+    env = dict(os.environ, PGADMIN_SETUP_EMAIL=email, PGADMIN_SETUP_PASSWORD=password)
+    subprocess.run(
+        [getServerDir() + '/run/bin/python', str(package / 'setup.py'), 'setup-db'],
+        env=env, cwd=package, stdin=subprocess.DEVNULL, check=True,
+    )
+    setCfg('web_pg_username', email)
+    setCfg('web_pg_password', password)
 
 
 def initReplace():
-    initPgConfFile()
+    package = pgAdminPath()
+    initPgConfFile(package)
+    initPgDatabase(package)
 
     file_tpl = getPluginDir() + '/conf/pgadmin.conf'
     file_run = getConf()
@@ -213,18 +240,6 @@ def initReplace():
         setCfg('password', password)
         mw.writeFile(pass_path, pass_cmd)
 
-    # pg_conf = getCfg()
-    judge_file = getServerDir()+'/data/pgadmin4/pgadmin4.db'
-    if not os.path.exists(judge_file):
-        pg_init_bash = getPluginDir()+'/pg_init.sh'
-        pg_rand = mw.getRandomString(8)
-        pg_username = "mw."+pg_rand+"@gmail.com"
-        setCfg('web_pg_username', pg_username)
-        pg_password = mw.getRandomString(10)
-        setCfg('web_pg_password', pg_password)
-        t = mw.execShell("bash "+ pg_init_bash + " " + pg_username + " " + pg_password)
-        # print(t)
-
     # systemd
     systemDir = mw.systemdCfgDir()
     systemService = systemDir + '/pgadmin.service'
@@ -234,7 +249,7 @@ def initReplace():
         service_path = mw.getServerDir()
         content = mw.readFile(systemServiceTpl)
         content = content.replace('{$SERVER_PATH}', service_path)
-        content = content.replace('{$PY_VER}', getPythonName())
+        content = content.replace('{$PGADMIN_PATH}', str(package))
 
         
         mw.writeFile(systemService, content)
@@ -270,8 +285,9 @@ def start():
     initCfg()
     openPort()
 
-    pgOp('start')
-
+    status = pgOp('start')
+    if status != 'ok':
+        return status
     mw.restartWeb()
     return 'ok'
 

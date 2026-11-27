@@ -10,7 +10,7 @@
 | `alist` | 已更新 | 3.66.0，按版本缓存并验证发布摘要，取消固定管理员密码初始化。Debian 13 安装、systemd 和 HTTP 探活通过。 [上游](https://github.com/alist-org/alist/releases/tag/v3.66.0) |
 | `apache` | 已是当前 | 2.4.71。 [上游](https://downloads.apache.org/httpd/Announcement2.4.html) |
 | `backup_ftp` | 面板集成 | 面板 FTP 备份任务，无独立上游版本。 |
-| `caddy` | 已是当前 | 2.11.9。 [上游](https://github.com/caddyserver/caddy/releases) |
+| `caddy` | 已是当前 | 2.11.9。Debian 13 通过安装、版本和 HTTP 监听检查。 [上游](https://github.com/caddyserver/caddy/releases) |
 | `clean` | 面板集成 | 面板日志清理任务，无独立上游版本。 |
 | `cloudreve` | 已更新 | 新增 4.19.1 全新安装，识别 V3 数据并要求先迁移。Debian 13 安装、systemd 和站点配置 API 通过。 [官方迁移说明](https://docs.cloudreve.org/zh/maintain/upgrade-from-v3) |
 | `cryptocurrency_trade` | 已更新 | 固定 CCXT 4.5.94 和 TA-Lib 0.8.3.post1，Debian 13 通过安装、OKX 行情样例解析和指标计算。真实账户和订单待验证。 [CCXT](https://pypi.org/project/ccxt/) [TA-Lib](https://pypi.org/project/TA-Lib/) |
@@ -19,7 +19,7 @@
 | `doh` | 已更新 | 新增 0.11.1，校验 Linux x86_64 和 aarch64 压缩包。Debian 13 安装与 systemd 启动通过。 [上游](https://github.com/DNSCrypt/doh-server/releases/tag/0.11.1) |
 | `dynamic-tracking` | 已更新 | 固定 Brendan Gregg 官方 FlameGraph 源码提交和摘要。Debian 13 完成安装并从测试堆栈生成 SVG。 [上游](https://github.com/brendangregg/FlameGraph) |
 | `dztasks` | 安装修复 | 1.2 为最新官方版本。修正 Linux arm64 归档名，校验归档并保留现有扩展。Debian 13 验证服务、登录页面跳转和示例扩展文件。 [上游](https://github.com/midoks/dztasks/releases/tag/1.2) |
-| `fail2ban` | 软件源 | 上游 1.1.1。面板安装的是发行版的 fail2ban 包，插件版本不能代表运行版本。 [上游](https://github.com/fail2ban/fail2ban/releases) |
+| `fail2ban` | 软件源 | 上游 1.1.1，面板安装发行版软件包。Debian 13 通过安装、服务启动和 fail2ban-client ping。 [上游](https://github.com/fail2ban/fail2ban/releases) |
 | `gdrive` | 面板集成 | Google Drive 备份适配器。Python SDK 独立维护，需用实际 OAuth 集成验证。 |
 | `gitea` | 已更新 | 新增 28.4.0，校验下载摘要，保留旧版安装入口。Debian 13 服务和初始设置页面通过。 [上游](https://github.com/go-gitea/gitea/releases/tag/v28.4.0) |
 | `gogs` | 已更新 | 新增 0.14.4，校验官方归档，修复 Debian 13 systemd 启动失败。服务和初始设置页面通过。 [上游](https://github.com/gogs/gogs/releases/tag/v0.14.4) |
@@ -29,14 +29,14 @@
 | `imail` | 面板集成 | 面板邮件组件，版本属于插件。底层邮件服务另行维护。 |
 | `keepalived` | 已更新 | 2.4.3，修正 systemd 模板，取消新安装默认绑定示例 VIP。Debian 13 编译、配置检查、启动及重载通过。VRRP 主备切换待验证。 [上游](https://www.keepalived.org/download/) |
 | `lam` | 已更新 | 新增 LDAP Account Manager 9.7，校验下载摘要并修正 PHP-FPM 版本识别。Debian 13 通过 OpenResty、PHP 8.4 与认证登录页检查。LAM 的 LDAP 写入待验证。 [上游](https://github.com/LDAPAccountManager/lam/releases/tag/9.7) |
-| `ldap` | 软件源 | LDAP 软件由发行版仓库提供，1.0 为封装版本。 |
+| `ldap` | 安装修复 | 发行版 OpenLDAP，安装后显式启动 slapd。Debian 13 通过根 DSE 的 namingContexts 查询。 |
 | `loki` | 已更新 | 新增 Loki 3.7.10 与 Alloy 1.22.0。安装时转换旧 Promtail 配置，验证后切换采集服务。Debian 13 验证日志采集、写入和查询。 [上游迁移指南](https://grafana.com/docs/alloy/latest/set-up/migrate/from-promtail/) |
 | `lvs` | 软件源 | 依赖 Linux 内核 IPVS 和发行版工具，无独立面板运行时更新。 |
 | `manticoresearch` | 安装修复 | APT 入口使用官方仓库并适配 32.1.3 合并后的主包。Debian 13 安装、systemd 和 SQL 版本查询通过。 [上游](https://github.com/manticoresoftware/manticoresearch/releases) |
-| `mariadb` | 部分已是当前 | 已核对 10.11.20、11.4.14、11.8.10、12.3.4 与仓库一致。13.1.2 是滚动 GA，待验证数据库迁移和平台包。 [上游](https://mariadb.com/downloads/) |
-| `memcached` | 已是当前 | 1.6.45。 [上游](https://www.memcached.org/downloads) |
+| `mariadb` | 已更新 | 新增 13.1.2 滚动版 Linux x86_64 全新安装，验证官方归档和认证 SQL 读写。修正 12.3 安装记录，保持现有 LTS 选择和推荐。跨版本数据迁移待验证。 [上游](https://mariadb.org/mariadb-server-13-1-is-now-stable-and-13-2-reaches-release-candidate/) |
+| `memcached` | 已是当前 | 1.6.45。Debian 13 通过插件安装和缓存读写。 [上游](https://www.memcached.org/downloads) |
 | `migration_api` | 面板集成 | 面板迁移 API，无独立上游版本。 |
-| `modsecurity` | 主分支新增 | 主分支新增的 ModSecurity 3 与 OWASP CRS 4 集成。完整编译与面板运行待验证。 |
+| `modsecurity` | 主分支新增 | 主分支集成 ModSecurity 3.0.17、NGINX connector 1.0.4 和 OWASP CRS 4.31.0。Debian 13 通过源码编译、动态模块装载、配置语法和普通 HTTP 请求。 [上游](https://github.com/owasp-modsecurity/ModSecurity/releases/tag/v3.0.17) |
 | `mongodb` | 已更新 | Debian x86_64 的 9.0 安装路径使用 9.0.8 与发行版匹配的官方包，同时更新 mongosh 2.14.3 和数据库工具 100.20.1。Debian 13 通过写入、查询、备份和恢复。其他发行版入口仍需验证。 [上游](https://www.mongodb.com/docs/manual/release-notes/9.0/) |
 | `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/blog/2026/11/version-2-1-3-released/) |
 | `msonedrive` | 面板集成 | Microsoft OneDrive 备份适配器。SDK 与 API 兼容性需在真实账户验证。 |
@@ -48,11 +48,11 @@
 | `op_load_balance` | 面板集成 | 面板的 OpenResty 负载均衡适配器，无独立运行时。 |
 | `op_waf` | 依赖已更新 | 面板自带的 OpenResty WAF 更新 LuaRocks 3.13.0、lsqlite3 0.9.7、libmaxminddb 1.14.1 和 GeoLite 数据。Debian 13 通过 LuaJIT SQLite 查询、GeoLite 查找和 OpenResty 启动。 [LuaRocks](https://github.com/luarocks/luarocks/releases/tag/v3.13.0) [MaxMind](https://github.com/maxmind/libmaxminddb/releases/tag/1.14.1) |
 | `openresty` | 已是当前 | 主线 1.31.9.1。RTMP 变体单独使用带模块的固定构建。 [上游](https://github.com/openresty/openresty/releases) |
-| `pgadmin` | 软件源 | Python 包版本由安装环境解析，面板 4 是产品系列。 [上游](https://www.pgadmin.org/download/pgadmin-4-python/) |
-| `php` | 已更新 | 8.2.36、8.3.37、8.4.28、8.5.13 已核对 SHA-256，新增 8.6.0。历史分支保留停止维护标识和现有回补，应用失败中止。 [上游](https://www.php.net/supported-versions.php) |
-| `php-apt` | 已更新 | 用 APT 候选包和已安装包判断可更新版本，更新当前系列的发行版补丁。 |
+| `pgadmin` | 已更新 | 固定 pgAdmin 4 9.19，改用官方非交互数据库初始化。Debian 13 通过应用初始化、systemd、Unix socket 健康接口。 [上游](https://www.pgadmin.org/docs/pgadmin4/9.19/server_deployment.html) |
+| `php` | 已更新 | 8.2.36、8.3.37、8.4.28、8.5.13 已核对 SHA-256，新增 8.6.0。Debian 13 已编译五个系列的运行时并做执行检查。历史分支保留停止维护标识和现有回补。 [上游](https://www.php.net/supported-versions.php) |
+| `php-apt` | 已更新 | 以 APT 候选包判断更新，新增 8.6，按上游方式配置 Sury 签名仓库，修正内置 OPcache 的配置。Debian 13 已安装 8.6.0，PHP-FPM 配置检查和启动通过。 [软件源](https://packages.sury.org/php/pool/main/p/php8.6/) |
 | `php-guard` | 面板集成 | PHP 管理适配器，无独立运行时。 |
-| `php-yum` | 已更新 | 8.2–8.5 使用 Remi 仓库候选包判断并执行真实升级。 [软件源](https://rpms.remirepo.net/) |
+| `php-yum` | 已更新 | 8.2–8.6 使用 Remi 仓库判断并执行升级，修正 Rocky 等发行版的仓库安装。Rocky Linux 9 已成功安装 PHP 8.6.0，PHP-FPM 配置检查和启动通过。 [软件源](https://rpms.remirepo.net/) |
 | `phpldapadmin` | 已更新 | 新增 2.3.13 全新安装，独立站点根目录、PHP-FPM 8.4+ 与 LDAP 配置。Debian 13 完成 Composer 和前端构建，OpenResty 验证 HTTP 认证，与本地 OpenLDAP 联调打开登录页。1.x 配置迁移与登录后编辑待验证。 [上游](https://github.com/leenooks/phpLDAPadmin/releases/tag/2.3.13) |
 | `phpmyadmin` | 已是当前 | 5.2.3 为上游当前稳定版，旧分支单独保留。 [上游](https://www.phpmyadmin.net/downloads/) |
 | `postgresql` | 已更新 | 新增 19.0 全新安装，15–18 补丁已与官网一致，14 保留停止维护标识。Debian 13 编译 19.0、初始化集群，并通过 SQL 建表、写入和查询。 [上游](https://www.postgresql.org/support/versioning/) |
@@ -63,7 +63,7 @@
 | `rsyncd` | 跳过 | 由维护者在主分支处理。 |
 | `simpleping` | 已更新 | 安装器已下载 2.0，修正目录显示。 [上游](https://github.com/midoks/simpleping/releases) |
 | `sphinx` | 已更新 | 新增 3.9.1，验证官方二进制摘要并检查 x86_64 AVX2。Debian 13 验证服务及 SphinxQL 写入和搜索。 [上游](https://sphinxsearch.com/downloads/) |
-| `supervisor` | 软件源 | Python 包版本随安装渠道变化。 [上游](https://pypi.org/project/supervisor/) |
+| `supervisor` | 已更新 | 固定 4.3.0，修复 systemd 在 Debian 解析程序路径失败。Debian 13 验证插件安装、启动及管理测试任务。 [上游](https://pypi.org/project/supervisor/) |
 | `swap` | 面板集成 | 系统 swap 配置，无独立应用版本。 |
 | `sys-opt` | 面板集成 | 系统参数配置，无独立应用版本。 |
 | `system_safe` | 面板集成 | 系统安全设置，无独立应用版本。 |
@@ -71,7 +71,7 @@
 | `task_manager` | 面板集成 | 面板任务管理插件。网络采集依赖 libpcap 与 Python 包。 |
 | `tgbot` | 面板集成 | Telegram Bot API 适配器，SDK 由包管理器维护。 |
 | `valkey` | 已更新 | 新增 9.2.1，校验源码和编译结果，保留现有配置。Debian 13 插件编译、安装、systemd 启动和认证读写通过。 [上游](https://github.com/valkey-io/valkey/releases/tag/9.2.1) |
-| `varnish` | 软件源 | 安装发行版 Varnish 包。 [上游](https://varnish-cache.org/releases/) |
+| `varnish` | 软件源 | 安装发行版 Varnish 包。Debian 13 通过安装、systemd 和本地代理访问。 [上游](https://varnish-cache.org/releases/) |
 | `webhook` | 面板集成 | 面板回调功能，无独立应用版本。 |
 | `webssh` | 面板集成 | 面板终端功能，SSH 依赖独立维护。 |
 | `webstats` | 依赖已更新 | 更新 LuaRocks、lsqlite3 和 GeoLite City 数据。Debian 13 通过 OpenResty 采集测试请求并写入 SQLite 日志与各项统计。 [lsqlite3](https://luarocks.org/modules/javierguerragiraldez/lsqlite3) |
