@@ -3,10 +3,9 @@ Description=Gogs
 After=network.target
 
 [Service]
-Type=forking
-ExecStart={$SERVER_PATH}/gogs/init.d/gogs start
-ExecStop={$SERVER_PATH}/gogs/init.d/gogs stop
-RemainAfterExit=yes
+User=root
+WorkingDirectory={$SERVER_PATH}/gogs
+ExecStart={$SERVER_PATH}/gogs/gogs web
 
 [Install]
 WantedBy=multi-user.target

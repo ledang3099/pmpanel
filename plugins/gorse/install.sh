@@ -36,29 +36,38 @@ Install_App()
 		ARCH="amd64"
 	fi
 
-	FILE_TGZ=gorse_${SYSNAME}_${ARCH}.zip
-	GORSE_DIR=$serverPath/source/gorse
+    file="gorse_${SYSNAME}_${ARCH}.zip"
+    sources="$serverPath/source/gorse"
+    archive="$sources/${VERSION}-$file"
+    url="https://github.com/gorse-io/gorse/releases/download/v$VERSION/$file"
+    if [ "$VERSION" = 0.5.11 ]; then
+        case "$SYSNAME-$ARCH" in
+            linux-amd64) digest=615e1830ec7b0f6f8ef8ccb13adc5a0d80af821e6a4ebcb23673629a8d8590fe ;;
+            linux-arm64) digest=5cdb74f0dbc946e54321ff05da4b600593db35b94560aa7675e64f05f38e0c9c ;;
+            darwin-arm64) digest=2849ffd1dde10c60ab9a575243d62789e7df784b51ea15b7d4e797ce2ba9ef29 ;;
+            *) echo 'Unsupported Gorse platform' >&2; return 1 ;;
+        esac
+        source "$rootPath/scripts/tools/verified-download.sh" || return 1
+        verified_download "$url" "$archive" "$digest" || return 1
+    elif [ ! -f "$archive" ]; then
+        curl -fsSL --retry 2 "$url" -o "$archive.part" && mv -- "$archive.part" "$archive" || return 1
+    fi
 
-	# https://github.com/gorse-io/gorse/releases/download/v0.4.15/gorse_linux_amd64.zip
-	echo "https://github.com/gorse-io/gorse/releases/download/v${VERSION}/${FILE_TGZ}"
+    stage=$(mktemp -d "$sources/install.XXXXXX") || return 1
+    trap 'rm -rf -- "$stage"' EXIT
+    unzip -q "$archive" -d "$stage" || return 1
+    test -x "$stage/gorse-in-one" || return 1
+    mkdir -p "$serverPath/gorse/"{bin,logs,data} || return 1
+    cp -R "$stage"/. "$serverPath/gorse/bin/" || return 1
 
-	if [ ! -f $GORSE_DIR/${FILE_TGZ} ];then
-		wget -O $GORSE_DIR/${FILE_TGZ} https://github.com/gorse-io/gorse/releases/download/v${VERSION}/${FILE_TGZ}
-	fi
-	
-	mkdir -p $serverPath/gorse/bin
-	mkdir -p $serverPath/gorse/logs
-	cd $GORSE_DIR && unzip -d $serverPath/gorse/bin ${FILE_TGZ}
+    printf '%s\n' "$VERSION" > "$serverPath/gorse/version.pl"
+    cd "$rootPath" || return 1
+    [ "$(python3 plugins/gorse/index.py start)" = ok ] || return 1
+    if [ "$sysName" != Darwin ]; then
+        [ "$(python3 plugins/gorse/index.py initd_install)" = ok ] || return 1
+    fi
+    echo '安装Gorse完成'
 
-	mkdir -p $serverPath/gorse/data
-	echo "${VERSION}" > $serverPath/gorse/version.pl
-	echo '安装Gorse完成'
-	cd ${rootPath} && python3 ${rootPath}/plugins/gorse/index.py start
-	cd ${rootPath} && python3 ${rootPath}/plugins/gorse/index.py initd_install
-
-	if [ -d ${GORSE_DIR}/gorse-${VERSION} ];then
-		rm -rf ${GORSE_DIR}/gorse-${VERSION}
-	fi
 }
 
 Uninstall_App()

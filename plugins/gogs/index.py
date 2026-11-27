@@ -154,7 +154,9 @@ def initDreplace():
     systemDir = mw.systemdCfgDir()
     systemService = systemDir + '/gogs.service'
     systemServiceTpl = getPluginDir() + '/init.d/gogs.service.tpl'
-    if os.path.exists(systemDir) and not os.path.exists(systemService):
+    old_exec = 'ExecStart=' + getServerDir() + '/init.d/gogs start'
+    current_unit = mw.readFile(systemService) if os.path.exists(systemService) else ''
+    if os.path.exists(systemDir) and (old_exec in current_unit or not os.path.exists(systemService)):
         service_path = mw.getServerDir()
         se_content = mw.readFile(systemServiceTpl)
         se_content = se_content.replace('{$SERVER_PATH}', service_path)

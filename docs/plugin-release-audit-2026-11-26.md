@@ -21,14 +21,14 @@
 | `dztasks` | 安装修复 | 1.2 为最新官方版本。修正 Linux arm64 归档名，校验归档并保留现有扩展。Debian 13 验证服务、登录页面跳转和示例扩展文件。 [上游](https://github.com/midoks/dztasks/releases/tag/1.2) |
 | `fail2ban` | 软件源 | 上游 1.1.1。面板安装的是发行版的 fail2ban 包，插件版本不能代表运行版本。 [上游](https://github.com/fail2ban/fail2ban/releases) |
 | `gdrive` | 面板集成 | Google Drive 备份适配器。Python SDK 独立维护，需用实际 OAuth 集成验证。 |
-| `gitea` | 已更新 | 新增 28.4.0，保留旧版安装入口。 [上游](https://github.com/go-gitea/gitea/releases/tag/v28.4.0) |
-| `gogs` | 已更新 | 新增 0.14.4，增加新版 Linux/macOS 官方归档命名和 arm64 选择。 [上游](https://github.com/gogs/gogs/releases/tag/v0.14.4) |
-| `gorse` | 已更新 | 新增 0.5.11，确认 Linux amd64 与 arm64 归档存在。 [上游](https://github.com/gorse-io/gorse/releases/tag/v0.5.11) |
+| `gitea` | 已更新 | 新增 28.4.0，校验下载摘要，保留旧版安装入口。Debian 13 服务和初始设置页面通过。 [上游](https://github.com/go-gitea/gitea/releases/tag/v28.4.0) |
+| `gogs` | 已更新 | 新增 0.14.4，校验官方归档，修复 Debian 13 systemd 启动失败。服务和初始设置页面通过。 [上游](https://github.com/gogs/gogs/releases/tag/v0.14.4) |
+| `gorse` | 已更新 | 新增 0.5.11，适配新配置格式和服务缓存路径。全新安装采用 SQLite；Debian 13 启动后健康接口确认数据及缓存连接成功。 [上游](https://github.com/gorse-io/gorse/releases/tag/v0.5.11) |
 | `grafana` | 已更新 | 新增 Grafana OSS 13.3.2，修正服务启动路径及旧默认服务定义。Debian 13 安装、systemd 和数据库健康接口通过。 [上游](https://github.com/grafana/grafana/releases/tag/v13.3.2) |
 | `haproxy` | 已更新 | 2.6.36、2.8.32、3.0.31、3.2.27；新增 3.4.8，使用官方 SHA-256。Debian 13 编译并启动 3.4.8。 [上游](https://www.haproxy.org/) |
 | `imail` | 面板集成 | 面板邮件组件，版本属于插件。底层邮件服务另行维护。 |
-| `keepalived` | 已更新 | 2.4.3，官方归档与发布页摘要一致。 [上游](https://www.keepalived.org/download/) |
-| `lam` | 已更新 | 新增 LDAP Account Manager 9.7，改为按所选版本下载。 [上游](https://github.com/LDAPAccountManager/lam/releases/tag/9.7) |
+| `keepalived` | 已更新 | 2.4.3，修正 systemd 模板，取消新安装默认绑定示例 VIP。Debian 13 编译、配置检查、启动及重载通过。VRRP 主备切换待验证。 [上游](https://www.keepalived.org/download/) |
+| `lam` | 已更新 | 新增 LDAP Account Manager 9.7，校验下载摘要并修正 PHP-FPM 版本识别。Debian 13 已验证下载及解包，反向代理与 LDAP 绑定待验证。 [上游](https://github.com/LDAPAccountManager/lam/releases/tag/9.7) |
 | `ldap` | 软件源 | LDAP 软件由发行版仓库提供，1.0 为封装版本。 |
 | `loki` | 已更新 | 新增 Loki 3.7.10 与 Alloy 1.22.0。安装时转换旧 Promtail 配置，验证后切换采集服务。Debian 13 验证日志采集、写入和查询。 [上游迁移指南](https://grafana.com/docs/alloy/latest/set-up/migrate/from-promtail/) |
 | `lvs` | 软件源 | 依赖 Linux 内核 IPVS 和发行版工具，无独立面板运行时更新。 |
@@ -37,12 +37,12 @@
 | `memcached` | 已是当前 | 1.6.45。 [上游](https://www.memcached.org/downloads) |
 | `migration_api` | 面板集成 | 面板迁移 API，无独立上游版本。 |
 | `mongodb` | 已更新 | Debian x86_64 的 9.0 安装路径使用 9.0.8 与发行版匹配的官方包，同时更新 mongosh 2.14.3 和数据库工具 100.20.1。Debian 13 通过写入、查询、备份和恢复。其他发行版入口仍需验证。 [上游](https://www.mongodb.com/docs/manual/release-notes/9.0/) |
-| `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。 [上游](https://mosquitto.org/blog/2026/11/version-2-1-3-released/) |
+| `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/blog/2026/11/version-2-1-3-released/) |
 | `msonedrive` | 面板集成 | Microsoft OneDrive 备份适配器。SDK 与 API 兼容性需在真实账户验证。 |
 | `mtproxy` | 已更新 | 固定 mtg 2.3.0 官方归档和摘要，修复空密钥生成，保留既有密钥。Debian 13 验证服务启动和 TCP 监听。 [上游](https://github.com/9seconds/mtg/releases) |
 | `mysql` | 已更新 | 源码 8.4.13.1、9.7.4.1、26.10.0.1。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
 | `mysql-community` | 已更新 | 8.4.13.1、9.7.4.1、26.10.0.1 官方 Linux x86_64 归档均用隔离数据目录初始化，SQL 读写通过。核对 Linux aarch64 与 macOS arm64 下载地址。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
-| `nezha` | 已更新 | 新增固定版本 2.7.0。 [上游](https://github.com/nezhahq/nezha/releases/tag/v2.7.0) |
+| `nezha` | 已更新 | 新增固定版本 2.7.0。Debian 13 完成安装，面板首页返回 HTTP 200。 [上游](https://github.com/nezhahq/nezha/releases/tag/v2.7.0) |
 | `ollama` | 已更新 | 固定 0.40.18 官方安装器摘要，面板交由供应商 systemd 单元管理。Debian 13 验证启动和版本 API。 [上游](https://github.com/ollama/ollama/releases/tag/v0.40.18) |
 | `op_load_balance` | 面板集成 | 面板的 OpenResty 负载均衡适配器，无独立运行时。 |
 | `op_waf` | 候选待验证 | 上游 0.7.2。需验证规则格式、已有自定义规则及 OpenResty 兼容性。 [上游](https://github.com/loveshell/ngx_lua_waf/releases) |
@@ -55,7 +55,7 @@
 | `phpldapadmin` | 候选待验证 | 上游 2.3.13，原插件基于 1.x 布局。需适配新版依赖、配置和迁移。 [上游](https://github.com/leenooks/phpLDAPadmin/releases) |
 | `phpmyadmin` | 已是当前 | 5.2.3 为上游当前稳定版，旧分支单独保留。 [上游](https://www.phpmyadmin.net/downloads/) |
 | `postgresql` | 已更新 | 新增 19.0 全新安装，15–18 补丁已与官网一致，14 保留停止维护标识。Debian 13 编译 19.0、初始化集群，并通过 SQL 建表、写入和查询。 [上游](https://www.postgresql.org/support/versioning/) |
-| `prometheus` | 已更新 | 新增 3.16.0，修正 Linux arm64 归档选择。 [上游](https://github.com/prometheus/prometheus/releases/tag/v3.16.0) |
+| `prometheus` | 已更新 | 新增 3.16.0，修正 Linux arm64 归档选择。Debian 13 完成安装，readiness 接口通过。 [上游](https://github.com/prometheus/prometheus/releases/tag/v3.16.0) |
 | `pureftp` | 已更新 | 1.0.54，支持从旧版发起升级并保留 PureDB 配置。Debian 13 编译和服务启动通过，虚拟用户完成登录、上传、下载和删除。现有账户迁移待验证。 [上游](https://github.com/jedisct1/pure-ftpd/releases/tag/1.0.54) |
 | `rapira` | 候选待验证 | 单独的 PHP 运行时提供方。需确认发行包和补丁，不用 PHP 官方版本号替代。 |
 | `redis` | 已更新 | 新增 8.12.0，校验源码及编译结果并保留现有配置。Debian 13 通过源码编译、PING 和键值读写。 [上游](https://github.com/redis/redis/releases/tag/8.12.0) |
@@ -69,7 +69,7 @@
 | `tamper_proof_py` | 面板集成 | 面板防篡改插件。依赖的 Python 组件独立维护。 |
 | `task_manager` | 面板集成 | 面板任务管理插件。网络采集依赖 libpcap 与 Python 包。 |
 | `tgbot` | 面板集成 | Telegram Bot API 适配器，SDK 由包管理器维护。 |
-| `valkey` | 已更新 | 新增 9.2.1，校验源码和编译结果，保留现有配置。Debian 13 插件编译、安装及 systemd 启动通过。 [上游](https://github.com/valkey-io/valkey/releases/tag/9.2.1) |
+| `valkey` | 已更新 | 新增 9.2.1，校验源码和编译结果，保留现有配置。Debian 13 插件编译、安装、systemd 启动和认证读写通过。 [上游](https://github.com/valkey-io/valkey/releases/tag/9.2.1) |
 | `varnish` | 软件源 | 安装发行版 Varnish 包。 [上游](https://varnish-cache.org/releases/) |
 | `webhook` | 面板集成 | 面板回调功能，无独立应用版本。 |
 | `webssh` | 面板集成 | 面板终端功能，SSH 依赖独立维护。 |

@@ -89,33 +89,28 @@ def getHomePage():
         return mw.returnJson(False, '插件未启动!')
 
 
-def getPhpVer(expect=83):
-    php_vers = MwSites.instance().getPhpVersion()
-    v = php_vers['data']
-    is_find = False
-    for i in range(len(v)):
-        t = str(v[i]['version'])
-        if (t == expect):
-            is_find = True
-            return str(t)
-        expect_str = str(expect)
-        new_ex = expect_str[0:1]+"."+expect_str[1:2]
-        if t.find(new_ex) > -1:
-            is_find = True
-            return str(t)
-    if not is_find:
-        if len(v) > 1:
-            return v[1]['version']
-        return v[0]['version']
-    return str(expect)
+def getPhpVer():
+    versions = MwSites.instance().getPhpVersion()
+    if isinstance(versions, dict):
+        versions = versions['data']
+    conf_dir = mw.getServerDir() + '/web_conf/php/conf'
+    enabled = []
+    for version in versions:
+        name = str(version['version'])
+        match = re.match(r'^(\d)(?:\.)?(\d)(?:\D|$)', name)
+        if match and tuple(map(int, match.groups())) >= (8, 2):
+            if os.path.isfile(os.path.join(conf_dir, f'enable-php-{name}.conf')):
+                enabled.append((tuple(map(int, match.groups())), name))
+    return max(enabled, default=((), ''))[1]
 
 
 def getCachePhpVer():
     cacheFile = getServerDir() + '/php.pl'
     v = ''
     if os.path.exists(cacheFile):
-        v = mw.readFile(cacheFile)
-    else:
+        v = mw.readFile(cacheFile).strip()
+    conf = mw.getServerDir() + '/web_conf/php/conf/enable-php-' + v + '.conf'
+    if not v or not os.path.isfile(conf):
         v = getPhpVer()
         mw.writeFile(cacheFile, v)
     return v
@@ -221,6 +216,8 @@ def delPort():
 
 
 def start():
+    if not getCachePhpVer():
+        return '请先安装并配置 PHP 8.2 或更高版本。'
     initCfg()
     openPort()
 

@@ -41,9 +41,11 @@ fi
 
 Install_App()
 {
-	if [ -d $serverPath/lam ];then
-		exit 0
-	fi
+    if [ -d "$serverPath/lam" ]; then
+        cd "$rootPath" || return 1
+        [ "$(python3 plugins/lam/index.py start)" = ok ]
+        return $?
+    fi
 
 	mkdir -p ${serverPath}/source/lam
 	
@@ -55,19 +57,23 @@ Install_App()
 	DOWNLOAD=https://github.com/LDAPAccountManager/lam/releases/download/${VER}/${FILE}
 	
 
-	if [ ! -f $serverPath/source/lam/$FILE ];then
-		wget -O "$serverPath/source/lam/$FILE" "$DOWNLOAD" || return 1
-	fi
+    archive="$serverPath/source/lam/$FILE"
+    if [ "$VER" = 9.7 ]; then
+        source "$rootPath/scripts/tools/verified-download.sh" || return 1
+        verified_download "$DOWNLOAD" "$archive" b3535f91afa09ba49f59d8a7fdfbb0a4f5aae2b9ed17aac7b8bfae36e834d9e0 || return 1
+    elif [ ! -f "$archive" ]; then
+        curl -fsSL --retry 2 "$DOWNLOAD" -o "$archive.part" && mv -- "$archive.part" "$archive" || return 1
+    fi
+    staging=$(mktemp -d "$serverPath/source/lam/install.XXXXXX") || return 1
+    trap 'rm -rf -- "$staging"' EXIT
+    tar -xjf "$archive" -C "$staging" || return 1
 
-	if [ ! -d $serverPath/source/lam/$FDIR ];then
-		cd "$serverPath/source/lam" && tar jxf "$FILE" || return 1
-	fi
-
-	mkdir -p "$serverPath/lam" && cp -R "$serverPath/source/lam/$FDIR" "$serverPath/lam/lam" || return 1
+	mkdir -p "$serverPath/lam" && cp -R "$staging/$FDIR" "$serverPath/lam/lam" || return 1
 	printf "%s\n" "$VER" > "$serverPath/lam/version.pl"
 	# rm -rf $serverPath/source/lam/$FDIR
 	
-	cd ${rootPath} && python3 ${rootPath}/plugins/lam/index.py start
+	cd "$rootPath" || return 1
+    [ "$(python3 plugins/lam/index.py start)" = ok ] || return 1
 	echo '安装完成'
 		
 }
