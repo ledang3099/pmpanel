@@ -1430,7 +1430,14 @@ def deleteDbBackup():
     full_file = bkDir + '/' + args['filename']
     if path != "":
         full_file = path + "/" + args['filename']
-    os.remove(full_file)
+    # 只允许删除面板备份目录内的文件, 防止通过 path/filename 删除任意文件
+    if not re.match(r'^[A-Za-z0-9_.\-]{1,255}$', str(args['filename'])) or '..' in str(args['filename']):
+        return mw.returnJson(False, '文件名不正确!')
+    backup_root = os.path.realpath(mw.getBackupDir())
+    real_file = os.path.realpath(full_file)
+    if not real_file.startswith(backup_root + '/') or not os.path.isfile(real_file):
+        return mw.returnJson(False, '只能删除备份目录中的文件!')
+    os.remove(real_file)
     return mw.returnJson(True, '删除成功!')
 
 def setDbBackup():
@@ -1438,6 +1445,8 @@ def setDbBackup():
     data = checkArgs(args, ['name'])
     if not data[0]:
         return data[1]
+    if not re.match(r'^[A-Za-z0-9_.\-]{1,64}$', str(args['name'])):
+        return mw.returnJson(False, '数据库名不正确!')
 
     head = "cd "+mw.getPanelDir()
     cmd = head +' && . bin/activate &&  python3 plugins/mongodb/scripts/backup.py database ' + args['name'] + ' 3'
@@ -1486,6 +1495,10 @@ def importDbExternal():
     data = checkArgs(args, ['file', 'name'])
     if not data[0]:
         return data[1]
+    if not re.match(r'^[A-Za-z0-9_.\-]{1,64}$', str(args['name'])):
+        return mw.returnJson(False, '数据库名不正确!')
+    if not re.match(r'^[A-Za-z0-9_.\-]{1,255}$', str(args['file'])) or '..' in str(args['file']):
+        return mw.returnJson(False, '文件名不正确, 只能包含字母、数字、下划线、点和连字符!')
 
     file = args['file']
     name = args['name']
@@ -1606,6 +1619,10 @@ def importDbBackup():
     data = checkArgs(args, ['file', 'name'])
     if not data[0]:
         return data[1]
+    if not re.match(r'^[A-Za-z0-9_.\-]{1,64}$', str(args['name'])):
+        return mw.returnJson(False, '数据库名不正确!')
+    if not re.match(r'^[A-Za-z0-9_.\-]{1,255}$', str(args['file'])) or '..' in str(args['file']):
+        return mw.returnJson(False, '文件名不正确!')
 
     file = args['file']
     name = args['name']

@@ -996,6 +996,8 @@ def setDbBackup():
     data = checkArgs(args, ['name'])
     if not data[0]:
         return data[1]
+    if not re.match(r'^[A-Za-z0-9_.\-]{1,64}$', str(args['name'])):
+        return mw.returnJson(False, '数据库名不正确!')
 
     head = "cd "+mw.getPanelDir()
     cmd = head +' && . bin/activate &&  python3 plugins/mysql-community/scripts/backup.py database ' + args['name'] + ' 3'
@@ -1013,6 +1015,10 @@ def importDbExternal():
     data = checkArgs(args, ['file', 'name'])
     if not data[0]:
         return data[1]
+    if not re.match(r'^[A-Za-z0-9_.\-]{1,64}$', str(args['name'])):
+        return mw.returnJson(False, '数据库名不正确!')
+    if not re.match(r'^[A-Za-z0-9_.\-]{1,255}$', str(args['file'])) or '..' in str(args['file']):
+        return mw.returnJson(False, '文件名不正确, 只能包含字母、数字、下划线、点和连字符!')
 
     file = args['file']
     name = args['name']
@@ -1160,6 +1166,10 @@ def importDbBackup():
     data = checkArgs(args, ['file', 'name'])
     if not data[0]:
         return data[1]
+    if not re.match(r'^[A-Za-z0-9_.\-]{1,64}$', str(args['name'])):
+        return mw.returnJson(False, '数据库名不正确!')
+    if not re.match(r'^[A-Za-z0-9_.\-]{1,255}$', str(args['file'])) or '..' in str(args['file']):
+        return mw.returnJson(False, '文件名不正确!')
 
     file = args['file']
     name = args['name']
@@ -1245,7 +1255,14 @@ def deleteDbBackup():
     full_file = bkDir + '/' + args['filename']
     if path != "":
         full_file = path + "/" + args['filename']
-    os.remove(full_file)
+    # 只允许删除面板备份目录内的文件, 防止通过 path/filename 删除任意文件
+    if not re.match(r'^[A-Za-z0-9_.\-]{1,255}$', str(args['filename'])) or '..' in str(args['filename']):
+        return mw.returnJson(False, '文件名不正确!')
+    backup_root = os.path.realpath(mw.getBackupDir())
+    real_file = os.path.realpath(full_file)
+    if not real_file.startswith(backup_root + '/') or not os.path.isfile(real_file):
+        return mw.returnJson(False, '只能删除备份目录中的文件!')
+    os.remove(real_file)
     return mw.returnJson(True, '删除成功!')
 
 
@@ -1495,6 +1512,8 @@ def setRootPwd(version=''):
     data = checkArgs(args, ['password'])
     if not data[0]:
         return data[1]
+    if 'password' in args and not re.match(r'^[A-Za-z0-9!@#$%^&*()_+\-=\[\]{}|;:,.<>?~]{1,64}$', str(args['password'])):
+        return mw.returnJson(False, '密码不能包含引号、反斜杠、反引号和空格!')
 
     password = args['password']
 
@@ -1556,6 +1575,10 @@ def setUserPwd(version=''):
     data = checkArgs(args, ['password', 'name'])
     if not data[0]:
         return data[1]
+    if 'password' in args and not re.match(r'^[A-Za-z0-9!@#$%^&*()_+\-=\[\]{}|;:,.<>?~]{1,64}$', str(args['password'])):
+        return mw.returnJson(False, '密码不能包含引号、反斜杠、反引号和空格!')
+    if 'name' in args and not re.match(r'^[A-Za-z0-9_.\-]{1,64}$', str(args['name'])):
+        return mw.returnJson(False, '名称不合法!')
 
     newpassword = args['password']
     username = args['name']
@@ -1612,6 +1635,17 @@ def addDb():
                      ['password', 'name', 'codeing', 'db_user', 'dataAccess', 'ps'])
     if not data[0]:
         return data[1]
+    if 'password' in args and not re.match(r'^[A-Za-z0-9!@#$%^&*()_+\-=\[\]{}|;:,.<>?~]{1,64}$', str(args['password'])):
+        return mw.returnJson(False, '密码不能包含引号、反斜杠、反引号和空格!')
+    if 'db_user' in args and not re.match(r'^[A-Za-z0-9_.\-]{1,32}$', str(args['db_user'])):
+        return mw.returnJson(False, '数据库用户名不合法!')
+    if 'name' in args and not re.match(r'^[A-Za-z0-9_.\-]{1,64}$', str(args['name'])):
+        return mw.returnJson(False, '名称不合法!')
+    if 'address' in args and args['address'] != '' and not re.match(r'^[A-Za-z0-9.:%_\-/,]{1,500}$', str(args['address'])):
+        return mw.returnJson(False, '访问地址格式不正确!')
+    if 'codeing' in args and args['codeing'] not in ('utf8mb4', 'utf8', 'gbk', 'big5', 'latin1'):
+        return mw.returnJson(False, '字符集不正确!')
+
 
     if not 'address' in args:
         address = ''
@@ -1823,6 +1857,10 @@ def setDbAccess():
     data = checkArgs(args, ['username', 'access'])
     if not data[0]:
         return data[1]
+    if 'username' in args and not re.match(r'^[A-Za-z0-9_.\-]{1,32}$', str(args['username'])):
+        return mw.returnJson(False, '用户名不合法!')
+    if 'access' in args and not re.match(r'^[A-Za-z0-9.:%_\-/,]{1,500}$', str(args['access'])):
+        return mw.returnJson(False, '访问权限格式不正确!')
     username = args['username']
     access = args['access']
     
