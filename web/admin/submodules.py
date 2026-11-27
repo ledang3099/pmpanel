@@ -19,6 +19,7 @@ from .crontab import blueprint as CrontabModule
 from .firewall import blueprint as FirewallModule
 from .monitor import blueprint as MonitorModule
 from .system import blueprint as SystemModule
+from .database import blueprint as DatabaseModule
 
 def get_submodules():
     return [
@@ -33,5 +34,6 @@ def get_submodules():
         FirewallModule,
         MonitorModule,
         SystemModule,
+        DatabaseModule,
         SettingModule,
     ]

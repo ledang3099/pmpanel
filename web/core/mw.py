@@ -1477,7 +1477,7 @@ def checkWebConfig():
     searchStr = 'test is successful'
     if result[1].find(searchStr) == -1:
         msg = getInfo('配置文件错误[openresty]: {1}', (result[1],))
-        writeLog("软件管理", msg)
+        writeLog("应用市场", msg)
         return result[1]
     return True
 
@@ -1489,7 +1489,7 @@ def checkHttpdConfig():
     searchStr = 'Syntax OK'
     if result[1].find(searchStr) == -1:
         msg = getInfo('配置文件错误[httpd]: {1}', (result[1],))
-        writeLog("软件管理", msg)
+        writeLog("应用市场", msg)
         return result[1]
     return True
 

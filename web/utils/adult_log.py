@@ -261,6 +261,9 @@ def parseAuditFile(log_name, result):
     return log_list
 
 def getAuditLogsName(log_name):
+    # 只允许读取 getAuditLogsFiles 列出的文件, 防止 ../ 读取任意文件或在 sar 命令中注入
+    if log_name not in set(f['name'] for f in getAuditLogsFiles()):
+        return mw.returnData(False, '日志文件不存在!')
     if log_name in ['wtmp', 'btmp', 'utmp'] or log_name.find('wtmp') == 0 or log_name.find('btmp') == 0 or log_name.find('utmp') == 0:
         return getAuditLast(log_name)
 
@@ -269,7 +272,9 @@ def getAuditLogsName(log_name):
 
     if log_name.find('sa/sa') == 0:
         if log_name.find('sa/sar') == -1:
-            return mw.execShell("sar -f /var/log/{}".format(log_name))[0]
+            import subprocess
+            p = subprocess.run(['sar', '-f', '/var/log/' + log_name], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            return p.stdout
     log_dir = '/var/log'
     log_file = log_dir + '/' + log_name
     if not os.path.exists(log_file):

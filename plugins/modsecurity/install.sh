@@ -212,7 +212,7 @@ Rebuild_Module()
 		# 模块与新版 OpenResty 不兼容时先停用防火墙, 保证网站正常访问
 		cd ${rootPath} && python3 ${rootPath}/plugins/modsecurity/index.py uninstall_clean
 		rm -f $serverPath/openresty/nginx/modules/ngx_http_modsecurity_module.so
-		echo 'WARNING: 防火墙模块重新编译失败, 已暂时停用防火墙, 请在软件管理中重新安装 ModSecurity 防火墙'
+		echo 'WARNING: 防火墙模块重新编译失败, 已暂时停用防火墙, 请在应用市场中重新安装 ModSecurity 防火墙'
 	fi
 }
 

@@ -1,0 +1,31 @@
+# 语法检查 + 单元测试(不在 CI 中实际安装软件, 安装脚本需在真实服务器上验证)
+name: pmpanel CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Shell syntax
+        run: git ls-files -z '*.sh' | xargs -0 -n1 bash -n
+      - name: Python syntax
+        run: git ls-files -z '*.py' | xargs -0 python -m py_compile
+      - name: JSON syntax
+        run: |
+          git ls-files -z '*.json' | xargs -0 -n1 python -c "import json,sys; json.load(open(sys.argv[1], encoding='utf-8-sig'))"
+      - name: JavaScript syntax
+        run: git ls-files -z 'web/static/app/*.js' 'plugins/*.js' | xargs -0 -n1 node --check
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v

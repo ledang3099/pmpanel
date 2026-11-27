@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------------
-// PM-Linux面板 软件管理 / 应用商店
+// PM-Linux面板 应用市场
 // Licensed under the Apache License 2.0. See LICENSE and NOTICE.
 // ---------------------------------------------------------------------------------
 // 插件数据保存在 __softList 中, 页面按钮只携带下标(data-idx), 通过事件委托调用,
@@ -51,7 +51,7 @@ function resetPluginWinHeight(height){
     $(".bt-form .bt-w-main").height(height-42);
 }
 
-//软件管理窗口
+//应用市场窗口
 function softMain(name, title, version) {
     var _title = String(title).replace('-' + version, '');
     var loadT = layer.msg("正在处理,请稍后...", { icon: 16, time: 0, shade: [0.3, '#000'] });

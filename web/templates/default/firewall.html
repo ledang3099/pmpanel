@@ -1,118 +1,107 @@
 {% extends "layout.html" %}
 
 {% block content %}
-
-<style>
-.weblog{
-	font-size: 12px;
-    display:inline-block;
-	line-height:30px;
-}
-.weblog em{
-	font-style:normal;
-	color:#666;
-	margin: 0 30px;
-}
-
-.weblog span{
-	margin-right:5px;
-}
-
-.weblog a{
-	color:#20a53a;
-}
-.firewall-port-box{
-	margin-bottom:5px;
-}
-</style>
 <div class="main-content">
-	<div class="container-fluid" style="padding-bottom: 50px;">
+	<div class="container-fluid pm-page">
 		<div class="pos-box bgw mtb15">
 			<div class="position f14 c9 pull-left">
-				<a class="plr10 c4" href="/">首页</a>/<span class="plr10 c4">系统安全</span>
-			</div>
-			<div class="search pull-right">
-				<form target="hid" onsubmit='getLogs(1,$("#SearchValue").prop("value"))'>
-					<input type="text" id="SearchValue" class="ser-text pull-left" placeholder="搜索日志" />
-					<button type="button" class="ser-sub pull-left" onclick='getLogs(1,$("#SearchValue").prop("value"))'></button>
-				</form>
-				<iframe name='hid' id="hid" style="display:none"></iframe>
+				<a class="plr10 c4" href="/">首页</a>/<span class="plr10 c4">安全</span>
 			</div>
 		</div>
-		<div class="safe container-fluid bgw mtb15 pd15">
-			<div class="mr20 pull-left" style="border-right: 1px solid #ccc;padding-right: 20px;">
 
-				<form>
-					<div class="ss-text pull-left">
-						<a class="btlink" style="line-height: 32px;" onclick="sshMgr();">SSH管理</a>
+		<div class="pm-panel" id="secPanel">
+			<div class="pm-tabs">
+				<span class="pm-tab" data-tab="firewall">系统防火墙</span>
+				<span class="pm-tab" data-tab="ssh">SSH管理</span>
+				<span class="pm-tab" data-tab="sshlog">SSH登录日志</span>
+				<span class="pm-tab" data-tab="users">系统账号</span>
+			</div>
+
+			<!-- 系统防火墙 -->
+			<div class="pm-tab-body sec-pane" id="pane-firewall" style="display:none">
+				<div class="pm-stats" id="fwStats"></div>
+				<div class="pm-toolbar">
+					<select id="fwType" class="bt-input-text" style="width:100px">
+						<option value="port">放行端口</option>
+						<option value="address">屏蔽IP</option>
+					</select>
+					<input type="text" class="bt-input-text" id="fwPort" style="width:160px" placeholder="端口, 如 8080 或 3000:3500">
+					<select id="fwProtocol" class="bt-input-text" style="width:90px">
+						<option value="tcp">tcp</option>
+						<option value="udp">udp</option>
+						<option value="tcp/udp">tcp/udp</option>
+					</select>
+					<input type="text" class="bt-input-text" id="fwPs" style="width:180px" placeholder="备注/说明">
+					<button class="btn btn-success btn-sm" id="fwAdd">添加</button>
+					<span class="pm-muted" id="fwTip">支持端口范围, 如 3000:3500</span>
+				</div>
+				<div class="divtable">
+					<table class="table table-hover pm-table">
+						<thead><tr><th>类型</th><th>端口 / IP</th><th>协议</th><th>备注</th><th>添加时间</th><th class="text-right">操作</th></tr></thead>
+						<tbody id="fwBody"></tbody>
+					</table>
+				</div>
+				<div id="fwPager"></div>
+			</div>
+
+			<!-- SSH管理 -->
+			<div class="pm-tab-body sec-pane" id="pane-ssh" style="display:none">
+				<div class="pm-stats" id="sshStats"></div>
+				<div class="pm-grid-2">
+					<div class="pm-box">
+						<div class="pm-section-title">基础设置 <span class="pm-muted" id="sshConfFile"></span></div>
+						<table class="pm-setting" id="sshSetting"></table>
 					</div>
-				</form>
-			</div>
-			<div class="mr20 pull-left" style="border-right: 1px solid #ccc;padding-right: 20px;">
-
-				<div class="ss-text pull-left mr5">
-					<em>SSH端口:</em>
-					<input type="text" class="bt-input-text" id="mstscPort" value=""/>
-				</div>
-				<div class="ss-text pull-left">
-					<button id="mstscSubmit" onclick='mstsc($("#mstscPort").prop("value"))' class="btn btn-default btn-sm" type="button">更改</button>
-				</div>
-			</div>
-			<div class="mr20 pull-left" style="border-right: 1px solid #ccc; padding-right: 20px;">
-				<div class="ss-text pull-left">
-					<em>启用禁ping</em>
-					<div class='ssh-item' id="is_ping">
-						<input class='btswitch btswitch-ios' id='noping' type='checkbox'><label class='btswitch-btn noping' for='noping' ></label>
-					</div>
-				</div>
-			</div>
-
-			<div class="mr20 pull-left" style="border-right: 1px solid #ccc; padding-right: 20px;">
-				<div class="ss-text pull-left">
-					<em>启用防火墙</em>
-					<div class='ssh-item' id="firewall_status">
-						<input class='btswitch btswitch-ios' id='firewall_status' type='checkbox'>
-						<label class='btswitch-btn sshswitch' for='firewall_status'></label>
-					</div>
-				</div>
-			</div>
-
-			<div class="weblog" id='firewall_weblog'></div>
-		</div>
-		
-		<div class="white-black-ip bgw mtb15">
-            <div class="black-ip">
-                <div class="def-log">
-                    <div class="title c6 plr15">
-                        <h3 class="f16">防火墙</h3>             
-                    </div>
-
-                    <div class="divtable pd15">
-						<div class="firewall-port-box">
-							<select id="firewalldType" class="bt-input-text c5 mr5" name="type" style="width:80px;">
-								<option value="port">放行端口</option>
-								<option value="address">屏蔽</option>
-							</select>
-							<input type="text" class="bt-input-text mr5" style="width: 117px;" id="AcceptPort" placeholder="端口">
-							<input type="text" class="bt-input-text mr5" id="Ps" placeholder="备注/说明">
-							<select class="bt-input-text c5 mr5" name="protocol" style="width:80px;">
-								<option value="tcp">tcp</option>
-								<option value="udp">udp</option>
-								<option value="tcp/udp">tcp/udp</option>
-							</select>
-							<button id="toAccept" onclick="addAcceptPort();" class="btn btn-default btn-sm va0" type="button">放行</button>
-							<span id="f-ps" class="c9" style="margin-left: 10px;">说明: 支持放行端口范围，如: 3000:3500</span>
+					<div class="pm-box">
+						<div class="pm-section-title">登录失败最多的 IP <a class="btlink" style="font-size:13px;font-weight:400" data-goto="sshlog">查看登录日志</a></div>
+						<div class="divtable">
+							<table class="table table-hover pm-table">
+								<thead><tr><th>IP</th><th>失败次数</th><th>尝试账号</th><th>最后时间</th><th class="text-right">操作</th></tr></thead>
+								<tbody id="sshTopIps"></tbody>
+							</table>
 						</div>
-                        <div class="tablescroll" style="border-top-width: 0px;">
-                            <table id="firewall_body" class="table table-hover" style="min-width: 640px;border: 0 none;"></table>
-                        </div>
-                        <div id="firewall_page" class="dataTables_paginate paging_bootstrap page firewall_body" style="margin-bottom:0px;"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
+					</div>
+				</div>
+			</div>
+
+			<!-- SSH登录日志 -->
+			<div class="pm-tab-body sec-pane" id="pane-sshlog" style="display:none">
+				<div class="pm-toolbar">
+					<div class="pm-subtabs" id="sshLogFilter">
+						<span data-v="all" class="on">全部</span><span data-v="success">登录成功</span><span data-v="fail">登录失败</span>
+					</div>
+					<div class="pm-right">
+						<input type="text" class="bt-input-text" id="sshLogSearch" style="width:200px" placeholder="搜索 IP 或用户名">
+						<button class="btn btn-default btn-sm" id="sshLogSearchBtn">搜索</button>
+						<button class="btn btn-default btn-sm" id="sshLogRefresh">刷新</button>
+					</div>
+				</div>
+				<div class="divtable">
+					<table class="table table-hover pm-table">
+						<thead><tr><th>时间</th><th>用户名</th><th>来源 IP</th><th>端口</th><th>认证方式</th><th>状态</th><th class="text-right">操作</th></tr></thead>
+						<tbody id="sshLogBody"></tbody>
+					</table>
+				</div>
+				<div id="sshLogPager"></div>
+				<div class="pm-muted" id="sshLogSource" style="margin-top:6px"></div>
+			</div>
+
+			<!-- 系统账号 -->
+			<div class="pm-tab-body sec-pane" id="pane-users" style="display:none">
+				<div class="pm-toolbar">
+					<button class="btn btn-success btn-sm" id="userAdd">添加账号</button>
+					<label class="pm-muted" style="margin:0 0 0 6px;cursor:pointer"><input type="checkbox" id="userShowSystem" style="vertical-align:-2px"> 显示系统账号</label>
+					<div class="pm-right"><span class="pm-muted">root 和系统账号只能修改密码与 SSH 公钥</span></div>
+				</div>
+				<div class="divtable">
+					<table class="table table-hover pm-table">
+						<thead><tr><th>用户名</th><th>UID</th><th>主目录</th><th>登录 Shell</th><th>sudo</th><th>SSH 公钥</th><th>最近登录</th><th>状态</th><th class="text-right">操作</th></tr></thead>
+						<tbody id="userBody"></tbody>
+					</table>
+				</div>
+			</div>
+		</div>
 	</div>
 </div>
-<script src="/static/app/firewall.js?v={{config.version}}"></script>
+<script src="/static/app/security.js?v={{config.version}}"></script>
 {% endblock %}

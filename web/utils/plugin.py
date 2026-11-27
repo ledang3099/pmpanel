@@ -863,7 +863,7 @@ class plugin(object):
         subprocess.run(['chmod', '-R', '755', plugin_path])
         p_info = mw.readFile(plugin_path + '/info.json')
         if p_info:
-            mw.writeLog('软件管理', '安装第三方插件[%s]' %json.loads(p_info)['title'])
+            mw.writeLog('应用市场', '安装第三方插件[%s]' %json.loads(p_info)['title'])
             return mw.returnData(True, '安装成功!')
         subprocess.run(['rm', '-rf', plugin_path])
         return mw.returnData(False, '安装失败!')
@@ -886,7 +886,12 @@ class plugin(object):
         version = '',
         args  = '',
         script  = 'index',
+        argv_list = None,
     ):
+        '''
+        argv_list: 直接作为参数列表传给插件(不经 shlex 拆分), 每项形如 key:value,
+                   值中可包含空格、逗号、冒号等字符
+        '''
 
         if mw.inArray(['start','stop','restart','reload','uninstall_pre_inspection','install','uninstall'], func):
             self.runByCache(name, func, version)
@@ -903,10 +908,13 @@ class plugin(object):
             return ('', '')
 
         # 不经过shell执行, 参数按shell规则拆分(兼容插件原有的 sys.argv 解析方式)
-        try:
-            extra = shlex.split(args) if args != '' else []
-        except ValueError:
-            extra = args.split()
+        if argv_list is not None:
+            extra = [str(a) for a in argv_list]
+        else:
+            try:
+                extra = shlex.split(args) if args != '' else []
+            except ValueError:
+                extra = args.split()
         argv = [path, func]
         if version != '':
             argv.append(version)

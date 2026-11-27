@@ -154,7 +154,7 @@ def installPreInspection():
     if out == '':
         return '请先安装 OpenResty'
     if '--with-compat' not in out:
-        return '当前 OpenResty 编译时未启用 --with-compat, 无法加载防火墙模块。请先在软件管理中升级/重装 OpenResty(1.29.2 或 1.31)'
+        return '当前 OpenResty 编译时未启用 --with-compat, 无法加载防火墙模块。请先在应用市场中升级/重装 OpenResty(1.29.2 或 1.31)'
     return 'ok'
 
 

@@ -49,7 +49,7 @@ function msOverview() {
         var s = d.settings || {};
         var html = '';
         if (!d.compat) {
-            html += '<div class="ms-alert warn">当前 OpenResty 未启用 --with-compat, 防火墙模块无法加载。请先在软件管理中升级/重装 OpenResty。</div>';
+            html += '<div class="ms-alert warn">当前 OpenResty 未启用 --with-compat, 防火墙模块无法加载。请先在应用市场中升级/重装 OpenResty。</div>';
         } else if (!d.module) {
             html += '<div class="ms-alert warn">未找到防火墙模块, 请重新安装本插件。</div>';
         } else if (d.module_mismatch) {

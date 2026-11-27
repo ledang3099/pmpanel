@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<style>
+.db-pass { font-family: Menlo, Consolas, monospace; letter-spacing: 1px; }
+.db-pass .eye, .db-pass .copy { margin-left: 6px; cursor: pointer; color: var(--pm-muted); font-family: var(--pm-font); letter-spacing: 0; }
+.db-pass .eye:hover, .db-pass .copy:hover { color: var(--pm-primary); }
+.db-ps { cursor: pointer; border-bottom: 1px dashed transparent; }
+.db-ps:hover { border-bottom-color: var(--pm-primary); }
+.db-engine { display: flex; align-items: center; gap: 8px; margin-left: auto; font-size: 13px; color: var(--pm-text-2); }
+.db-empty-box { text-align: center; padding: 60px 0; color: var(--pm-muted); }
+.db-empty-box .btn { margin-top: 14px; }
+.db-batch { display: none; gap: 8px; align-items: center; }
+.rd-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; }
+.rd-dbs { border: 1px solid var(--pm-border); border-radius: var(--pm-radius); overflow: hidden; max-height: 640px; overflow-y: auto; }
+.rd-dbs div { padding: 8px 12px; font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid #f1f3f6; }
+.rd-dbs div:hover { background: var(--pm-row-hover); }
+.rd-dbs div.on { background: var(--pm-primary-soft); color: #15803d; font-weight: 600; }
+.rd-val { width: 100%; min-height: 220px; font-family: Menlo, Consolas, monospace; font-size: 12px; }
+@media (max-width: 900px) { .rd-layout { grid-template-columns: minmax(0, 1fr); } }
+</style>
+<div class="main-content">
+	<div class="container-fluid pm-page">
+		<div class="pos-box bgw mtb15">
+			<div class="position f14 c9 pull-left">
+				<a class="plr10 c4" href="/">首页</a>/<span class="plr10 c4">数据库</span>
+			</div>
+		</div>
+		<div class="pm-panel" id="dbPanel">
+			<div class="pm-tabs" id="dbTabs">
+				<span class="pm-tab" data-tab="mysql">MySQL</span>
+				<span class="pm-tab" data-tab="pgsql">PgSQL</span>
+				<span class="pm-tab" data-tab="mongodb">MongoDB</span>
+				<span class="pm-tab" data-tab="redis">Redis</span>
+			</div>
+			<div class="pm-tab-body" id="dbBody"></div>
+		</div>
+	</div>
+</div>
+<form id="toPHPMyAdmin" action="" method="post" style="display:none" target="_blank"></form>
+<script src="/static/app/database.js?v={{config.version}}"></script>
+{% endblock %}
