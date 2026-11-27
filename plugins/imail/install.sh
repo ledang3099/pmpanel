@@ -20,4 +20,4 @@ if [ ! -d $curPath/versions/$2 ];then
 	exit 0
 fi
 
-sh -x $curPath/versions/$2/install.sh $1
+bash -x "$curPath/versions/$2/install.sh" "$1"

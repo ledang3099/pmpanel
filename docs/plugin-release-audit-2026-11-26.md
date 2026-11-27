@@ -26,7 +26,7 @@
 | `gorse` | 已更新 | 新增 0.5.11，适配新配置格式和服务缓存路径。全新安装采用 SQLite；Debian 13 启动后健康接口确认数据及缓存连接成功。 [上游](https://github.com/gorse-io/gorse/releases/tag/v0.5.11) |
 | `grafana` | 已更新 | 新增 Grafana OSS 13.3.2，修正服务启动路径及旧默认服务定义。Debian 13 安装、systemd 和数据库健康接口通过。 [上游](https://github.com/grafana/grafana/releases/tag/v13.3.2) |
 | `haproxy` | 已更新 | 2.6.36、2.8.32、3.0.31、3.2.27，新增 3.4.8，使用官方 SHA-256。Debian 13 编译并启动 3.4.8，HTTP 请求经代理转发后返回预期内容。 [上游](https://www.haproxy.org/) |
-| `imail` | 面板集成 | 0.0.19 为对应项目当前最后的正式发布。Debian 13 验证安装、服务启动和 HTTP 登录跳转。SMTP、IMAP 与真实域名配置待验证。 [上游](https://github.com/midoks/imail/releases) |
+| `imail` | 安装修复 | 0.0.19 为对应项目最后的正式发布。固定官方归档 SHA-256，重装保留自定义目录。Debian 13 验证安装、systemd 重启和 HTTP 初始化页面。SMTP、IMAP 与真实域名配置待验证。 [上游](https://github.com/midoks/imail/releases) |
 | `keepalived` | 已更新 | 2.4.3，修正 systemd 模板，取消新安装默认绑定示例 VIP。Debian 13 编译、配置检查、启动及重载通过。连接到独立容器网桥的两个节点通过 VRRP 主备切换，主节点停止后 VIP 转移到备节点。 [上游](https://www.keepalived.org/download/) |
 | `lam` | 已更新 | 新增 LDAP Account Manager 9.7，校验下载摘要并修正 PHP-FPM 版本识别。Debian 13 通过 OpenResty、PHP 8.4 与认证登录页检查。LAM 的 LDAP 写入待验证。 [上游](https://github.com/LDAPAccountManager/lam/releases/tag/9.7) |
 | `ldap` | 安装修复 | 发行版 OpenLDAP，安装后显式启动 slapd。Debian 13 通过根 DSE 的 namingContexts 查询。 |
@@ -73,7 +73,7 @@
 | `valkey` | 已更新 | 新增 9.2.1，校验源码和编译结果，保留现有配置。Debian 13 插件编译、安装、systemd 启动和认证读写通过。 [上游](https://github.com/valkey-io/valkey/releases/tag/9.2.1) |
 | `varnish` | 软件源 | 安装发行版 Varnish 包。Debian 13 通过安装、systemd 和本地代理访问。 [上游](https://varnish-cache.org/releases/) |
 | `webhook` | 安装修复 | 缺少 pm 命令时安装仍可完成。Debian 13 验证安装和面板 HTTP 回调，测试脚本按预期输出且调用计数增加一次。 |
-| `webssh` | 功能修复 | 修复编辑最后一条常用命令时写入重复项、远程连接失败后无法重试和空闲轮询阻塞。Debian 13 验证同名命令更新、Socket.IO 拒绝未登录请求、真实 SSH 重试及终端收发。浏览器界面仍需验证。 |
+| `webssh` | 功能修复 | 修复编辑最后一条常用命令时写入重复项、远程连接失败后无法重试、空闲轮询阻塞及并发输入乱序。Debian 13 验证同名命令更新、Socket.IO 拒绝未登录请求及真实 SSH 重试，并在 Chrome 验证键盘输入和 xterm 输出缓冲。 |
 | `webstats` | 依赖已更新 | 更新 LuaRocks、lsqlite3 和 GeoLite City 数据。Debian 13 通过 OpenResty 采集测试请求并写入 SQLite 日志与各项统计。 [lsqlite3](https://luarocks.org/modules/javierguerragiraldez/lsqlite3) |
 | `xhprof` | 已更新 | 面板报告页与扩展对齐 PECL 2.3.10，使用 PHP 提供的扩展目录。Debian 13 上分别用 PHP 8.4.28 和 8.6.0 编译、加载扩展并生成分析数据。 [上游](https://pecl.php.net/package/xhprof) |
 | `xui` | 安装修复 | 0.3.4.4 为当前对应项目的最后一个正式发布。固定官方归档及摘要，由 systemd 管理进程，保留现有数据库。Debian 13 验证正常启动及 HTTP 登录页。 [上游](https://github.com/FranzKafkaYu/x-ui/releases/tag/0.3.4.4) |

@@ -472,7 +472,6 @@ class ssh_terminal(object):
             result = self.returnMsg(True, '已连接')
             if result['status']:
                 if type(info) == str:
-                    time.sleep(0.1)
                     cur_ssh = self.__ssh_list[sid]
                     if cur_ssh.exit_status_ready():
                         self.wsSend("logout\r\n")
