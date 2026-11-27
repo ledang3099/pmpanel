@@ -5,6 +5,7 @@ import io
 import os
 import time
 import re
+import subprocess
 
 web_dir = os.getcwd() + "/web"
 if os.path.exists(web_dir):
@@ -113,13 +114,23 @@ def initDreplace():
 
     envTpl = getConfEnvTpl()
     dstEnv = getConfEnv()
-    cmd = getServerDir() + '/mtg/mtg generate-secret `head -c 16 /dev/urandom | xxd -ps`'
-    secret = mw.execShell(cmd)
-    if not os.path.exists(dstEnv):
-        env_content = mw.readFile(envTpl)
-        env_content = env_content.replace('{$PORT}', getMtproxyPort())
-        env_content = env_content.replace('{$SECRET}', secret[0].strip())
-        mw.writeFile(dstEnv, env_content)
+    current = mw.readFile(dstEnv) if os.path.isfile(dstEnv) else ''
+    if not current or re.search(r'^secret\s*=\s*""\s*$', current, re.MULTILINE):
+        secret = subprocess.check_output(
+            [getServerDir() + '/mtg/mtg', 'generate-secret', '--hex', 'www.telegram.org'],
+            text=True,
+        ).strip()
+        if current:
+            env_content = re.sub(r'^secret\s*=\s*""[ \t]*$', f'secret = "{secret}"', current,
+                                 count=1, flags=re.MULTILINE)
+        else:
+            env_content = mw.readFile(envTpl)
+            env_content = env_content.replace('{$PORT}', getMtproxyPort())
+            env_content = env_content.replace('{$SECRET}', secret)
+        fd = os.open(dstEnv, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, 'w') as config:
+            os.fchmod(config.fileno(), 0o600)
+            config.write(env_content)
         openPort()
 
     # systemd

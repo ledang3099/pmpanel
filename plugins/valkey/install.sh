@@ -23,42 +23,35 @@ VERSION=$2
 Install_App()
 {
 	echo '正在安装脚本文件...'
-	mkdir -p $serverPath/source
-	mkdir -p $serverPath/source/valkey
+    sources="$serverPath/source/valkey"
+    mkdir -p "$sources" || return 1
+    archive="$sources/$VERSION.tar.gz"
+    url="https://codeload.github.com/valkey-io/valkey/tar.gz/refs/tags/$VERSION"
+    if [ "$VERSION" = 9.2.1 ]; then
+        source "$rootPath/scripts/tools/verified-download.sh" || return 1
+        verified_download "$url" "$archive" fec5d34ac6f5c7f35cddcaae368734d8a789f1af2f7c29853e790f093d848d71 || return 1
+    elif [ ! -f "$archive" ]; then
+        curl -fsSL "$url" -o "$archive.part" && mv -f -- "$archive.part" "$archive" || return 1
+    fi
 
-	FILE_TGZ=${VERSION}.tar.gz
-	VALKEY_DIR=$serverPath/source/valkey
+    stage=$(mktemp -d "$sources/install.XXXXXX") || return 1
+    trap 'rm -rf -- "$stage"' EXIT
+    tar -xzf "$archive" -C "$stage" || return 1
+    cd "$stage/valkey-$VERSION" || return 1
+    make_command=make
+    if command -v gmake >/dev/null; then make_command=gmake; fi
+    "$make_command" -j2 PREFIX="$serverPath/valkey" install || return 1
+    test -x "$serverPath/valkey/bin/valkey-server" || return 1
+    mkdir -p "$serverPath/valkey/data" || return 1
+    if [ ! -f "$serverPath/valkey/valkey.conf" ]; then
+        sed '/^ *#/d' valkey.conf > "$serverPath/valkey/valkey.conf" || return 1
+    fi
 
-	if [ ! -f $VALKEY_DIR/${FILE_TGZ} ];then
-		wget -O $VALKEY_DIR/${FILE_TGZ} https://github.com/valkey-io/valkey/archive/refs/tags/${FILE_TGZ}
-	fi
-	
-	cd $VALKEY_DIR && tar -zxvf ${FILE_TGZ}
+    printf '%s\n' "$VERSION" > "$serverPath/valkey/version.pl"
+    cd "$rootPath" || return 1
+    python3 plugins/valkey/index.py start || return 1
+    python3 plugins/valkey/index.py initd_install || return 1
 
-	CMD_MAKE=`which gmake`
-	if [ "$?" = "0" ];then
-		cd valkey-${VERSION} && gmake PREFIX=$serverPath/valkey install
-	else
-		cd valkey-${VERSION} && make PREFIX=$serverPath/valkey install
-	fi
-
-	if [ -d $serverPath/valkey ];then
-		mkdir -p $serverPath/valkey/data
-		sed '/^ *#/d' valkey.conf > $serverPath/valkey/valkey.conf
-
-		echo "${VERSION}" > $serverPath/valkey/version.pl
-		echo '安装完成'
-
-		cd ${rootPath} && python3 plugins/valkey/index.py start
-		cd ${rootPath} && python3 plugins/valkey/index.py initd_install
-		
-	else
-		echo '安装失败!'
-	fi
-
-	if [ -d ${REDIS_DIR}/valkey-${VERSION} ];then
-		rm -rf ${REDIS_DIR}/valkey-${VERSION}
-	fi
 }
 
 Uninstall_App()
@@ -91,6 +84,8 @@ Uninstall_App()
 action=$1
 if [ "${1}" = 'install' ];then
 	Install_App
+elif [ "$action" = uninstall ]; then
+    Uninstall_App
 else
-	Uninstall_App
+    exit 1
 fi

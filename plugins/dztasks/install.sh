@@ -19,7 +19,7 @@ if [ "$sysArch" = "arm64" ];then
 elif [ "$sysArch" = "x86_64" ]; then
 	DZ_ARCH_NAME=amd64
 elif [ "$sysArch" = "aarch64" ]; then
-	DZ_ARCH_NAME=aarch64
+	DZ_ARCH_NAME=arm64
 fi
 
 DZ_NAME=linux
@@ -33,16 +33,27 @@ Install_App()
 	mkdir -p $serverPath/source/dztasks
 	mkdir -p $serverPath/dztasks
 
-	FILE_TGZ=dztasks_${VERSION}_${DZ_NAME}_${DZ_ARCH_NAME}.tar.gz
-	DZ_DIR=$serverPath/source/dztasks
+    if [ "$VERSION" != 1.2 ]; then return 1; fi
+    case "$DZ_NAME-$DZ_ARCH_NAME" in
+        darwin-amd64) digest=a00c8071b3e33d445571c87f0239739e66e86d6ff45b2d33b4b36d639239e9ae ;;
+        darwin-arm64) digest=693c2bac3c72ac032fad4e5d7582efaa07e5d8c52efda0906fcedbc6614b6d1b ;;
+        linux-amd64) digest=ca61cc174d3e151816e529c1119dfeda51aedd25c24c9269c7b9b03ea39151c2 ;;
+        linux-arm64) digest=9f930716b84835b92d2f03730dc64c7cc1f3e66cfc2fdaac72579f63676975b2 ;;
+        *) return 1 ;;
+    esac
+    source "$rootPath/scripts/tools/verified-download.sh" || return 1
+    file="dztasks_${VERSION}_${DZ_NAME}_${DZ_ARCH_NAME}.tar.gz"
+    archive="$serverPath/source/dztasks/$file"
+    verified_download "https://github.com/midoks/dztasks/releases/download/$VERSION/$file" "$archive" "$digest" || return 1
+    staging=$(mktemp -d "$serverPath/source/dztasks/install.XXXXXX") || return 1
+    trap 'rm -rf -- "$staging"' EXIT
+    tar -xzf "$archive" -C "$staging" || return 1
+    install -m 0755 "$staging/dztasks" "$serverPath/dztasks/dztasks" || return 1
+    if [ -d "$staging/plugins" ]; then
+        mkdir -p "$serverPath/dztasks/plugins" || return 1
+        cp -Rn "$staging/plugins"/. "$serverPath/dztasks/plugins/" || return 1
+    fi
 
-	echo $FILE_TGZ
-	# https://github.com/midoks/dztasks/releases/download/1.0/dztasks_v1.0_darwin_amd64.tar.gz
-	if [ ! -f $DZ_DIR/${FILE_TGZ} ];then
-		wget --no-check-certificate -O $DZ_DIR/${FILE_TGZ} https://github.com/midoks/dztasks/releases/download/${VERSION}/${FILE_TGZ}
-	fi
-
-	cd $DZ_DIR && tar -zxvf ${FILE_TGZ} -C $serverPath/dztasks
 	echo "${VERSION}" > $serverPath/dztasks/version.pl
 	cd ${rootPath} && python3 ${rootPath}/plugins/dztasks/index.py start
 	cd ${rootPath} && python3 ${rootPath}/plugins/dztasks/index.py initd_install
@@ -80,6 +91,8 @@ Uninstall_App()
 action=$1
 if [ "${1}" = 'install' ];then
 	Install_App
+elif [ "$action" = uninstall ]; then
+    Uninstall_App
 else
-	Uninstall_App
+    exit 1
 fi

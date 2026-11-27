@@ -141,19 +141,10 @@ class App:
 
     def oaOp(self, method):
 
-        file = self.initDreplace()
-
-        if not mw.isAppleSystem():
-            cmd = 'systemctl {} {}'.format(method, self.getPluginName())
-            data = mw.execShell(cmd)
-            if data[1] == '':
-                return 'ok'
-            return 'fail'
-
-        data = mw.execShell(file + ' ' + method)
-        if data[1] == '':
-            return 'ok'
-        return data[0]
+        if mw.isAppleSystem():
+            return '不支持当前系统'
+        data = mw.execShell('systemctl {} ollama'.format(method))
+        return 'ok' if not data[1] else data[1]
 
     def start(self):
         return self.oaOp('start')

@@ -17,12 +17,13 @@ if [ "${2}" = "" ];then
 	exit 0
 fi 
 
-if [ ! -d $curPath/versions/$2 ];then
+if [ "$type" != 0.40.18 ] && [ ! -d "$curPath/versions/$type" ]; then
 	echo '缺少安装脚本2...'
 	exit 0
 fi
 
-sh -x $curPath/versions/$2/install.sh $1
+if [ "$type" = 0.40.18 ]; then type=1.0; fi
+bash "$curPath/versions/$type/install.sh" "$1" || exit $?
 
 if [ "${action}" = "uninstall" ];then
 	if [ -f /usr/lib/systemd/system/ollama.service ] || [ -f /lib/systemd/system/ollama.service ] ;then

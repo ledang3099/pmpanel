@@ -34,22 +34,16 @@ Install_App()
 	mkdir -p $serverPath/source
 	mkdir -p $serverPath/dynamic-tracking
 
-	cn=$(curl -fsSL -m 10 http://ipinfo.io/json | grep "\"country\": \"CN\"")
-	HTTP_PREFIX="https://"
-	if [ ! -z "$cn" ];then
-	    HTTP_PREFIX="https://mirror.ghproxy.com/"
-	fi
-	
-	# FlameGraph start
-	if [ ! -d $serverPath/dynamic-tracking/FlameGraph ];then
-		if [ ! -f $serverPath/source/FlameGraph.zip ]; then
-	    	wget --no-check-certificate -O $serverPath/source/FlameGraph.zip ${HTTP_PREFIX}github.com/brendangregg/FlameGraph/archive/refs/heads/master.zip
-		fi
-
-		cd $serverPath/source && unzip $serverPath/source/FlameGraph.zip
-		mv $serverPath/source/FlameGraph-master $serverPath/dynamic-tracking/FlameGraph
-	fi
-	# FlameGraph end
+    commit=41fee1f99f9276008b7cd112fca19dc3ea84ac32
+    source "$rootPath/scripts/tools/verified-download.sh" || return 1
+    archive="$serverPath/source/FlameGraph-$commit.tar.gz"
+    verified_download "https://codeload.github.com/brendangregg/FlameGraph/tar.gz/$commit" "$archive" \
+        b1ba3aaaf296ab72ced4dca84514377a4b2c8122831d743f726c106d3d339c2a || return 1
+    staging=$(mktemp -d "$serverPath/source/flamegraph.XXXXXX") || return 1
+    trap 'rm -rf -- "$staging"' EXIT
+    tar -xzf "$archive" -C "$staging" || return 1
+    mkdir -p "$serverPath/dynamic-tracking/FlameGraph" || return 1
+    cp -R "$staging/FlameGraph-$commit"/. "$serverPath/dynamic-tracking/FlameGraph/" || return 1
 
 	# apt install linux-tools-$(uname -r) linux-tools-generic -y
 	# apt install linux-tools-$(uname -r) linux-tools-generic -y --fix-missing
@@ -63,10 +57,10 @@ Install_App()
 		exit 1
 	fi
 	
-	bash -x $shell_file
+	bash -x "$shell_file" || return 1
 
-	echo "cp -rf ${curPath}/shell $serverPath/dynamic-tracking"
-	cp -rf ${curPath}/shell $serverPath/dynamic-tracking
+	echo "cp -R "$curPath/shell" "$serverPath/dynamic-tracking/" || return 1"
+	cp -R "$curPath/shell" "$serverPath/dynamic-tracking/" || return 1
 
 	echo "${VERSION}" > $serverPath/dynamic-tracking/version.pl
 	echo '安装完成'
@@ -85,6 +79,8 @@ Uninstall_App()
 action=$1
 if [ "${1}" = 'install' ];then
 	Install_App
+elif [ "$action" = uninstall ]; then
+    Uninstall_App
 else
-	Uninstall_App
+    exit 1
 fi

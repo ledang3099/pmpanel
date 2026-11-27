@@ -12,9 +12,9 @@ download() {
     local tmp="${out}.downloading"
     rm -f "$tmp"
     if command -v wget >/dev/null 2>&1; then
-        wget --no-check-certificate -O "$tmp" "$url"
+        wget -O "$tmp" "$url"
     else
-        curl -fLk -o "$tmp" "$url"
+        curl -fL -o "$tmp" "$url"
     fi
     if [ $? -ne 0 ] || [ ! -s "$tmp" ]; then
         rm -f "$tmp"
@@ -113,6 +113,43 @@ elif [ "$VERSION" = "3.9.1" ]; then
 fi
 
 # echo $VERSION_NUM
+
+Install_current_sphinx() (
+    case "$sysName:$sysArch" in
+        Linux:x86_64)
+            grep -qw avx2 /proc/cpuinfo || { echo 'Sphinx 3.9.1 x86_64 requires AVX2' >&2; return 1; }
+            platform=linux-amd64
+            digest=07b3214d40dd4cb2b5dcd951af292aee33b2397e87f201a81c606c1181b0ab46
+            ;;
+        Linux:aarch64)
+            platform=linux-aarch64
+            digest=ef862d7bf624018294985139c09ca871f9e11515c98277a378d4fe4b4827fca6
+            ;;
+        Darwin:arm64)
+            platform=darwin-aarch64
+            digest=1d9ff25e0d63942d1a6f04f8fab5894f94384529c72f8ba682240200beb0ea2d
+            ;;
+        *) echo 'Sphinx 3.9.1 has no verified archive for this platform' >&2; return 1 ;;
+    esac
+
+    source "$rootPath/scripts/tools/verified-download.sh" || return 1
+    sources="$serverPath/source/sphinx"
+    mkdir -p "$sources" || return 1
+    archive="sphinx-3.9.1-141d2ea-$platform.tar.gz"
+    verified_download "https://sphinxsearch.com/files/$archive" "$sources/$archive" "$digest" || return 1
+    stage=$(mktemp -d "$sources/install.XXXXXX") || return 1
+    trap 'rm -rf -- "$stage"' EXIT
+    tar -xzf "$sources/$archive" -C "$stage" || return 1
+    "$stage/sphinx-3.9.1/bin/searchd" --help >/dev/null || return 1
+    mkdir -p "$serverPath/sphinx/bin" || return 1
+    cp -R "$stage/sphinx-3.9.1"/. "$serverPath/sphinx/bin/" || return 1
+    printf '3.9.1\n' > "$serverPath/sphinx/version.pl"
+    cd "$rootPath" || return 1
+    python3 plugins/sphinx/index.py start || return 1
+    if [ "$sysName" = Linux ]; then
+        python3 plugins/sphinx/index.py initd_install || return 1
+    fi
+)
 
 Install_sphinx()
 {
@@ -223,8 +260,10 @@ Uninstall_sphinx()
 }
 
 action=$1
-if [ "${1}" = 'install' ];then
-	Install_sphinx
-else
-	Uninstall_sphinx
-fi
+case "$action" in
+    install)
+        if [ "$VERSION" = 3.9.1 ]; then Install_current_sphinx; else Install_sphinx; fi
+        ;;
+    uninstall) Uninstall_sphinx ;;
+    *) exit 1 ;;
+esac

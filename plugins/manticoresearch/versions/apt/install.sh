@@ -19,19 +19,17 @@ action=$1
 Install_App()
 {
 	echo '正在安装manticoresearch...'
-	mkdir -p $serverPath/manticoresearch
-
-	MC_DIR=${serverPath}/source/manticoresearch
-	mkdir -p $MC_DIR
-
-	# wget --no-check-certificate -O /www/server/source/manticoresearch/manticore-repo.noarch.deb https://repo.manticoresearch.com/manticore-repo.noarch.deb
-	# cd /www/server/source/manticoresearch/ && dpkg -i manticore-repo.noarch.deb
-	wget --no-check-certificate -O $MC_DIR/manticore-repo.noarch.deb https://repo.manticoresearch.com/manticore-repo.noarch.deb
-	dpkg -i $MC_DIR/manticore-repo.noarch.deb
-
-	apt -y install manticore
-	apt -y install manticore-extra
-	apt -y upgrade manticore
+    repo_package=$(mktemp --suffix=.deb) || return 1
+    trap 'rm -f -- "$repo_package"' EXIT
+    curl --proto '=https' --proto-redir '=https' -fsSL --retry 2 \
+        https://repo.manticoresearch.com/manticore-repo.noarch.deb -o "$repo_package" || return 1
+    apt-get update || return 1
+    # APT installs dependencies of the local repository package as well.
+    chmod 0644 "$repo_package" || return 1
+    apt-get install -y "$repo_package" || return 1
+    apt-get update || return 1
+    apt-get install -y manticore || return 1
+    mkdir -p "$serverPath/manticoresearch" || return 1
 
 	echo "${VERSION}" > $serverPath/manticoresearch/version.pl
 
