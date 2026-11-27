@@ -690,217 +690,12 @@ function openPath(a) {
 	window.location.href = "/files/index";
 }
 
+// 在线编辑文件: 使用全局非模态编辑器(pm-editor.js), 编辑时可以继续操作其他栏目
+// k=0 打开文件; k=1/2 保存已打开的文件(兼容旧调用)
 function onlineEditFile(k, f, callback) {
-	if(k != 0) {
-		var l = $("#PathPlace input").val();
-		var h = encodeURIComponent($("#textBody").val());
-		var a = $("select[name=encoding]").val();
-		var loadT = layer.msg('正在保存,请稍候...', {icon: 16,time: 0});
-		$.post("/files/save_body", "data=" + h + "&path=" + encodeURIComponent(f) + "&encoding=" + a, function(data) {
-			if(k == 1) {
-				layer.close(loadT);
-			}
-			layer.msg(data.msg, {icon: data.status ? 1 : 2});
-			if (data.status && typeof(callback) == 'function'){
-				callback(k, f);
-			}
-		},'json');
-		return
-	}
-	
-	var g = f.split(".");
-	var b = g[g.length - 1];
-	var d;
-	switch(b) {
-		case "html":
-			var j = {
-				name: "htmlmixed",
-				scriptTypes: [{
-					matches: /\/x-handlebars-template|\/x-mustache/i,
-					mode: null
-				}, {
-					matches: /(text|application)\/(x-)?vb(a|script)/i,
-					mode: "vbscript"
-				}]
-			};
-			d = j;
-			break;
-		case "htm":
-			var j = {
-				name: "htmlmixed",
-				scriptTypes: [{
-					matches: /\/x-handlebars-template|\/x-mustache/i,
-					mode: null
-				}, {
-					matches: /(text|application)\/(x-)?vb(a|script)/i,
-					mode: "vbscript"
-				}]
-			};
-			d = j;
-			break;
-		case "js":
-			d = "text/javascript";
-			break;
-		case "json":
-			d = "application/ld+json";
-			break;
-		case "css":
-			d = "text/css";
-			break;
-		case "php":
-			d = "application/x-httpd-php";
-			break;
-		case "tpl":
-			d = "application/x-httpd-php";
-			break;
-		case "xml":
-			d = "application/xml";
-			break;
-		case "sql":
-			d = "text/x-sql";
-			break;
-		case "conf":
-			d = "text/x-nginx-conf";
-			break;
-		default:
-			var j = {
-				name: "htmlmixed",
-				scriptTypes: [
-					{matches: /\/x-handlebars-template|\/x-mustache/i,mode: null}, 
-					{matches: /(text|application)\/(x-)?vb(a|script)/i,mode: "vbscript"}
-				]
-			};
-			d = j;
-	}
-
-	
-
-	var codding = ["utf-8", "GBK", "GB2312", "BIG5"];
-	var code_mirror = null;
-	var code_timer = null;
-
-	function getBody(callback){
-		$.post("/files/get_body", "path=" + encodeURIComponent(f), function(rdata) {
-			if (typeof(callback) == 'function'){
-				callback(rdata);
-			}
-		},'json');
-	}
-
-	
-	function renderBody(callback){
-		getBody(function(rdata){
-			if(rdata.status === false){
-				layer.close(r);
-				layer.msg(rdata.msg,{icon:5});
-				return;
-			}
-
-			if (typeof(callback) == 'function'){
-				callback(rdata);
-			}
-			
-			var coding_html = "";
-			for(var p = 0; p < codding.length; p++) {
-				var coding_selected = rdata.data.encoding == codding[p] ? "selected" : "";
-				coding_html += '<option value="' + codding[p] + '" ' + coding_selected + ">" + codding[p] + "</option>";
-			}
-
-			$("select[name=encoding]").html(coding_html);
-		});
-	}
-
-	var r = layer.open({
-		type: 1,
-		shift: 5,
-		closeBtn: 1,
-		area: ["90%", "90%"],
-		btn:['保存', '关闭', '刷新', '开启自动刷新', '关闭自动刷新'],
-		title: "在线编辑[" + f + "]",
-		shade: 0.0000001,
-		content: '<form class="bt-form pd20">\
-			<div class="line">\
-				<p style="color:red;margin-bottom:10px">提示：Ctrl+F 搜索关键字，Ctrl+G 查找下一个，Ctrl+S 保存，Ctrl+Shift+R 查找替换!\
-					<select class="bt-input-text" name="encoding" style="width: 74px;position: absolute;top: 31px;right: 19px;height: 22px;z-index: 9999;border-radius: 0;"><option value="utf-8" selected>utf-8</option></select>\
-				</p>\
-				<textarea class="mCustomScrollbar bt-input-text" id="textBody" style="width:100%;margin:0 auto;line-height: 1.8;position: relative;top: 10px;" value=""/>\
-			</div>\
-		</form>',
-		success:function(layero){
-			$(layero).hide();
-			var layer_id = $(layero).attr('id').replace("layui-layer","");
-			var loading = layer.msg('正在读取文件,请稍候...', {icon: 16,time: 0});
-			renderBody(function(rdata){
-				$('#layui-layer-shade'+layer_id).css('opacity',0.3);
-				$(layero).show();
-				layer.close(loading);
-				
-
-				$("#textBody").text(rdata.data.data);
-				var q = $(window).height() * 0.9;
-				$("#textBody").height(q - 160);
-
-				code_mirror = CodeMirror.fromTextArea(document.getElementById("textBody"), {
-					extraKeys: {
-						"Ctrl-F": "findPersistent",
-						"Ctrl-H": "replaceAll",
-						"Ctrl-S": function() {
-							$("#textBody").text(code_mirror.getValue());
-							onlineEditFile(2, f, callback);
-						},
-						"Cmd-S":function() {
-							$("#textBody").text(code_mirror.getValue());
-							onlineEditFile(2, f, callback);
-						},
-					},
-					mode: d,
-					lineNumbers: true,
-					matchBrackets: true,
-					matchtags: true,
-					autoMatchParens: true
-				});
-				code_mirror.focus();
-				code_mirror.setSize("auto", q - 150);
-
-				$(window).resize(function(){
-	                var q = $(window).height() * 0.9;
-	                code_mirror.setSize("auto", q - 150);
-	            });
-			});
-		},
-		end:function(){
-			clearInterval(code_timer);
-		},
-		yes:function(){
-			$("#textBody").text(code_mirror.getValue());
-			onlineEditFile(1, f, callback);
-		},
-		btn3:function(){
-			var loading_refresh = layer.msg('正在刷新中,请稍候...', {icon: 16,time: 0});
-			renderBody(function(rdata){
-				layer.close(loading_refresh);
-				code_mirror.setValue(rdata.data.data);
-			});
-			return false;
-		},
-		btn4:function(){
-			code_timer = setInterval(function(){
-				renderBody(function(rdata){
-					code_mirror.setValue(rdata.data.data);
-					var scrollInfo = code_mirror.getScrollInfo();
-					code_mirror.scrollTo(null, scrollInfo.height);
-				});
-			},5000);
-			layer.msg('开启自动刷新成功', {icon: 1,time: 1000});
-			return false;
-		},
-		btn5:function(){
-			clearInterval(code_timer);
-			layer.msg('关闭自动刷新成功', {icon: 1,time: 1000});
-			return false;
-		}
-	});
-	
+	if (typeof PmEditor == 'undefined') { layer.msg('编辑器加载失败, 请刷新页面', {icon: 2}); return; }
+	if (k != 0) { return PmEditor.save(f); }
+	PmEditor.open(f, callback);
 }
 
 function divcenter() {
@@ -1669,6 +1464,10 @@ function webShell() {
         title: "本地终端",
         area: ['685px','463px'],
         closeBtn: 1,
+        // 非模态: 打开终端时仍可操作页面和左侧菜单, 可最小化/最大化
+        shade: 0,
+        maxmin: true,
+        moveOut: true,
         shadeClose: false,
         content: '<div class="term-box"><div id="term"></div></div>\
 					<div class="shell-text-input">\
@@ -2728,6 +2527,9 @@ function pluginRollingLogs(_name, version, func, _args, line){
         type: 1,
         title: _name + '日志',
         area: '640px',
+        shade: 0,
+        maxmin: true,
+        moveOut: true,
         end: function(){
         	if (reqTimer){
         		clearInterval(reqTimer);
@@ -2769,6 +2571,9 @@ function pluginStandAloneLogs(_name, version, func, _args, line){
         type: 1,
         title: _name + '日志',
         area: '640px',
+        shade: 0,
+        maxmin: true,
+        moveOut: true,
         content:'<div class="change-default pd20" id="plugins_stand_alone_logs">\
         	<textarea readonly="readonly" style="margin: 0px;width: 100%;height: 360px;background-color: #333;color:#fff; padding:0 5px"></textarea>\
         	</div>'

@@ -1377,3 +1377,56 @@ body.pm-plain {
 .pm-form .bt-input-text { width: 260px; }
 .pm-form .pm-help { display: block; margin: 4px 0 0 90px; color: var(--pm-muted); font-size: 12px; }
 .pm-code { font-family: Menlo, Consolas, monospace; font-size: 12px; word-break: break-all; }
+
+/* ------------------------------- 全局文件编辑器(非模态) ------------------------------ */
+.pm-editor {
+    position: fixed;
+    z-index: 19891000;            /* 高于页面内容, 低于 layer 提示框 */
+    background: #fff;
+    border-radius: var(--pm-radius);
+    box-shadow: 0 16px 48px rgba(16, 24, 40, .28), 0 0 0 1px rgba(16, 24, 40, .08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    resize: both;
+    min-width: 420px;
+    min-height: 260px;
+}
+.pm-editor.pe-max { resize: none; border-radius: 6px; }
+.pm-editor .pe-head {
+    display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 8px 0 14px;
+    background: #1e2430; color: #e5e7eb; cursor: move; user-select: none; flex-shrink: 0;
+}
+.pm-editor.pe-max .pe-head { cursor: default; }
+.pm-editor .pe-title { font-weight: 600; font-size: 13px; }
+.pm-editor .pe-path { flex: 1; font-family: Menlo, Consolas, monospace; font-size: 12px; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-editor .pe-btns a { display: inline-block; width: 30px; height: 28px; line-height: 28px; text-align: center; color: #cbd5e1; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.pm-editor .pe-btns a:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+.pm-editor .pe-btns a[data-act=close]:hover { background: #ef4444; }
+.pm-editor .pe-tabs { display: flex; overflow-x: auto; background: #f3f4f6; border-bottom: 1px solid var(--pm-border); flex-shrink: 0; min-height: 34px; }
+.pm-editor .pe-tab {
+    position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 0 30px 0 12px; height: 34px;
+    font-size: 12px; color: var(--pm-text-2); border-right: 1px solid var(--pm-border); cursor: pointer; white-space: nowrap; background: #eceef2;
+}
+.pm-editor .pe-tab.on { background: #fff; color: var(--pm-text); font-weight: 600; }
+.pm-editor .pe-tab.on:before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--pm-primary); }
+.pm-editor .pe-x { position: absolute; right: 8px; top: 8px; width: 16px; height: 16px; line-height: 15px; text-align: center; border-radius: 3px; color: #9ca3af; font-size: 14px; }
+.pm-editor .pe-x:hover { background: #e5e7eb; color: #111827; }
+.pm-editor .pe-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; }
+.pm-editor .pe-bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--pm-border); flex-shrink: 0; flex-wrap: wrap; }
+.pm-editor .pe-auto { margin: 0 4px; font-weight: 400; font-size: 12px; color: var(--pm-text-2); cursor: pointer; }
+.pm-editor .pe-auto input { vertical-align: -2px; }
+.pm-editor .pe-enc { height: 24px; font-size: 12px; border: 1px solid var(--pm-border-strong); border-radius: 4px; }
+.pm-editor .pe-tip { margin-left: auto; color: var(--pm-muted); font-size: 12px; }
+.pm-editor .pe-body { flex: 1; min-height: 0; }
+.pm-editor .CodeMirror { height: 100%; font-size: 13px; }
+.pm-editor-dock {
+    position: fixed; right: 20px; bottom: 20px; z-index: 19891000; padding: 9px 16px; border-radius: 20px;
+    background: #1e2430; color: #fff; font-size: 13px; cursor: pointer; box-shadow: 0 8px 24px rgba(16, 24, 40, .3);
+}
+.pm-editor-dock:hover { background: var(--pm-primary); }
+.pm-editor-dock .pe-dock-dirty { margin-left: 6px; padding: 1px 8px; border-radius: 10px; background: #f59e0b; color: #111827; font-size: 12px; }
+@media (max-width: 900px) {
+    .pm-editor { min-width: 0; resize: none; }
+    .pm-editor .pe-tip { display: none; }
+}
