@@ -73,8 +73,9 @@ def checkArgs(data, ck=[]):
 
 
 def getConf():
-    path = getServerDir() + "/conf.ini"
-    return path
+    root = getServerDir()
+    current = os.path.join(root, 'data', 'conf.ini')
+    return current if os.path.isfile(current) else os.path.join(root, 'conf.ini')
 
 def configTpl():
     path = getPluginDir() + '/tpl'

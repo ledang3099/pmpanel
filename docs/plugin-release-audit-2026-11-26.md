@@ -7,16 +7,16 @@
 | 插件 | 结果 | 核对记录 |
 | --- | --- | --- |
 | `acme_pandominassl_apply` | 面板集成 | 对接 acme.sh，插件 1.0 不是 acme.sh 版本。 [上游](https://github.com/acmesh-official/acme.sh/releases) |
-| `alist` | 候选待验证 | 上游 3.66.0。安装器按通用文件名复用缓存，初始化还会设置固定管理员密码。需先验证新版初始化与数据保留。 [上游](https://github.com/alist-org/alist/releases) |
+| `alist` | 已更新 | 3.66.0，按版本缓存并验证发布摘要，取消固定管理员密码初始化。Debian 13 安装、systemd 和 HTTP 探活通过。 [上游](https://github.com/alist-org/alist/releases/tag/v3.66.0) |
 | `apache` | 已是当前 | 2.4.71。 [上游](https://downloads.apache.org/httpd/Announcement2.4.html) |
 | `backup_ftp` | 面板集成 | 面板 FTP 备份任务，无独立上游版本。 |
 | `caddy` | 已是当前 | 2.11.9。 [上游](https://github.com/caddyserver/caddy/releases) |
 | `clean` | 面板集成 | 面板日志清理任务，无独立上游版本。 |
-| `cloudreve` | 候选待验证 | 上游 4.19.1，现有安装器为 3.x。需验证数据迁移和配置。 [上游](https://github.com/cloudreve/Cloudreve/releases) |
+| `cloudreve` | 已更新 | 新增 4.19.1 全新安装，识别 V3 数据并要求先迁移。Debian 13 安装、systemd 和站点配置 API 通过。 [官方迁移说明](https://docs.cloudreve.org/zh/maintain/upgrade-from-v3) |
 | `cryptocurrency_trade` | 候选待验证 | 当前安装含外部依赖与策略代码。CCXT 需单独核对 API 兼容性。 [上游](https://github.com/ccxt/ccxt/releases) |
 | `data_query` | 面板集成 | 面板数据查询插件，无独立上游版本。 |
 | `docker` | 软件源 | 包装 Docker 官方安装渠道，1.0 是面板插件版本。 [上游](https://docs.docker.com/engine/release-notes/) |
-| `doh` | 候选待验证 | 上游 0.11.1，需确认新版各架构归档与服务参数。 [上游](https://github.com/DNSCrypt/doh-server/releases) |
+| `doh` | 已更新 | 新增 0.11.1，校验 Linux x86_64 和 aarch64 压缩包。Debian 13 安装与 systemd 启动通过。 [上游](https://github.com/DNSCrypt/doh-server/releases/tag/0.11.1) |
 | `dynamic-tracking` | 候选待验证 | 现有安装器使用第三方代理，缺少可核对的新版来源。 |
 | `dztasks` | 候选待验证 | 安装脚本引用外部 GitHub 项目，暂无已验证的替换包。 |
 | `fail2ban` | 软件源 | 上游 1.1.1。面板安装的是发行版的 fail2ban 包，插件版本不能代表运行版本。 [上游](https://github.com/fail2ban/fail2ban/releases) |
@@ -24,7 +24,7 @@
 | `gitea` | 已更新 | 新增 28.4.0，保留旧版安装入口。 [上游](https://github.com/go-gitea/gitea/releases/tag/v28.4.0) |
 | `gogs` | 已更新 | 新增 0.14.4，增加新版 Linux/macOS 官方归档命名和 arm64 选择。 [上游](https://github.com/gogs/gogs/releases/tag/v0.14.4) |
 | `gorse` | 已更新 | 新增 0.5.11，确认 Linux amd64 与 arm64 归档存在。 [上游](https://github.com/gorse-io/gorse/releases/tag/v0.5.11) |
-| `grafana` | 候选待验证 | 13.3.2 归档可访问。需验证现有数据路径、内置插件、服务脚本及数据库迁移。 [上游](https://github.com/grafana/grafana/releases) |
+| `grafana` | 已更新 | 新增 Grafana OSS 13.3.2，修正服务启动路径及旧默认服务定义。Debian 13 安装、systemd 和数据库健康接口通过。 [上游](https://github.com/grafana/grafana/releases/tag/v13.3.2) |
 | `haproxy` | 已更新 | 2.6.36、2.8.32、3.0.31、3.2.27；新增 3.4.8，使用官方 SHA-256。 [上游](https://www.haproxy.org/) |
 | `imail` | 面板集成 | 面板邮件组件，版本属于插件。底层邮件服务另行维护。 |
 | `keepalived` | 已更新 | 2.4.3，官方归档与发布页摘要一致。 [上游](https://www.keepalived.org/download/) |
@@ -59,7 +59,7 @@
 | `pureftp` | 已更新 | 1.0.54，支持从旧版发起升级并保留 PureDB 配置。 [上游](https://github.com/jedisct1/pure-ftpd/releases/tag/1.0.54) |
 | `rapira` | 候选待验证 | 单独的 PHP 运行时提供方。需确认发行包和补丁，不用 PHP 官方版本号替代。 |
 | `redis` | 已更新 | 新增 8.12.0。早期系列继续供既有应用兼容。 [上游](https://github.com/redis/redis/releases/tag/8.12.0) |
-| `rsyncd` | 软件源 | 上游 3.5.2。插件调用发行版的 rsync 包。 [上游](https://github.com/RsyncProject/rsync/releases) |
+| `rsyncd` | 已更新 | 合入维护者的 3.5.2 更新。源代码构建及同步功能验证另行记录。 [上游](https://github.com/RsyncProject/rsync/releases/tag/v3.5.2) |
 | `simpleping` | 已更新 | 安装器已下载 2.0，修正目录显示。 [上游](https://github.com/midoks/simpleping/releases) |
 | `sphinx` | 候选待验证 | 当前 3.1.1，需核对新包和下载授权。 [上游](https://sphinxsearch.com/downloads/) |
 | `supervisor` | 软件源 | Python 包版本随安装渠道变化。 [上游](https://pypi.org/project/supervisor/) |

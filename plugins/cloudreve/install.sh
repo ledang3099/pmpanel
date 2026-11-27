@@ -36,22 +36,39 @@ Install_App()
 	mkdir -p $serverPath/source
 	mkdir -p $serverPath/source/cloudreve
 
-	FILE_TGZ=cloudreve_${VERSION}_${ALIST_NAME}_${ALIST_ARCH_NAME}.tar.gz
-	CLOUDREVE_DIR=$serverPath/source/cloudreve
+    FILE_TGZ="cloudreve_${VERSION}_${ALIST_NAME}_${ALIST_ARCH_NAME}.tar.gz"
+    CLOUDREVE_DIR="$serverPath/source/cloudreve"
+    url="https://github.com/cloudreve/Cloudreve/releases/download/${VERSION}/${FILE_TGZ}"
+    destination="$serverPath/cloudreve/cloudreve"
+    if [ "$VERSION" = 4.19.1 ]; then
+        installed=
+        if [ -f "$serverPath/cloudreve/version.pl" ]; then
+            read -r installed < "$serverPath/cloudreve/version.pl"
+        fi
+        if [[ "$installed" == 3.* ]] || [ -f "$serverPath/cloudreve/cloudreve.db" ] || [ -f "$serverPath/cloudreve/conf.ini" ]; then
+            echo 'Cloudreve V3 data detected. Use the upstream V3-to-V4 migration first.' >&2
+            return 1
+        fi
+        case "$ALIST_NAME-$ALIST_ARCH_NAME" in
+            linux-amd64) digest=287a1f59adb1249af15cd550b191d2fa71132bfd125fead8578f20152c4b99de ;;
+            linux-arm64) digest=f55d77e0e5eb8bc699a9a6bb1216b0ee3afa3bfe8d7c9d405ca9845339ae7b0e ;;
+            darwin-amd64) digest=f4dd69731ca52e39399a54dada5a8ec8a6bcb939ae70a70441f11882a6e270a0 ;;
+            darwin-arm64) digest=a67577da69a77fd11246fc663604b6edabf3392149db764243bfcf496f581620 ;;
+            *) return 1 ;;
+        esac
+        source "$rootPath/scripts/tools/verified-download.sh" || return 1
+        source "$rootPath/scripts/tools/install-release-binary.sh" || return 1
+        install_release_binary "$url" "$digest" "$CLOUDREVE_DIR/$FILE_TGZ" "$destination" || return 1
+    else
+        mkdir -p "$serverPath/cloudreve" || return 1
+        curl -fsSL "$url" -o "$CLOUDREVE_DIR/$FILE_TGZ" || return 1
+        tar -xzf "$CLOUDREVE_DIR/$FILE_TGZ" -C "$serverPath/cloudreve" || return 1
+    fi
+    printf '%s\n' "$VERSION" > "$serverPath/cloudreve/version.pl"
+    cd "$rootPath" || return 1
+    python3 plugins/cloudreve/index.py start || return 1
+    python3 plugins/cloudreve/index.py initd_install || return 1
 
-	if [ ! -f $CLOUDREVE_DIR/${FILE_TGZ} ];then
-		wget -O $CLOUDREVE_DIR/${FILE_TGZ} https://github.com/cloudreve/Cloudreve/releases/download/${VERSION}/${FILE_TGZ}
-	fi
-	
-	mkdir -p $serverPath/cloudreve
-
-	cd $CLOUDREVE_DIR && tar -zxvf ${FILE_TGZ}  -C $serverPath/cloudreve
-	echo "${VERSION}" > $serverPath/cloudreve/version.pl
-
-	cd ${rootPath} && python3 ${rootPath}/plugins/cloudreve/index.py start
-	cd ${rootPath} && python3 ${rootPath}/plugins/cloudreve/index.py initd_install
-
-	# cd $serverPath/cloudreve && ./alist admin set admin
 	echo '安装cloudreve完成'
 }
 

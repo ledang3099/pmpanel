@@ -106,7 +106,6 @@ def openPort():
     try:
         from utils.firewall import Firewall as MwFirewall
         MwFirewall.instance().addAcceptPort('3000', 'grafana', 'port')
-        return port
     except Exception as e:
         return "Release failed {}".format(e)
     return True
@@ -122,7 +121,9 @@ def initDreplace():
     # systemd
     systemDir = mw.systemdCfgDir()
     systemService = systemDir + '/' + getPluginName() + '.service'
-    if os.path.exists(systemDir) and not os.path.exists(systemService):
+    legacy_exec = 'ExecStart=' + mw.getServerDir() + '/bin/grafana server --config='
+    legacy_unit = os.path.exists(systemService) and legacy_exec in mw.readFile(systemService)
+    if os.path.exists(systemDir) and (legacy_unit or not os.path.exists(systemService)):
         systemServiceTpl = getPluginDir() + '/init.d/' + getPluginName() + '.service.tpl'
         service_path = mw.getServerDir()
         content = mw.readFile(systemServiceTpl)
@@ -137,7 +138,6 @@ def gOp(method):
     initDreplace()
 
     data = mw.execShell('systemctl ' + method + ' '+getPluginName())
-    mw.execShell('systemctl ' + method + ' '+getPluginName())
     if data[1] == '':
         return 'ok'
     return data[1]

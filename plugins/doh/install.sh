@@ -38,37 +38,31 @@ OSNAME_ID=`cat /etc/*-release | grep VERSION_ID | awk -F = '{print $2}' | awk -F
 Install_App()
 {
 
-	mkdir -p $serverPath/source/doh
+    [ "$(uname -s)" = Linux ] || return 1
+    local version="$1"
+    local architecture digest file archive url
+    case "$(uname -m)" in
+        x86_64) architecture=x86_64; digest=7ce97a4ed3d9deee9d2b1de71bb60013f46188f5d2a085fbf230bf4c8e3c8b25 ;;
+        aarch64) architecture=aarch64; digest=579f63372b23e904761d3b12aeb5aa3031403dda1d03f95288b0ef5b21e8c36c ;;
+        *) return 1 ;;
+    esac
+    file="doh-proxy_${version}_linux-${architecture}.tar.bz2"
+    archive="$serverPath/source/doh/$file"
+    url="$URL_DOWNLOAD/$version/$file"
+    if [ "$version" = 0.11.1 ]; then
+        source "$rootPath/scripts/tools/verified-download.sh" || return 1
+        source "$rootPath/scripts/tools/install-release-binary.sh" || return 1
+        install_release_binary "$url" "$digest" "$archive" "$serverPath/doh/doh-proxy" || return 1
+    else
+        mkdir -p "$serverPath/source/doh" "$serverPath/doh" || return 1
+        curl -fsSL "$url" -o "$archive" || return 1
+        tar -xjf "$archive" -C "$serverPath/doh" || return 1
+    fi
+    printf '%s\n' "$version" > "$serverPath/doh/version.pl"
+    cd "$rootPath" || return 1
+    python3 plugins/doh/index.py start || return 1
+    python3 plugins/doh/index.py initd_install || return 1
 
-	echo '正在安装脚本文件...'
-	version=$1
-
-	if [ "macos" = "$OSNAME" ];then
-		echo "not support!"
-		exit
-	else
-		file=doh-proxy_${version}_linux-x86_64
-	fi
-
-	# https://github.com/DNSCrypt/doh-server/releases/download/0.9.15/doh-proxy_0.9.15_linux-aarch64.tar.bz2
-	file_xz="${file}.tar.bz2"
-	echo "wget -O $serverPath/source/doh/$file_xz ${URL_DOWNLOAD}/${version}/${file_xz}"
-	if [ ! -f $serverPath/source/doh/$file_xz ];then
-		wget  --no-check-certificate -O $serverPath/source/doh/$file_xz ${URL_DOWNLOAD}/${version}/${file_xz}
-	fi
-
-	if [ -f $serverPath/source/doh/$file_xz ];then
-		cd $serverPath/source/doh && tar -xjf $file_xz
-		echo "mv $serverPath/source/doh/doh-proxy $serverPath/doh"
-		mv $serverPath/source/doh/doh-proxy $serverPath/doh
-	fi
-
-	if [ -d $serverPath/doh ];then
-		cd ${rootPath} && python3 plugins/doh/index.py start
-		cd ${rootPath} && python3 plugins/doh/index.py initd_install
-	fi
-
-	echo $version > $serverPath/doh/version.pl
 	echo 'install doh success'
 }
 
