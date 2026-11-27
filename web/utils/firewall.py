@@ -120,6 +120,7 @@ class Firewall(object):
 
         rdata = {}
         rdata['data'] = info['list']
+        rdata['count'] = info['count']
         rdata['page'] = mw.getPage({'count':info['count'],'tojs':'showAccept','p':page,'row':size})
         return rdata
 
@@ -134,17 +135,6 @@ class Firewall(object):
             mw.execShell('firewall-cmd --reload')
         else:
             pass
-
-    def reloadSshd(self):
-        if self.__isUfw:
-            mw.execShell("service ssh restart")
-        elif self.__isIptables:
-            mw.execShell("/etc/init.d/sshd restart")
-        elif self.__isFirewalld:
-            mw.execShell("systemctl restart sshd.service")
-        else:
-            return False
-        return True
 
     def getFwStatus(self):
         if self.__isUfw:
@@ -169,119 +159,6 @@ class Firewall(object):
             return False
 
 
-    def getSshInfo(self):
-        data = {}
-
-        isPing = True
-        try:
-            if mw.isAppleSystem():
-                isPing = True
-            else:
-                file = '/etc/sysctl.conf'
-                sys_conf = mw.readFile(file)
-                rep = r"#*net\.ipv4\.icmp_echo_ignore_all\s*=\s*([0-9]+)"
-                tmp = re.search(rep, sys_conf).groups(0)[0]
-                if tmp == '1':
-                    isPing = False
-        except:
-            isPing = True
-
-        # sshd 检测
-        status = True
-        cmd = "service sshd status | grep -P '(dead|stop)'|grep -v grep"
-        ssh_status = mw.execShell(cmd)
-        if ssh_status[0] != '':
-            status = False
-
-        cmd = "systemctl status sshd | grep 'dead'|grep -v grep"
-        ssh_status = mw.execShell(cmd)
-        if ssh_status[0] != '':
-            status = False
-
-        data['pubkey_prohibit_status'] = False
-        data['pass_prohibit_status'] = False
-        data['root_prohibit_status'] = False
-        port = '22'
-        sshd_file = '/etc/ssh/sshd_config'
-        if  os.path.exists(sshd_file):
-            conf = mw.readFile(sshd_file)
-            rep = r"#*Port\s+([0-9]+)\s*\n"
-            port = re.search(rep, conf).groups(0)[0]
-
-            # 密码登陆配置检查
-            pass_rep = r"PasswordAuthentication\s+(\w*)\s*\n"
-            pass_status = re.search(pass_rep, conf)
-            if pass_status:
-                if pass_status and pass_status.groups(0)[0].strip() == 'no':
-                    data['pass_prohibit_status'] = True
-            else:
-                data['pass_prohibit_status'] = True
-
-            # 密钥登陆配置检查
-            pass_rep = r"PubkeyAuthentication\s+(\w*)\s*\n"
-            pass_status = re.search(pass_rep, conf)
-            if pass_status:
-                if pass_status and pass_status.groups(0)[0].strip() == 'no':
-                    data['pubkey_prohibit_status'] = True
-            else:
-                data['pubkey_prohibit_status'] = True
-
-            # root登陆配置检查
-            root_rep = r"PermitRootLogin\s+(\w*)\s*\n"
-            root_status = re.search(root_rep, conf)
-            if root_status:
-                if root_status and root_status.groups(0)[0].strip() == 'no':
-                    data['root_prohibit_status'] = True
-            else:
-                data['root_prohibit_status'] = True
-
-        data['port'] = port
-        data['status'] = status
-        data['ping'] = isPing
-        if mw.isAppleSystem():
-            data['firewall_status'] = False
-        else:
-            data['firewall_status'] = self.getFwStatus()
-        return data
-
-    def setPing(self, status):
-        if mw.isAppleSystem():
-            return mw.returnData(True, '开发机不能操作!')
-
-        filename = '/etc/sysctl.conf'
-        conf = mw.readFile(filename)
-        if conf.find('net.ipv4.icmp_echo') != -1:
-            rep = r"net\.ipv4\.icmp_echo.*"
-            conf = re.sub(rep, 'net.ipv4.icmp_echo_ignore_all=' + status, conf)
-        else:
-            conf += "\nnet.ipv4.icmp_echo_ignore_all=" + status
-
-        mw.writeFile(filename, conf)
-        mw.execShell('sysctl -p')
-        return mw.returnData(True, '设置成功!')
-
-    def setSshPort(self, port):
-        if int(port) < 22 or int(port) > 65535:
-            return mw.returnData(False, '端口范围必需在22-65535之间!')
-
-        ports = ['21', '25', '80', '443', '888']
-        if port in ports:
-            return mw.returnData(False, '(' + port + ')' + '特殊端口不可设置!')
-
-        file = '/etc/ssh/sshd_config'
-        conf = mw.readFile(file)
-
-        rep = r"#*Port\s+([0-9]+)\s*\n"
-        conf = re.sub(rep, "Port " + port + "\n", conf)
-        mw.writeFile(file, conf)
-        
-        self.addAcceptPort(port, 'SSH端口修改', 'port')
-        self.reload()
-
-        if not self.reloadSshd():
-            return mw.returnData(False, '重启sshd失败,尝试手动重启:service ssh restart!')
-        return mw.returnData(True, '修改成功!')
-
     def setFw(self, status):
         if self.__isIptables:
             self.setFwIptables(status)
@@ -304,6 +181,15 @@ class Firewall(object):
             else:
                 pass
         return mw.returnData(True, '设置成功!')
+
+    def setFwIptables(self, status):
+        # status == '1' 表示关闭
+        if status == '1':
+            mw.execShell('systemctl stop iptables.service')
+            mw.execShell('systemctl disable iptables.service')
+        else:
+            mw.execShell('systemctl start iptables.service')
+            mw.execShell('systemctl enable iptables.service')
 
     def addAcceptPortCmd(self, port, protocol ='tcp'):
         # 端口只允许 "端口" 或 "起始:结束" 格式, 防止命令注入
@@ -389,9 +275,91 @@ class Firewall(object):
         mw.writeLog("防火墙管理", msg)
         return mw.returnData(True, msg)
 
+    # ------------------------------- 屏蔽 IP ----------------------------------------
+    # 记录存于 firewall 表: port 字段为 IP/网段, protocol 为 address
+
+    def __blockCmds(self, ip, add=True):
+        import ipaddress
+        net = ipaddress.ip_network(ip, strict=False)
+        v6 = net.version == 6
+        src = str(net) if net.num_addresses > 1 else str(net.network_address)
+        if self.__isUfw:
+            if add:
+                # 插入到最前, 确保优先于放行规则; IPv6 无规则时 insert 会失败, 退回追加
+                return [['ufw', 'insert', '1', 'deny', 'from', src, 'to', 'any']], \
+                       [['ufw', 'deny', 'from', src, 'to', 'any']]
+            return [['ufw', 'delete', 'deny', 'from', src, 'to', 'any']], []
+        if self.__isFirewalld:
+            rule = 'rule family="%s" source address="%s" drop' % ('ipv6' if v6 else 'ipv4', src)
+            opt = '--add-rich-rule' if add else '--remove-rich-rule'
+            return [['firewall-cmd', '--permanent', opt + '=' + rule]], []
+        if self.__isIptables:
+            bin_name = 'ip6tables' if v6 else 'iptables'
+            return [[bin_name, '-I' if add else '-D', 'INPUT', '-s', src, '-j', 'DROP']], []
+        return [], []
+
+    def __runCmds(self, cmds, fallback):
+        import subprocess
+        for cmd in cmds:
+            p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            if p.returncode != 0:
+                for fcmd in fallback:
+                    p = subprocess.run(fcmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                if p.returncode != 0:
+                    return False, p.stdout.strip()[-200:]
+        return True, ''
+
+    def addBlockIp(self, ip, ps=''):
+        import ipaddress
+        ip = str(ip).strip()
+        try:
+            net = ipaddress.ip_network(ip, strict=False)
+        except ValueError:
+            return mw.returnData(False, 'IP 地址或网段格式不正确!')
+        src = str(net) if net.num_addresses > 1 else str(net.network_address)
+        if net.is_loopback:
+            return mw.returnData(False, '不能屏蔽本机地址!')
+        if not (self.__isUfw or self.__isFirewalld or self.__isIptables):
+            return mw.returnData(False, '未检测到系统防火墙(ufw/firewalld/iptables), 无法屏蔽 IP!')
+        if not self.getFwStatus():
+            return mw.returnData(False, '请先启用系统防火墙!')
+        if thisdb.getFirewallCountByPort(src) > 0:
+            return mw.returnData(False, '该 IP 已在屏蔽列表中!')
+        cmds, fallback = self.__blockCmds(src, add=True)
+        good, err = self.__runCmds(cmds, fallback)
+        if not good:
+            return mw.returnData(False, '屏蔽失败: ' + err)
+        thisdb.addFirewall(src, ps=ps or '屏蔽IP', protocol='address')
+        self.reload()
+        if self.__isIptables:
+            mw.execShell('service iptables save')
+        mw.writeLog("防火墙管理", '屏蔽IP[%s]' % src)
+        return mw.returnData(True, '已屏蔽 ' + src)
+
+    def delBlockIp(self, firewall_id, ip):
+        import ipaddress
+        try:
+            ipaddress.ip_network(str(ip).strip(), strict=False)
+        except ValueError:
+            return mw.returnData(False, 'IP 格式不正确!')
+        cmds, _ = self.__blockCmds(str(ip).strip(), add=False)
+        self.__runCmds(cmds, [])
+        mw.M('firewall').where('id=? and protocol=?', (firewall_id, 'address')).delete()
+        self.reload()
+        if self.__isIptables:
+            mw.execShell('service iptables save')
+        mw.writeLog("防火墙管理", '解除屏蔽IP[%s]' % ip)
+        return mw.returnData(True, '已解除屏蔽')
+
+    def getBlockedIps(self):
+        rows = mw.M('firewall').where('protocol=?', ('address',)).field('port').select() or []
+        return set(str(r['port']) for r in rows if isinstance(r, dict))
+
     def delAcceptPort(self, firewall_id, port,
         protocol='tcp'
     ):
+        if protocol == 'address':
+            return self.delBlockIp(firewall_id, port)
         panel_port = mw.getPanelPort()
 
         if port.find(':') > 0:
@@ -456,90 +424,3 @@ class Firewall(object):
         mw.writeLog("防火墙管理", msg)
         self.reload()
         return True
-
-    def setSshRootStatus(self, status):
-        msg = '禁止root登陆成功'
-        if status == "1":
-            msg = '开启root登陆成功'
-
-        file = '/etc/ssh/sshd_config'
-        if not os.path.exists(file):
-            return mw.returnJson(False, '无法设置!')
-
-        conf = mw.readFile(file)
-
-        root_rep = r"PermitRootLogin\s+(\w*)\s*\n"
-        root_status = re.search(root_rep, conf)
-        if not root_status:
-            rep = r"(#)?PermitRootLogin\s+(\w*)\s*\n"
-            conf = re.sub(rep, "PermitRootLogin yes\n", conf)
-
-        if status == '1':
-            rep = r"PermitRootLogin\s+(\w*)\s*\n"
-            conf = re.sub(rep, "PermitRootLogin yes\n", conf)
-        else:
-            rep = r"PermitRootLogin\s+(\w*)\s*\n"
-            conf = re.sub(rep, "PermitRootLogin no\n", conf)
-        mw.writeFile(file, conf)
-        mw.execShell("systemctl restart sshd")
-        mw.writeLog("SSH管理", msg)
-        return mw.returnData(True, msg)
-
-    def setSshPassStatus(self, status):
-        msg = '禁止密码登陆成功'
-        if status == "1":
-            msg = '开启密码登陆成功'
-
-        file = '/etc/ssh/sshd_config'
-        if not os.path.exists(file):
-            return mw.returnJson(False, '无法设置!')
-
-        conf = mw.readFile(file)
-
-        pass_rep = r"PasswordAuthentication\s+(\w*)\s*\n"
-        pass_status = re.search(pass_rep, conf)
-        if not pass_status:
-            rep = r"(#)?PasswordAuthentication\s+(\w*)\s*\n"
-            conf = re.sub(rep, "PasswordAuthentication yes\n", conf)
-
-        if status == '1':
-            rep = r"PasswordAuthentication\s+(\w*)\s*\n"
-            conf = re.sub(rep, "PasswordAuthentication yes\n", conf)
-        else:
-            rep = r"PasswordAuthentication\s+(\w*)\s*\n"
-            conf = re.sub(rep, "PasswordAuthentication no\n", conf)
-        mw.writeFile(file, conf)
-        mw.execShell("command -v systemctl && systemctl restart sshd")
-        mw.writeLog("SSH管理", msg)
-        return mw.returnData(True, msg)
-
-    def setSshPubkeyStatus(self, status):
-        msg = '禁止密钥登陆成功'
-        if status == "1":
-            msg = '开启密钥登陆成功'
-
-        file = '/etc/ssh/sshd_config'
-        if not os.path.exists(file):
-            return mw.returnJson(False, '无法设置!')
-
-        content = mw.readFile(file)
-
-        pubkey_rep = r"PubkeyAuthentication\s+(\w*)\s*\n"
-        pubkey_status = re.search(pubkey_rep, content)
-        if not pubkey_status:
-            rep = r"(#)?PubkeyAuthentication\s+(\w*)\s*\n"
-            content = re.sub(rep, "PubkeyAuthentication yes\n", content)
-
-        if status == '1':
-            rep = r"PubkeyAuthentication\s+(\w*)\s*\n"
-            content = re.sub(rep, "PubkeyAuthentication yes\n", content)
-        else:
-            rep = r"PubkeyAuthentication\s+(\w*)\s*\n"
-            content = re.sub(rep, "PubkeyAuthentication no\n", content)
-        mw.writeFile(file, content)
-        mw.execShell("command -v systemctl && systemctl restart sshd")
-        mw.writeLog("SSH管理", msg)
-        return mw.returnData(True, msg)
-
-
-

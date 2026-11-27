@@ -863,7 +863,7 @@ class plugin(object):
         subprocess.run(['chmod', '-R', '755', plugin_path])
         p_info = mw.readFile(plugin_path + '/info.json')
         if p_info:
-            mw.writeLog('软件管理', '安装第三方插件[%s]' %json.loads(p_info)['title'])
+            mw.writeLog('应用市场', '安装第三方插件[%s]' %json.loads(p_info)['title'])
             return mw.returnData(True, '安装成功!')
         subprocess.run(['rm', '-rf', plugin_path])
         return mw.returnData(False, '安装失败!')

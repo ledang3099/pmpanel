@@ -871,7 +871,7 @@ body.pm-plain {
     }
 }
 
-/* ------------------------------- 应用商店(软件管理) ------------------------------ */
+/* ------------------------------- 应用商店(应用市场) ------------------------------ */
 
 .pm-store {
     padding: 0 0 8px;
@@ -1257,3 +1257,123 @@ body.pm-plain {
 .pm-ver-opt span em.rec {
     color: #15803d;
 }
+
+/* ------------------------------- 通用: 页面标签 / 统计卡片 / 设置项 ------------------------------ */
+/* 安全、数据库、日志等栏目共用 */
+.pm-page { padding: 0 0 40px; }
+.pm-panel {
+    background: var(--pm-card);
+    border-radius: var(--pm-radius);
+    box-shadow: var(--pm-shadow);
+    margin-bottom: 15px;
+}
+.pm-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--pm-border);
+}
+.pm-tab {
+    position: relative;
+    padding: 13px 14px 12px;
+    font-size: 14px;
+    color: var(--pm-text-2);
+    cursor: pointer;
+    user-select: none;
+}
+.pm-tab:hover { color: var(--pm-primary); }
+.pm-tab.on { color: var(--pm-primary); font-weight: 600; }
+.pm-tab.on:after {
+    content: "";
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: -1px;
+    height: 2px;
+    background: var(--pm-primary);
+    border-radius: 2px;
+}
+.pm-tab-body { padding: 16px; }
+.pm-subtabs { display: inline-flex; border: 1px solid var(--pm-border-strong); border-radius: 6px; overflow: hidden; }
+.pm-subtabs span { padding: 5px 14px; font-size: 13px; cursor: pointer; color: var(--pm-text-2); background: #fff; }
+.pm-subtabs span + span { border-left: 1px solid var(--pm-border-strong); }
+.pm-subtabs span.on { background: var(--pm-primary); color: #fff; }
+
+.pm-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.pm-stat {
+    border: 1px solid var(--pm-border);
+    border-radius: var(--pm-radius);
+    padding: 14px 16px;
+    background: #fff;
+}
+.pm-stat-label { font-size: 13px; color: var(--pm-muted); }
+.pm-stat-value { margin-top: 6px; font-size: 24px; font-weight: 600; color: var(--pm-text); line-height: 30px; }
+.pm-stat-value small { font-size: 13px; font-weight: 400; color: var(--pm-muted); margin-left: 4px; }
+.pm-stat-sub { margin-top: 4px; font-size: 12px; color: var(--pm-muted); }
+.pm-stat.ok .pm-stat-value { color: #15803d; }
+.pm-stat.bad .pm-stat-value { color: var(--pm-danger); }
+.pm-stat.warn .pm-stat-value { color: #c2410c; }
+
+.pm-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 4px 0 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--pm-text);
+}
+.pm-section-title .pm-muted { font-weight: 400; }
+.pm-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 1100px) { .pm-grid-2 { grid-template-columns: minmax(0, 1fr); } }
+.pm-box { border: 1px solid var(--pm-border); border-radius: var(--pm-radius); padding: 14px 16px; margin-bottom: 16px; }
+
+.pm-setting { width: 100%; }
+.pm-setting tr td { padding: 10px 6px; border-bottom: 1px solid #f1f3f6; vertical-align: middle; font-size: 13px; }
+.pm-setting tr:last-child td { border-bottom: 0; }
+.pm-setting tr td:first-child { width: 150px; color: var(--pm-text-2); }
+.pm-setting .pm-help { color: var(--pm-muted); font-size: 12px; margin-left: 8px; }
+
+.pm-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.pm-toolbar .pm-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.pm-muted { color: var(--pm-muted); font-size: 12px; }
+
+.pm-tag { display: inline-block; padding: 0 8px; border-radius: 10px; font-size: 12px; line-height: 20px; background: #f1f3f6; color: var(--pm-text-2); white-space: nowrap; }
+.pm-tag.green { background: var(--pm-primary-soft); color: #15803d; }
+.pm-tag.red { background: #fef2f2; color: #b91c1c; }
+.pm-tag.orange { background: #fff7ed; color: #c2410c; }
+.pm-tag.blue { background: #eff6ff; color: #1d4ed8; }
+.pm-tag.gray { background: #f3f4f6; color: #6b7280; }
+
+.pm-alert { border-radius: 6px; padding: 9px 12px; margin-bottom: 12px; font-size: 13px; line-height: 20px; }
+.pm-alert.warn { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+.pm-alert.info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+.pm-alert.danger { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+
+.pm-switch { position: relative; display: inline-block; width: 38px; height: 20px; vertical-align: middle; }
+.pm-switch input { opacity: 0; width: 0; height: 0; }
+.pm-switch span { position: absolute; inset: 0; background: #cbd2dc; border-radius: 20px; cursor: pointer; transition: .2s; }
+.pm-switch span:before { content: ""; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; background: #fff; border-radius: 50%; transition: .2s; }
+.pm-switch input:checked + span { background: var(--pm-primary); }
+.pm-switch input:checked + span:before { transform: translateX(18px); }
+.pm-switch input:disabled + span { opacity: .5; cursor: not-allowed; }
+
+.pm-table { width: 100%; }
+.pm-table td, .pm-table th { font-size: 13px; }
+.pm-table .ops a + a { margin-left: 10px; }
+.pm-empty { text-align: center; color: var(--pm-muted); padding: 28px 0 !important; }
+.pm-pager { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; color: var(--pm-muted); }
+.pm-pager a { display: inline-block; min-width: 28px; padding: 0 8px; line-height: 26px; text-align: center; border: 1px solid var(--pm-border-strong); border-radius: 4px; color: var(--pm-text-2); cursor: pointer; background: #fff; }
+.pm-pager a.on { background: var(--pm-primary); border-color: var(--pm-primary); color: #fff; }
+.pm-pager a.disabled { opacity: .45; pointer-events: none; }
+.pm-form .line { margin-bottom: 12px; }
+.pm-form .tname { display: inline-block; width: 90px; color: var(--pm-text-2); font-size: 13px; }
+.pm-form .bt-input-text { width: 260px; }
+.pm-form .pm-help { display: block; margin: 4px 0 0 90px; color: var(--pm-muted); font-size: 12px; }
+.pm-code { font-family: Menlo, Consolas, monospace; font-size: 12px; word-break: break-all; }
