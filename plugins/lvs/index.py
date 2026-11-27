@@ -127,7 +127,7 @@ def initdStatus():
             return 'ok'
 
     shell_cmd = 'systemctl status ' + \
-        getPluginName() + ' | grep loaded | grep "enabled;"'
+        getIpvsadm() + ' | grep loaded | grep "enabled;"'
     data = mw.execShell(shell_cmd)
     if data[0] == '':
         return 'fail'

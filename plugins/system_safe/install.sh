@@ -20,6 +20,18 @@ fi
 Install_App()
 {
     echo '正在安装脚本文件...'
+    if [ "$SYSOS" = Linux ] && { ! command -v chattr >/dev/null || ! command -v lsattr >/dev/null; }; then
+        if command -v apt-get >/dev/null; then
+            apt-get install -y e2fsprogs || return 1
+        elif command -v dnf >/dev/null; then
+            dnf install -y e2fsprogs || return 1
+        elif command -v yum >/dev/null; then
+            yum install -y e2fsprogs || return 1
+        else
+            echo 'System Safe requires chattr and lsattr from e2fsprogs.' >&2
+            return 1
+        fi
+    fi
     mkdir -p "$serverPath/system_safe" || return 1
     cd "$rootPath" || return 1
     python3 plugins/system_safe/system_safe.py start "$VERSION" || return 1

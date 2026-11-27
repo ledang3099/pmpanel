@@ -7,52 +7,31 @@ rootPath=$(dirname "$curPath")
 rootPath=$(dirname "$rootPath")
 serverPath=$(dirname "$rootPath")
 
-sys_os=`uname`
-VERSION=1.6.22
+VERSION=${2:-1.0}
 
 # cd /Users/dev/Desktop/pmdev/server/pmpanel/plugins/lvs && bash install.sh install 1.0
 # cd /www/server/pmpanel/plugins/lvs && bash install.sh install 1.0
 
 
 Install_LVS(){
-	mkdir -p $serverPath/source
-
-	which ipvsadm
-	if [ "$?" = "0" ];then
-		echo '已安装LVS!!'
-		exit 0
-	fi
-
-	echo '正在安装LVS...'
-
-	# 检测平台命令
-	which apt
-	if [ "$?" = "0" ];then
-		apt install -y ipvsadm
-	fi
-
-	which yum
-	if [ "$?" = "0" ];then
-		yum install -y ipvsadm
-	fi
-
-	which ipvsadm
-	if [ "$?" = "0" ];then
-		echo '正在安装LVS成功!'
-		mkdir -p $serverPath/lvs
-
-		ipv_version=`ipvsadm -v | awk '{print $2}'`
-		if [ "$ipv_version" != "" ];then
-			echo "$ipv_version" > $serverPath/lvs/version.pl
-		else
-			echo '1.0' > $serverPath/lvs/version.pl
-		fi
-
-		cd ${rootPath} && python3 ${rootPath}/plugins/lvs/index.py start
-		cd ${rootPath} && python3 ${rootPath}/plugins/lvs/index.py initd_install
-	else
-		echo '正在安装LVS失败!'
-	fi
+    if ! command -v ipvsadm >/dev/null; then
+        if command -v apt-get >/dev/null; then
+            apt-get install -y ipvsadm || return 1
+        elif command -v dnf >/dev/null; then
+            dnf install -y ipvsadm || return 1
+        elif command -v yum >/dev/null; then
+            yum install -y ipvsadm || return 1
+        else
+            echo '找不到 ipvsadm 或支持的包管理器' >&2
+            return 1
+        fi
+    fi
+    command -v ipvsadm >/dev/null || return 1
+    mkdir -p "$serverPath/lvs" || return 1
+    cd "$rootPath" || return 1
+    python3 plugins/lvs/index.py start || return 1
+    python3 plugins/lvs/index.py initd_install || return 1
+    printf '%s\n' "$VERSION" > "$serverPath/lvs/version.pl"
 }
 
 Uninstall_LVS()

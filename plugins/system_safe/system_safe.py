@@ -6,6 +6,7 @@ import os
 import time
 import json
 import re
+import subprocess
 import psutil
 from datetime import datetime
 
@@ -539,15 +540,29 @@ class App:
         mw.execShell('systemctl disable ' + self.getPluginName())
         return 'ok'
 
+    def __change_path_attr(self, info, operation):
+        attribute = info['chattr']
+        if not attribute:
+            return
+        if attribute not in ('i', 'a'):
+            raise ValueError('Invalid file attribute')
+        subprocess.run(['chattr', '-R', operation + attribute, os.path.abspath(info['path'])],
+                       check=True, capture_output=True)
+
     def __lock_path(self, info):
         try:
             if not os.path.exists(info['path']):
                 return False
-            if info['d_mode']:
+            mode = os.stat(info['path']).st_mode & 0o7777
+            change_mode = info['d_mode'] and mode != info['d_mode']
+            if change_mode:
                 os.chmod(info['path'], info['d_mode'])
-            if info['chattr']:
-                cmd = "chattr -R +%s %s" % (info['chattr'], info['path'])
-                mw.execShell(cmd)
+            try:
+                self.__change_path_attr(info, '+')
+            except (OSError, ValueError, subprocess.CalledProcessError):
+                if change_mode:
+                    os.chmod(info['path'], mode)
+                return False
             return True
         except Exception as e:
 
@@ -557,9 +572,7 @@ class App:
         try:
             if not os.path.exists(info['path']):
                 return False
-            if info['chattr']:
-                cmd = "chattr -R -%s %s" % (info['chattr'], info['path'])
-                mw.execShell(cmd)
+            self.__change_path_attr(info, '-')
 
             if info['s_mode']:
                 os.chmod(info['path'], info['s_mode'])
@@ -641,15 +654,17 @@ class App:
     def __get_path_state(self, path):
         if not os.path.exists(path):
             return 'i'
-        if os.path.isfile(path):
-            shell_cmd = "lsattr %s|awk '{print $1}'" % path
-        else:
-            shell_cmd = "lsattr {}/ |grep '{}$'|awk '{{print $1}}'".format(
-                os.path.dirname(path), path)
-        result = mw.execShell(shell_cmd)[0]
-        if result.find('-i-') != -1:
+        try:
+            result = subprocess.run(['lsattr', '-d', os.path.abspath(path)], capture_output=True, text=True)
+        except FileNotFoundError:
+            return False
+        fields = result.stdout.split(maxsplit=1)
+        if result.returncode or not fields:
+            return False
+        attributes = fields[0]
+        if 'i' in attributes:
             return 'i'
-        if result.find('-a-') != -1:
+        if 'a' in attributes:
             return 'a'
         return False
 
@@ -725,12 +740,11 @@ class App:
         else:
             path_info['d_mode'] = path_info['s_mode']
 
+        if chattr not in ('i', 'a'):
+            return mw.returnJson(False, '文件保护模式无效')
+        if data['open'] and data[tag]['open'] and not self.__lock_path(path_info):
+            return mw.returnJson(False, '无法锁定文件，请检查文件系统和权限')
         data[tag]['paths'].insert(0, path_info)
-        if 'paths' in data[tag]:
-            mw.execShell('chattr -R -%s %s' %
-                         (path_info['chattr'], path_info['path']))
-            if data['open']:
-                self.__set_safe_state([path_info], data[tag]['open'])
         msg = '添加防护对象[%s]到[%s]' % (path, data[tag]['name'])
         self.writeLog(msg)
         self.writeConf(data)
@@ -812,6 +826,11 @@ class App:
 
         cpath = self.getServerConfPath()
         data = self.getConf()
+
+        info = data[tag]['paths'][index]
+        if os.path.exists(info['path']) and self.__get_path_state(info['path']) == info['chattr']:
+            if not self.__unlock_path(info):
+                return mw.returnJson(False, '无法解除文件保护，请检查文件系统和权限')
 
         del(data[tag]['paths'][index])
         t = json.dumps(data)

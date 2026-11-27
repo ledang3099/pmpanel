@@ -27,11 +27,11 @@
 | `grafana` | 已更新 | 新增 Grafana OSS 13.3.2，修正服务启动路径及旧默认服务定义。Debian 13 安装、systemd 和数据库健康接口通过。 [上游](https://github.com/grafana/grafana/releases/tag/v13.3.2) |
 | `haproxy` | 已更新 | 2.6.36、2.8.32、3.0.31、3.2.27，新增 3.4.8，使用官方 SHA-256。Debian 13 编译并启动 3.4.8，HTTP 请求经代理转发后返回预期内容。 [上游](https://www.haproxy.org/) |
 | `imail` | 面板集成 | 0.0.19 为对应项目当前最后的正式发布。Debian 13 验证安装、服务启动和 HTTP 登录跳转。SMTP、IMAP 与真实域名配置待验证。 [上游](https://github.com/midoks/imail/releases) |
-| `keepalived` | 已更新 | 2.4.3，修正 systemd 模板，取消新安装默认绑定示例 VIP。Debian 13 编译、配置检查、启动及重载通过。VRRP 主备切换待验证。 [上游](https://www.keepalived.org/download/) |
+| `keepalived` | 已更新 | 2.4.3，修正 systemd 模板，取消新安装默认绑定示例 VIP。Debian 13 编译、配置检查、启动及重载通过。连接到独立容器网桥的两个节点通过 VRRP 主备切换，主节点停止后 VIP 转移到备节点。 [上游](https://www.keepalived.org/download/) |
 | `lam` | 已更新 | 新增 LDAP Account Manager 9.7，校验下载摘要并修正 PHP-FPM 版本识别。Debian 13 通过 OpenResty、PHP 8.4 与认证登录页检查。LAM 的 LDAP 写入待验证。 [上游](https://github.com/LDAPAccountManager/lam/releases/tag/9.7) |
 | `ldap` | 安装修复 | 发行版 OpenLDAP，安装后显式启动 slapd。Debian 13 通过根 DSE 的 namingContexts 查询。 |
 | `loki` | 已更新 | 新增 Loki 3.7.10 与 Alloy 1.22.0。安装时转换旧 Promtail 配置，验证后切换采集服务。Debian 13 验证日志采集、写入和查询。 [上游迁移指南](https://grafana.com/docs/alloy/latest/set-up/migrate/from-promtail/) |
-| `lvs` | 软件源 | 发行版 IPVS 工具。Debian 13 安装通过，内核 IPVS 转发待验证。 |
+| `lvs` | 安装修复 | 继续安装发行版 IPVS 工具，修复预装 `ipvsadm` 时面板未登记插件。Debian 13 验证该安装入口，并在隔离网桥上通过内核 IPVS 将 HTTP 请求转发至真实后端。 |
 | `manticoresearch` | 安装修复 | APT 入口使用官方仓库并适配 32.1.3 合并后的主包。Debian 13 安装、systemd 和 SQL 版本查询通过。 [上游](https://github.com/manticoresoftware/manticoresearch/releases) |
 | `mariadb` | 已更新 | 新增 13.1.2 滚动版 Linux x86_64 全新安装，验证官方归档和认证 SQL 读写。修正 12.3 安装记录，保持现有 LTS 选择和推荐。跨版本数据迁移待验证。 [上游](https://mariadb.org/mariadb-server-13-1-is-now-stable-and-13-2-reaches-release-candidate/) |
 | `memcached` | 已是当前 | 1.6.45。Debian 13 通过插件安装和缓存读写。 [上游](https://www.memcached.org/downloads) |
@@ -66,7 +66,7 @@
 | `supervisor` | 已更新 | 固定 4.3.0，修复 systemd 在 Debian 解析程序路径失败。Debian 13 验证插件安装、启动及管理测试任务。 [上游](https://pypi.org/project/supervisor/) |
 | `swap` | 面板集成 | 系统 swap 配置，无独立应用版本。通过状态读取和测试文件的 `mkswap` 初始化。启用和停用待验证。 |
 | `sys-opt` | 面板集成 | Debian 13 已安装系统参数插件。容器未修改宿主内核参数。 |
-| `system_safe` | 安装修复 | 使用面板 Python 环境加载 psutil。Debian 13 服务正常启动；文件属性锁定待验证。 |
+| `system_safe` | 功能修复 | 使用面板 Python 环境加载 psutil，缺少文件属性命令时安装 e2fsprogs。Debian 13 验证服务启动及测试文件属性保护，实测含空格的路径可设为只读、写入被拒绝，移除保护后可写并恢复原权限。 |
 | `tamper_proof_py` | 兼容修复 | 为 Python 3.12+ 安装 asyncore 兼容包。Debian 13 已确认 pyinotify 能加载、初始化，并启动服务。 [上游](https://pypi.org/project/pyasyncore/) |
 | `task_manager` | 兼容修复 | 通过 Cython 3 重新生成 pypcap 1.3.0，并使用 Python 缓冲区 API。Debian 13/Python 3.13 编译扩展并通过 BPF 测试数据检查。 [上游](https://pypi.org/project/pypcap/) |
 | `tgbot` | 已更新 | 固定 PyTelegramBotAPI 4.37.1，并修复 Debian 的启动脚本解释器。通过两条后台进程启动，真实机器人发信需要有效令牌。 [上游](https://pypi.org/project/pyTelegramBotAPI/) |
