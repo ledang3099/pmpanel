@@ -37,6 +37,9 @@ import config
 import utils.config as utils_config
 import thisdb
 
+# 必须在 flask 等依赖导入之后执行: 清除 readline 写入的 COLUMNS/LINES, 避免子进程输出被截断
+mw.clearTermSizeEnv()
+
 # 初始化db
 from admin import setup
 setup.init()

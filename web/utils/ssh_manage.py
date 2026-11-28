@@ -390,12 +390,14 @@ class SshManage(object):
         old_port = self.effective().get('port', '22')
         if port == old_port:
             return ok('端口未变化')
-        # 先在防火墙放行新端口, 避免修改后无法连接
+        # 先在防火墙放行新端口, 放行失败则不修改, 避免改完后无法连接
         try:
             from utils.firewall import Firewall
-            Firewall.instance().addAcceptPort(port, 'SSH端口', 'port')
-        except Exception:
-            pass
+            fr = Firewall.instance().ensurePortOpen(port, 'SSH端口')
+        except Exception as e:
+            fr = fail('防火墙放行新端口出错: %s' % e)
+        if not fr['status']:
+            return fail('%s, 已取消修改 SSH 端口, 请先检查防火墙' % fr['msg'])
         r = self.setValues({'Port': port})
         if not r['status']:
             return r
