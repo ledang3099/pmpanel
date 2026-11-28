@@ -61,6 +61,24 @@ verified_download "https://codeload.github.com/rapira-rs/rapira/tar.gz/refs/tags
 tar -xJf "$php_archive" -C "$stage"
 tar -xzf "$rapira_archive" -C "$stage"
 
+# 编译依赖: Rapira 通过 bindgen 生成 PHP 绑定, 需要 clang/libclang; 以及嵌入式 PHP 的编译依赖
+if [ "$(uname -s)" = Darwin ]; then
+    brew install llvm pkg-config openssl@3
+    export LIBCLANG_PATH="$(brew --prefix llvm)/lib"
+elif command -v apt-get >/dev/null; then
+    apt-get install -y clang libclang-dev pkg-config build-essential libssl-dev libxml2-dev \
+        libsqlite3-dev zlib1g-dev libcurl4-openssl-dev libonig-dev
+elif command -v dnf >/dev/null; then
+    dnf install -y clang clang-devel pkgconfig gcc gcc-c++ make openssl-devel libxml2-devel \
+        sqlite-devel zlib-devel libcurl-devel
+elif command -v yum >/dev/null; then
+    yum install -y clang clang-devel pkgconfig gcc gcc-c++ make openssl-devel libxml2-devel \
+        sqlite-devel zlib-devel libcurl-devel
+elif command -v zypper >/dev/null; then
+    zypper install -y clang clang-devel pkg-config gcc gcc-c++ make libopenssl-devel libxml2-devel \
+        sqlite3-devel zlib-devel libcurl-devel
+fi
+
 export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
 if ! command -v cargo >/dev/null; then
     curl --proto '=https' --proto-redir '=https' -fsSL https://sh.rustup.rs -o "$stage/rustup-init.sh"
