@@ -529,7 +529,9 @@ function checkUpdate() {
         }
 
         if (rdata.status === false) {
-            layer.confirm(rdata.msg, { title: lan.index.update_check, icon: 1, closeBtn: 1, btn: [lan.public.know, lan.public.close] });
+            // 已是最新版本显示成功图标, 其他情况(网络问题、暂无发布等)显示提示图标
+            var latest = rdata.data == 'latest';
+            layer.confirm(pmEsc(rdata.msg), { title: lan.index.update_check, icon: latest ? 1 : 0, closeBtn: 1, btn: [lan.public.know, lan.public.close] });
             return;
         }
         layer.msg(rdata.msg, { icon: 1 });
@@ -544,6 +546,7 @@ function updateMsg(){
             updateStatus();return;
         }
 
+        if (!rdata.status) { layer.msg(pmEsc(rdata.msg), { icon: 0, time: 4000 }); return; }
         var v = rdata.data.version;
         var v_info = '';
         if (v.split('.').length>3){
@@ -554,15 +557,15 @@ function updateMsg(){
 
         layer.open({
             type:1,
-            title:v_info + '<span class="badge badge-inverse">升级到['+rdata.data.version+']</span>',
+            title:v_info + '<span class="badge badge-inverse">' + pmEsc(rdata.data.current) + ' 升级到 [' + pmEsc(rdata.data.version) + ']</span>',
             area: '400px', 
             shadeClose:false,
             closeBtn:2,
             content:'<div class="setchmod bt-form pd20 pb70">'
-                    +'<p style="padding: 0 0 10px;line-height: 24px;">'+rdata.data.content+'</p>'
+                    +'<div style="padding: 0 0 10px;line-height: 24px;max-height:360px;overflow:auto">'+(rdata.data.content || '暂无更新说明')+'</div>'
                     +'<div class="bt-form-submit-btn">'
                     +'<button type="button" class="btn btn-danger btn-sm btn-title" onclick="layer.closeAll()">取消</button>'
-                    +'<button type="button" class="btn btn-success btn-sm btn-title" onclick="updateVersion(\''+rdata.data.version+'\')" >立即更新</button>'
+                    +'<button type="button" class="btn btn-success btn-sm btn-title" onclick="updateVersion(\''+jsAttrEscape(rdata.data.version)+'\')" >立即更新</button>'
                     +'</div>'
                     +'</div>'
         });
@@ -573,7 +576,7 @@ function updateMsg(){
 //开始升级
 function updateVersion(version) {
     var loadT = layer.msg('正在升级面板..', { icon: 16, time: 0, shade: [0.3, '#000'] });
-    $.get('/system/update_server?type=update&version='+version, function(rdata) {
+    $.post('/system/update_server', { type: 'update', version: version }, function(rdata) {
 
         layer.closeAll();
         if (rdata.status === false) {
