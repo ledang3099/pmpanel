@@ -145,6 +145,23 @@ class sites(object):
     def getProxyPath(self, site_name):
         return "{}/{}".format(self.proxyPath, site_name)
 
+    def ensureSiteConfDir(self, base, site_name):
+        '''确保站点的 proxy/redirect 配置目录存在; 站点不存在时返回 None(同时防止 site_name 路径穿越)'''
+        if not site_name or not thisdb.isSitesExist(site_name):
+            return None
+        conf_dir = "{}/{}".format(base, site_name)
+        if not os.path.isdir(conf_dir):
+            os.makedirs(conf_dir, mode=0o755, exist_ok=True)
+        return conf_dir
+
+    def isRewriteConfPath(self, path):
+        '''伪静态配置只允许写入伪静态目录下的 .conf 文件, 不跟随符号链接'''
+        if not path or not path.endswith('.conf') or os.path.islink(path):
+            return False
+        root = os.path.realpath(self.rewritePath)
+        real = os.path.realpath(path)
+        return os.path.dirname(real) == root
+
     def getDirBindRewrite(self, site_name, dir_name):
         return self.rewritePath + '/' + site_name + '_' + dir_name + '.conf'
 
@@ -642,6 +659,8 @@ class sites(object):
         return mw.returnData(True, 'OK', path)
 
     def setRewrite(self,path,data,encoding):
+        if not self.isRewriteConfPath(path):
+            return mw.returnData(False, '伪静态配置路径不正确!')
         if not os.path.exists(path):
             mw.writeFile(path, '')
 
@@ -1206,15 +1225,27 @@ class sites(object):
         if len(index) < 3:
             return mw.returnData(False,  '默认文档不能为空!')
 
+        # 每一项只能是文件名, 防止把其他指令写进 Nginx 配置
+        items = [x for x in index.split(',') if x != '']
+        if not items or not all(re.match(r'^[A-Za-z0-9_.\-]{1,64}$', x) for x in items):
+            return mw.returnData(False,  '默认文档只能包含字母、数字、点、下划线和连字符!')
+
         info = thisdb.getSitesById(site_id)
+        if not info:
+            return mw.returnData(False,  '网站不存在!')
         siteName = info['name']
-        index_l = index.replace(",", " ")
+        index_l = " ".join(items)
         file = self.getHostConf(siteName)
         conf = mw.readFile(file)
         if conf:
             rep = r"\s+index\s+.+;"
-            conf = re.sub(rep, "\n\tindex " + index_l + ";", conf)
-            mw.writeFile(file, conf)
+            new_conf = re.sub(rep, "\n\tindex " + index_l + ";", conf)
+            mw.writeFile(file, new_conf)
+            isError = mw.checkWebConfig()
+            if isError != True:
+                mw.writeFile(file, conf)
+                return mw.returnData(False, 'ERROR: 配置文件出错<br><a style="color:red;">' + str(isError).replace("\n", '<br>') + '</a>')
+            mw.restartWeb()
 
         mw.writeLog('网站管理', '站点[{1}]设置{2}成功', (siteName, index_l))
         return mw.returnData(True,  '设置成功!')
@@ -1361,6 +1392,8 @@ class sites(object):
     def setRedirect(self, site_name, site_from, to, type, r_type, keep_path):
         if site_name == '' or site_from == '' or to == '' or type == '' or r_type == '':
             return mw.returnData(False, "必填项不能为空!")
+        if self.ensureSiteConfDir(self.redirectPath, site_name) is None:
+            return mw.returnData(False, "网站不存在!")
 
         redirect_file = self.getRedirectDataPath(site_name)
         content = mw.readFile(redirect_file) if os.path.exists(redirect_file) else ""
@@ -1414,9 +1447,17 @@ class sites(object):
             return mw.returnData(False, "错误的目标地址")
 
         # write data json file
-        data.append({"r_from": site_from, "type": _type_code, "r_type": _type_code,"r_to": to, 'keep_path': _keep_path, 'id': _id})
-        mw.writeFile(redirect_file, json.dumps(data))
-        mw.writeFile("{}/{}.conf".format(self.getRedirectPath(site_name), _id), file_content)
+        conf_file = "{}/{}.conf".format(self.getRedirectPath(site_name), _id)
+        if not mw.writeFile(conf_file, file_content):
+            return mw.returnData(False, "写入重定向配置失败!")
+        rule_test = mw.checkWebConfig()
+        if rule_test != True:
+            os.remove(conf_file)
+            return mw.returnData(False, "OpenResty配置测试不通过: {}".format(rule_test))
+        data.append({"r_from": site_from, "type": _type_code, "r_type": _r_type, "r_to": to, 'keep_path': _keep_path, 'id': _id})
+        if not mw.writeFile(redirect_file, json.dumps(data)):
+            os.remove(conf_file)
+            return mw.returnData(False, "写入重定向数据失败!")
 
         self.operateRedirectConf(site_name, 'start')
         mw.restartWeb()
@@ -1504,6 +1545,8 @@ class sites(object):
         from urllib.parse import urlparse
         if  site_name == "" or site_from == "" or to == "" or host == "" or name == "":
             return mw.returnData(False, "必填项不能为空")
+        if self.ensureSiteConfDir(self.proxyPath, site_name) is None:
+            return mw.returnData(False, "网站不存在!")
 
         rep = r"http(s)?\:\/\/([a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.)+([a-zA-Z0-9][a-zA-Z0-9]{0,62})+.?"
         if not re.match(rep, to):
@@ -1629,7 +1672,8 @@ location ^~ {from} {\n\
 
         conf_proxy = "{}/{}.conf".format(self.getProxyPath(site_name), proxy_id)
         conf_bk = "{}/{}.conf.txt".format(self.getProxyPath(site_name), proxy_id)
-        mw.writeFile(conf_proxy, tpl)
+        if not mw.writeFile(conf_proxy, tpl):
+            return mw.returnData(False, "写入反向代理配置失败!")
 
         rule_test = mw.checkWebConfig()
         if rule_test != True:
@@ -1677,7 +1721,8 @@ location ^~ {from} {\n\
         if open_proxy != 'on':
             os.rename(conf_proxy, conf_bk)
 
-        mw.writeFile(proxy_site_path, json.dumps(data))
+        if not mw.writeFile(proxy_site_path, json.dumps(data)):
+            return mw.returnData(False, "写入反向代理数据失败!")
         self.operateProxyConf(site_name, 'start')
         mw.restartWeb()
         return mw.returnData(True, "ok", {"hash": proxy_id})
