@@ -26,8 +26,8 @@ Install_App()
 	    echo "postgres uid is `id -u postgres`"
 	    echo "postgres shell is `grep "^postgres:" /etc/passwd |cut -d':' -f7 `"
 	else
-	    groupadd postgres
-		useradd -g postgres postgres
+	    groupadd -r postgres
+		useradd -r -g postgres -s /bin/bash -d /www/server/postgresql postgres
 	fi
 
 	if [ ! -d /home/postgres ];then

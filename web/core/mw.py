@@ -27,6 +27,21 @@ import shutil
 
 from random import Random
 
+def clearTermSizeEnv():
+    '''清除进程环境中的 COLUMNS/LINES。
+
+    Flask 导入时会间接加载 readline(click.testing -> pdb -> readline),
+    GNU readline 初始化时用 setenv() 写入 COLUMNS=80/LINES=24。这一写入不会反映到 os.environ,
+    但所有子进程都会继承, 导致 `ps -ef` 等命令的输出被截断为 80 列,
+    依赖 `ps ... | grep` 的进程检测(firewalld、插件状态等)随之失效。
+    '''
+    for key in ('COLUMNS', 'LINES'):
+        os.environ.pop(key, None)
+        try:
+            os.unsetenv(key)
+        except (AttributeError, OSError):
+            pass
+
 def execShell(cmdstring, cwd=None, timeout=None, shell=True):
 
     if shell:

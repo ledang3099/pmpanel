@@ -103,6 +103,10 @@ else
 fi
 
 
+# 上面编译依赖库时切换了目录, 回到 PHP 源码目录再执行 configure
+cd "$build_root/php-${version}" || return 1
+
+
 if [ ! -d $serverPath/php/${PHP_VER} ] || [ "$action" == "upgrade" ];then
 	# ./buildconf --force
 	./configure \

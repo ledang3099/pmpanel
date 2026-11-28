@@ -150,13 +150,66 @@ class Firewall(object):
                 return False
             return True
         elif self.__isFirewalld:
-            cmd = "ps -ef|grep firewalld |grep -v grep | awk '{print $2}'"
-            data = mw.execShell(cmd)
-            if data[0] == '':
-                return False
-            return True
+            # 用 firewall-cmd --state 判断, 不依赖 ps 输出(命令行过长时会被截断)
+            code, out, _ = self.__run(['firewall-cmd', '--state'])
+            return code == 0 and out.strip() == 'running'
         else:
             return False
+
+    @staticmethod
+    def __run(cmd, timeout=30):
+        '''执行命令(参数列表, 不经过 shell), 返回 (returncode, stdout, stderr)'''
+        import subprocess
+        try:
+            p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, text=True)
+            return p.returncode, p.stdout, p.stderr
+        except FileNotFoundError:
+            return 127, '', cmd[0] + ': not found'
+        except subprocess.TimeoutExpired:
+            return 124, '', 'timeout'
+
+    def isPortAllowed(self, port, protocol='tcp'):
+        '''检查端口在当前运行的防火墙中是否已放行(仅单个端口)'''
+        port = str(port).strip()
+        if not re.match(r'^\d{1,5}$', port) or protocol not in ('tcp', 'udp'):
+            return False
+        if self.__isFirewalld:
+            code, out, _ = self.__run(['firewall-cmd', '--zone=public', '--query-port=%s/%s' % (port, protocol)])
+            return code == 0 and out.strip() == 'yes'
+        if self.__isUfw:
+            code, out, _ = self.__run(['/usr/sbin/ufw', 'status'])
+            return code == 0 and re.search(r'(?m)^%s/%s\s+(\(v6\)\s+)?ALLOW' % (port, protocol), out) is not None
+        if self.__isIptables:
+            code, out, _ = self.__run(['iptables', '-S', 'INPUT'])
+            return code == 0 and re.search(r'-p %s .*--dport %s .*-j ACCEPT' % (protocol, port), out) is not None
+        return False
+
+    def ensurePortOpen(self, port, ps, protocol='tcp'):
+        '''确保端口被放行(供 SSH 改端口等内部调用):
+        - 防火墙未运行时不启动防火墙, 只登记规则, 返回成功(端口本来就可访问)
+        - 防火墙运行时下发规则并核实, 核实失败返回失败
+        '''
+        port = str(port).strip()
+        if not re.match(r'^\d{1,5}$', port):
+            return mw.returnData(False, '端口格式不正确!')
+        def record():
+            if thisdb.getFirewallCountByPort(port) == 0:
+                thisdb.addFirewall(port, ps=ps, protocol=protocol)
+
+        if not self.getFwStatus():
+            if self.__isUfw:
+                # ufw 未启用时也可以预先写入规则, 启用后生效
+                self.addAcceptPortCmd(port, protocol=protocol)
+            record()
+            return mw.returnData(True, '防火墙未运行')
+        if not self.isPortAllowed(port, protocol):
+            self.addAcceptPortCmd(port, protocol=protocol)
+            self.reload()
+            if not self.isPortAllowed(port, protocol):
+                return mw.returnData(False, '防火墙放行端口[%s/%s]失败' % (port, protocol))
+            mw.writeLog("防火墙管理", mw.getInfo('放行端口[{1}][{2}]成功', (port, protocol,)))
+        record()
+        return mw.returnData(True, '端口已放行')
 
 
     def setFw(self, status):
