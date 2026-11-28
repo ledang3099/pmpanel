@@ -15,8 +15,30 @@ echo "use system: ${sysName}"
 
 VERSION=$2
 
+# 编译依赖: cmake、OpenSSL、cJSON(2.0 起 mosquitto_ctrl 和动态安全插件需要)
+Install_Deps()
+{
+	if [ "$sysName" = "Darwin" ]; then
+		brew install cmake openssl@3 cjson || return 1
+	elif command -v apt-get >/dev/null; then
+		apt-get install -y cmake build-essential pkg-config libssl-dev libcjson-dev || return 1
+	elif command -v dnf >/dev/null; then
+		dnf install -y epel-release >/dev/null 2>&1
+		dnf install -y cmake gcc gcc-c++ make pkgconfig openssl-devel cjson-devel || return 1
+	elif command -v yum >/dev/null; then
+		yum install -y epel-release >/dev/null 2>&1
+		yum install -y cmake gcc gcc-c++ make pkgconfig openssl-devel cjson-devel || return 1
+	elif command -v zypper >/dev/null; then
+		zypper install -y cmake gcc gcc-c++ make pkg-config libopenssl-devel cJSON-devel || return 1
+	elif command -v pacman >/dev/null; then
+		pacman -Sy --noconfirm cmake base-devel openssl cjson || return 1
+	fi
+	return 0
+}
+
 Install_App()
 {
+	Install_Deps || { echo '安装编译依赖失败' >&2; return 1; }
 	if id mosquitto &> /dev/null ;then 
 	    echo "mosquitto UID is `id -u mosquitto`"
 	    echo "mosquitto Shell is `grep "^mosquitto:" /etc/passwd |cut -d':' -f7 `"
