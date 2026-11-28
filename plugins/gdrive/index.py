@@ -18,7 +18,7 @@ if os.path.exists(web_dir):
     os.chdir(web_dir)
 
 import core.mw as mw
-import core.db as db
+from utils import scheduled_backup
 
 app_debug = False
 if mw.isAppleSystem():
@@ -170,118 +170,16 @@ def deleteFile():
     if not data[0]:
         return data[1]
 
-    isok = gd.delete_file(args['filename'])
+    isok = gd.delete_file(args['filename'], parent=args['path'] or 'root')
     if isok:
         return mw.returnJson(True, "删除成功")
     return mw.returnJson(False, "删除失败")
 
 
-def findPathName(path, filename):
-    f = os.scandir(path)
-    l = []
-    for ff in f:
-        t = {}
-        if ff.name.find(filename) > -1:
-            t['filename'] = path + '/' + ff.name
-            l.append(t)
-    return l
-
-
 def backupAllFunc(stype):
     if not isAuthApi():
-        mw.echoInfo("未授权API,无法使用!!!")
-        return ''
-
-    backup_dir = mw.getBackupDir()
-    run_dir = mw.getPanelDir()
-
-    stype = sys.argv[1]
-    name = sys.argv[2]
-    num = sys.argv[3]
-
-    prefix_dict = {
-        "site": "web",
-        "database": "db",
-        "path": "path",
-    }
-
-    backups = []
-    # print("stype:", stype)
-    # 提前获取-清理多余备份
-    if stype == 'site':
-        pid = mw.M('sites').where('name=?', (name,)).getField('id')
-        backups = mw.M('backup').where('type=? and pid=?', ('0', pid)).field('id,filename').select()
-    if stype == 'database':
-        db_path = mw.getServerDir() + '/mysql'
-        pid = mw.M('databases').dbPos(db_path, 'mysql').where('name=?', (name,)).getField('id')
-        backups = mw.M('backup').where('type=? and pid=?', ('1', pid)).field('id,filename').select()
-    if stype == 'path':
-        backup_path = backup_dir + '/path'
-        _name = 'path_{}'.format(os.path.basename(name))
-        backups = findPathName(backup_path, _name)
-
-    # 其他类型关系性数据库(mysql类的)
-    if stype.find('database_') > -1:
-        plugin_name = stype.replace('database_', '')
-        db_path = mw.getServerDir() + '/' + plugin_name
-        pid = mw.M('databases').dbPos(db_path, 'mysql').where('name=?', (name,)).getField('id')
-        backups = mw.M('backup').where('type=? and pid=?', ('1', pid)).field('id,filename').select()
-
-    args = stype + " " + name + " " + num
-    cmd = 'python3 ' + run_dir + '/scripts/backup.py ' + args
-    if stype.find('database_') > -1:
-        plugin_name = stype.replace('database_', '')
-        args = "database " + name + " " + num
-        cmd = 'python3 ' + run_dir + '/plugins/' + plugin_name + '/scripts/backup.py ' + args
-
-    if stype == 'path':
-        name = os.path.basename(name)
-
-    # print("cmd:", cmd)
-    os.system(cmd)
-
-    # 开始执行上传信息.
-    if stype.find('database_') > -1:
-        bk_name = 'database'
-        plugin_name = stype.replace('database_', '')
-        bk_prefix = plugin_name + '/db'
-        stype = 'database'
-    else:
-        bk_prefix = prefix_dict[stype]
-        bk_name = stype
-
-    find_path = backup_dir + '/' + bk_name + '/' + bk_prefix + '_' + name
-    find_new_file = "ls " + find_path + "_* | grep '.gz' | cut -d \\  -f 1 | awk 'END {print}'"
-
-    # print(find_new_file)
-
-    filename = mw.execShell(find_new_file)[0].strip()
-    if filename == "":
-        mw.echoInfo("not find upload file!")
-        return False
-
-    mw.echoInfo("准备上传文件 {}".format(filename))
-    mw.echoStart('开始上传')
-    # gd.setDebug(False)
-    gd.upload_file(filename, stype)
-    mw.echoEnd('上传成功')
-
-    # print(backups)
-    backups = sorted(backups, key=lambda x: x['filename'], reverse=False)
-    mw.echoStart('开始删除远程备份')
-    num = int(num)
-    sep = len(backups) - num
-    if sep > -1:
-        for backup in backups:
-            fn = os.path.basename(backup['filename'])
-            gd.delete_file(fn, stype)
-            mw.echoInfo("---已清理远程过期备份文件：" + fn)
-            sep -= 1
-            if sep < 0:
-                break
-    mw.echoEnd('结束删除远程备份')
-
-    return ''
+        raise SystemExit('未授权 API，无法上传备份。')
+    return scheduled_backup.upload(stype, gd)
 
 
 def installPreInspection():

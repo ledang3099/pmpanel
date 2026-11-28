@@ -5,12 +5,14 @@ panel=$(cd ../.. && pwd)
 runtime="$(dirname "$panel")/gdrive"
 
 case "$1" in
-    install)
-        if [ ! -x "$runtime/bin/python" ]; then
-            python3 -m venv "$runtime"
+    install|upgrade)
+        if [ -f "$panel/bin/activate" ]; then
+            source "$panel/bin/activate"
         fi
-        "$runtime/bin/python" -m pip install --upgrade \
+        mkdir -p "$runtime"
+        python3 -m pip install --upgrade \
             'google-api-python-client>=2.39' google-auth-httplib2 google-auth-oauthlib httplib2
+        python3 -c 'import googleapiclient.discovery, google_auth_oauthlib.flow'
         printf '%s\n' "$2" > "$runtime/version.pl"
         echo '安装完成'
         ;;

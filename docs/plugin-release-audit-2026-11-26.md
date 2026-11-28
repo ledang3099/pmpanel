@@ -13,14 +13,14 @@
 | `caddy` | 已是当前 | 2.11.9。Debian 13 通过安装、版本和 HTTP 监听检查。 [上游](https://github.com/caddyserver/caddy/releases) |
 | `clean` | 面板集成 | Debian 13 面板日志清理插件安装和初始化通过。 |
 | `cloudreve` | 已更新 | 新增 4.19.1 全新安装，识别 V3 数据并要求先迁移。Debian 13 安装、systemd 和站点配置 API 通过。 [官方迁移说明](https://docs.cloudreve.org/zh/maintain/upgrade-from-v3) |
-| `cryptocurrency_trade` | 已更新 | 固定 CCXT 4.5.94 和 TA-Lib 0.8.3.post1，Debian 13 通过安装、OKX 行情样例解析和指标计算。真实账户和订单待验证。 [CCXT](https://pypi.org/project/ccxt/) [TA-Lib](https://pypi.org/project/TA-Lib/) |
+| `cryptocurrency_trade` | 已更新 | 固定 CCXT 4.5.94 和 TA-Lib 0.8.3.post1，Debian 13 通过安装、OKX 行情样例解析和指标计算。CCXT 另通过 OKX 真实公开 API 的只读行情查询。真实账户和订单待验证。 [CCXT](https://pypi.org/project/ccxt/) [TA-Lib](https://pypi.org/project/TA-Lib/) |
 | `data_query` | 面板集成 | Debian 13 已安装面板数据查询插件。 |
 | `docker` | 安装修复 | Debian/Ubuntu 改走 Docker 官方签名软件源，安装器校验真实引擎连接。Debian 13 独立虚拟机通过面板安装 Docker 29.10.1、Compose 和 Buildx。由本地 Dockerfile 构建镜像，并使用 Docker CLI 和面板 Python 客户端实际启动容器。 [上游](https://docs.docker.com/engine/install/debian/) |
 | `doh` | 已更新 | 新增 0.11.1，校验 Linux x86_64 和 aarch64 压缩包。Debian 13 安装与 systemd 启动通过。 [上游](https://github.com/DNSCrypt/doh-server/releases/tag/0.11.1) |
 | `dynamic-tracking` | 已更新 | 固定 Brendan Gregg 官方 FlameGraph 源码提交和摘要。Debian 13 完成安装并从测试堆栈生成 SVG。 [上游](https://github.com/brendangregg/FlameGraph) |
 | `dztasks` | 安装修复 | 1.2 为最新官方版本。修正 Linux arm64 归档名，校验归档并保留现有扩展。Debian 13 验证服务、登录页面跳转和示例扩展文件。 [上游](https://github.com/midoks/dztasks/releases/tag/1.2) |
 | `fail2ban` | 软件源 | 上游 1.1.1，面板安装发行版软件包。Debian 13 通过安装、服务启动和 fail2ban-client ping。 [上游](https://github.com/fail2ban/fail2ban/releases) |
-| `gdrive` | 依赖已更新 | 移除旧版 SDK 强制降级和 ICMP 前置检查。Debian 13 安装并用 Google Drive SDK 2.202.0 构造测试请求。实际 OAuth 和备份写入需有效账户。 [上游](https://pypi.org/project/google-api-python-client/) |
+| `gdrive` | 依赖已更新 | 移除旧版 SDK 强制降级和 ICMP 前置检查。面板环境安装 Google Drive SDK 2.202.0 并验证可直接导入。Debian 13 使用实际路径归档和模拟云端验证首次备份、含空格路径、保留及上传失败；清理按备份文件夹和 ID 定位。实际 OAuth 和云盘写入需有效测试账户。 [上游](https://pypi.org/project/google-api-python-client/) |
 | `gitea` | 已更新 | 新增 28.4.0，校验下载摘要，保留旧版安装入口。Debian 13 服务和初始设置页面通过。 [上游](https://github.com/go-gitea/gitea/releases/tag/v28.4.0) |
 | `gogs` | 已更新 | 新增 0.14.4，校验官方归档，修复 Debian 13 systemd 启动失败。服务和初始设置页面通过。 [上游](https://github.com/gogs/gogs/releases/tag/v0.14.4) |
 | `gorse` | 已更新 | 新增 0.5.11，适配新配置格式和服务缓存路径。全新安装采用 SQLite；Debian 13 启动后健康接口确认数据及缓存连接成功。 [上游](https://github.com/gorse-io/gorse/releases/tag/v0.5.11) |
@@ -39,7 +39,7 @@
 | `modsecurity` | 主分支新增 | 主分支集成 ModSecurity 3.0.17、NGINX connector 1.0.4 和 OWASP CRS 4.31.0。Debian 13 通过源码编译、动态模块装载、配置语法和普通 HTTP 请求。 [上游](https://github.com/owasp-modsecurity/ModSecurity/releases/tag/v3.0.17) |
 | `mongodb` | 已更新 | Debian、Ubuntu 和 RHEL 系 9.0 安装入口共享官方归档及 SHA-256 校验，使用 9.0.8、mongosh 2.14.3 和数据库工具 100.20.1。Debian 13、Ubuntu 24.04、Rocky Linux 9 的 x86_64 容器通过写入、查询、备份和恢复，Rocky 9 另通过面板安装与 systemd 启动。macOS 对齐这三个版本并校验归档。修复官方压缩包内部目录名不同、MongoDB 9.0 不支持后台 fork，以及启动失败却更新版本记录的问题。Apple Silicon 原生和 Rosetta 下的 x86_64 均通过面板安装、启停、重启及读写和备份还原。Apple Silicon 验证错误配置保留原版本记录。openSUSE Leap 15.6 和 16.0 共用校验安装入口，按需装入官方软件源的运行库。两者均通过写入、备份和恢复。其余 Linux 架构和发行版待验证。 [上游](https://www.mongodb.com/try/download/community-edition/releases) |
 | `mosquitto` | 已更新 | 2.0.23 与 2.1.4，修正 CMake、共享库路径及 systemd 前台服务配置。Debian 13 通过源码安装及 MQTT 发布和订阅。 [上游](https://mosquitto.org/download/) |
-| `msonedrive` | 依赖已更新 | 更新 Requests-OAuthlib 2.0.0，Debian 13 生成并校验本地 OAuth 授权 URL。实际 OAuth 和上传需有效账户。 [上游](https://pypi.org/project/requests-oauthlib/) |
+| `msonedrive` | 依赖已更新 | 更新 Requests-OAuthlib 2.0.0，Debian 13 校验 OAuth 授权 URL，并使用实际路径归档及模拟云端验证首次备份、含空格路径、保留及上传失败。实际 OAuth 和上传需有效测试账户。 [上游](https://pypi.org/project/requests-oauthlib/) |
 | `mtproxy` | 已更新 | 固定 mtg 2.3.0 官方归档和摘要，修复空密钥生成，保留既有密钥。Debian 13 验证服务启动和 TCP 监听。 [上游](https://github.com/9seconds/mtg/releases) |
 | `mysql` | 已更新 | 源码 8.4.13.1、9.7.4.1、26.10.0.1。构建使用系统 OpenSSL，Debian/Ubuntu 补充 WebAuthn 依赖，并按 Linux 容器内存限制减少默认构建并发。保护已被占用的 `mysql.service`，初始化保留面板设置的表名大小写并等待服务就绪。Debian 13 通过 26.10.0.1 源码构建、面板初始化、服务启用、认证 SQL 写入与查询及重启。按维护者要求跳过 8.4 和 9.7 源码构建。 [上游](https://dev.mysql.com/community/security/advisories/2026-11-24/) |
 | `mysql-community` | 已更新 | 8.4.13.1、9.7.4.1、26.10.0.1 的 Linux x86_64 安装使用 Oracle 官方最小二进制归档。修复初始化误读宿主 MariaDB 配置。Debian 13 实际运行三个版本的面板安装入口，均通过服务启动、账号认证、SQL 写入与查询及服务重启。8.4 验证测试库备份和恢复，26.10 验证拒绝运行中覆盖及停服后重装。核对 Linux aarch64 与 macOS arm64 下载地址。 [上游补丁](https://dev.mysql.com/community/security/advisories/2026-11-24/) [二进制分发说明](https://dev.mysql.com/doc/refman/26.10/en/binary-installation.html) |

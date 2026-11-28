@@ -186,20 +186,31 @@ class gdriveclient():
         l = filename.split("/")
         return l[-1]
 
-    def _create_folder_cycle(self, filepath):
-        l = filepath.split("/")
-        fid_list = []
-        for i in l:
-            if not i:
-                continue
-            fid = self.__get_folder_id(i)
-            if fid:
-                fid_list.append(fid)
-                continue
-            if not fid_list:
-                fid_list.append("")
-            fid_list.append(self.create_folder(i, fid_list[-1]))
-        return fid_list[-1]
+    def _folder_path(self, path, create=False):
+        parent = 'root'
+        for part in path.strip('/').split('/'):
+            folder = self._find_child(part, parent, folder=True)
+            if folder is None and create:
+                folder = self.create_folder(part, parent)
+            if not folder:
+                return None
+            parent = folder
+        return parent
+
+    def _find_child(self, name, parent=None, folder=False):
+        service = build('drive', 'v3', credentials=self.__creds)
+        def literal(value):
+            return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
+        query = 'trashed=false and name=' + literal(name)
+        if parent:
+            query += ' and ' + literal(parent) + ' in parents'
+        operator = '=' if folder else '!='
+        query += f" and mimeType{operator}'application/vnd.google-apps.folder'"
+        items = service.files().list(q=query, pageSize=2, fields='files(id),nextPageToken').execute()
+        matches = items.get('files', [])
+        if len(matches) > 1 or items.get('nextPageToken'):
+            raise ValueError('Drive 中存在多个同名项目。')
+        return matches[0]['id'] if matches else None
 
     def build_object_name(self, data_type, file_name):
         """根据数据类型构建对象存储名称
@@ -250,7 +261,9 @@ class gdriveclient():
         self.D(filepath)
         self.D(filename)
 
-        parents = self._create_folder_cycle(filepath)
+        parents = self._folder_path(filepath, create=True)
+        if not parents:
+            return False
         self.D(parents)
         drive_service = build('drive', 'v3', credentials=self.__creds)
         file_metadata = {'name': _filename, 'parents': [parents]}
@@ -258,23 +271,18 @@ class gdriveclient():
         file = drive_service.files().create(
             body=file_metadata, media_body=media, fields='id').execute()
         self.D('Upload Success ,File ID: %s' % file.get('id'))
-        return True
+        return bool(file.get('id'))
 
     def _get_file_id(self, filename):
-        service = build('drive', 'v3', credentials=self.__creds)
-        results = service.files().list(pageSize=10, q="name='{}'".format(
-            filename), fields="nextPageToken, files(id, name)").execute()
-        items = results.get('files', [])
-        if not items:
-            return []
-        else:
-            for item in items:
-                return item["id"]
+        return self._find_child(filename)
 
-    def delete_file(self, filename=None, data_type=None):
-        file_id = self._get_file_id(filename)
-        self.delete_file_by_id(file_id)
-        return True
+    def delete_file(self, filename, data_type=None, parent=None):
+        if data_type:
+            parent = self._folder_path(self.build_object_name(data_type, filename))
+            if parent is None:
+                return True
+        file_id = self._find_child(filename, parent)
+        return not file_id or self.delete_file_by_id(file_id)
 
     def delete_file_by_id(self, file_id):
         self.D("delete id:{}".format(file_id))
@@ -311,18 +319,6 @@ class gdriveclient():
             return self.get_rootdir_id(folder_name)
 
         return items[0]['parents'][0]
-
-    # 获取目录id
-    def __get_folder_id(self, floder_name):
-        service = build('drive', 'v3', credentials=self.__creds)
-        results = service.files().list(pageSize=10, q="name='{}' and mimeType='application/vnd.google-apps.folder'".format(floder_name),
-                                       fields="nextPageToken, files(id, name)").execute()
-        items = results.get('files', [])
-        if not items:
-            return []
-        else:
-            for item in items:
-                return item["id"]
 
     def get_res_info(self, rid):
         service = build('drive', 'v3', credentials=self.__creds)
