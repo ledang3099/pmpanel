@@ -22,10 +22,13 @@ import shutil
 import datetime
 import ipaddress
 import subprocess
+import sys
 
 import core.mw as mw
 
 SSHD_CONFIG = '/etc/ssh/sshd_config'
+# sshd 的特权分离目录; systemd 停止/失败后会删除它(RuntimeDirectory), 缺失时 sshd -t/-T 都会失败
+PRIVSEP_DIR = '/run/sshd'
 DROPIN_DIR = '/etc/ssh/sshd_config.d'
 DROPIN_FILE = DROPIN_DIR + '/00-pmpanel.conf'
 
@@ -108,6 +111,15 @@ class SshManage(object):
 
     def sshdBin(self):
         return which('sshd')
+
+    def _ensurePrivsepDir(self):
+        '''sshd 停止后 /run/sshd 可能已被删除, 执行 sshd -t/-T 或启动前补建'''
+        if not sys.platform.startswith('linux') or os.path.isdir(PRIVSEP_DIR):
+            return
+        try:
+            os.makedirs(PRIVSEP_DIR, mode=0o755, exist_ok=True)
+        except OSError:
+            pass
 
     def unitName(self):
         if not hasSystemd():
@@ -200,7 +212,7 @@ class SshManage(object):
             sshd = self.sshdBin()
             if not sshd:
                 return fail('未找到 sshd, 请先安装 openssh-server')
-            os.makedirs('/run/sshd', mode=0o755, exist_ok=True)
+            self._ensurePrivsepDir()
             code, out, err = run([sshd])
             if code != 0:
                 return fail('启动失败: ' + (err or out).strip()[-300:])
@@ -212,6 +224,7 @@ class SshManage(object):
         '''sshd 实际生效的配置(sshd -T), 失败时退回解析配置文件'''
         sshd = self.sshdBin()
         if sshd:
+            self._ensurePrivsepDir()
             code, out, _ = run([sshd, '-T'])
             if code == 0 and out:
                 conf = {}
@@ -333,6 +346,7 @@ class SshManage(object):
             os.chmod(target, 0o644)
         sshd = self.sshdBin()
         if sshd:
+            self._ensurePrivsepDir()
             code, out, err = run([sshd, '-t'])
             if code != 0:
                 self._restoreConfig((target, old))
@@ -363,7 +377,7 @@ class SshManage(object):
                 return fail('重启 ssh.socket 失败: ' + (err or out).strip()[-200:])
             return ok('设置成功')
         if not self.isRunning():
-            return ok('设置成功(SSH 服务未运行, 启动后生效)')
+            return ok('配置已保存。SSH 服务当前未运行, 请在 SSH 管理中手动启动 SSH 服务后生效')
         r = self.service('reload' if not port_changed else 'restart')
         if not r['status']:
             return r

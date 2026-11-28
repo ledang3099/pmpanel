@@ -130,6 +130,41 @@ class SshConfigSnapshotTests(unittest.TestCase):
         self.assertFalse(os.path.exists(dropin))
 
 
+class PrivsepDirTests(unittest.TestCase):
+    '''sshd 停止后 /run/sshd 被删除, sshd -t/-T 前应先补建'''
+
+    def setUp(self):
+        import tempfile
+        self.d = tempfile.mkdtemp()
+        self.saved = (ssh_manage.PRIVSEP_DIR, ssh_manage.SSHD_CONFIG, ssh_manage.run, ssh_manage.sys.platform)
+        ssh_manage.PRIVSEP_DIR = os.path.join(self.d, 'run-sshd')
+        ssh_manage.SSHD_CONFIG = os.path.join(self.d, 'sshd_config')
+        ssh_manage.sys.platform = 'linux'
+        with open(ssh_manage.SSHD_CONFIG, 'w') as f:
+            f.write('Port 22\n')
+        self.seen = []
+
+        def fake_run(cmd, input_data=None, timeout=30):
+            self.seen.append((cmd[1], os.path.isdir(ssh_manage.PRIVSEP_DIR)))
+            return (0, 'port 22\n', '') if cmd[1] == '-T' else (0, '', '')
+        ssh_manage.run = fake_run
+        self.sm = ssh_manage.SshManage.__new__(ssh_manage.SshManage)
+        self.sm.sshdBin = lambda: '/usr/sbin/sshd'
+        self.sm.usesDropin = lambda: False
+
+    def tearDown(self):
+        (ssh_manage.PRIVSEP_DIR, ssh_manage.SSHD_CONFIG, ssh_manage.run, ssh_manage.sys.platform) = self.saved
+
+    def test_check_config_recreates_dir(self):
+        r = self.sm.setValues({'Port': '2222'})
+        self.assertTrue(r['status'], r)
+        self.assertEqual(self.seen, [('-t', True)])
+
+    def test_effective_recreates_dir(self):
+        self.assertEqual(self.sm.effective().get('port'), '22')
+        self.assertEqual(self.seen, [('-T', True)])
+
+
 class ClearTermSizeEnvTests(unittest.TestCase):
     def test_child_process_does_not_inherit_columns(self):
         # readline 通过 C 层 setenv 写入 COLUMNS, os.environ 看不到, 这里用 os.putenv 模拟
