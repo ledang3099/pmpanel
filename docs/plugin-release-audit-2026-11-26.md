@@ -79,3 +79,26 @@
 | `xui` | 安装修复 | 0.3.4.4 为当前对应项目的最后一个正式发布。固定官方归档及摘要，由 systemd 管理进程，保留现有数据库。Debian 13 验证正常启动及 HTTP 登录页。 [上游](https://github.com/FranzKafkaYu/x-ui/releases/tag/0.3.4.4) |
 | `zabbix` | 已更新 | 新增 Debian/Ubuntu 的 8.0 LTS，修复 PHP-FPM 与数据库识别、自动建库、schema 导入及 OpenResty 日志目录。Debian 13 从面板正常安装入口用 MySQL Community 8.4 自动建库并启动 Zabbix 8.0.0，验证全局数据库设置恢复、PHP 8.4 前端 HTTP 200、API 登录、主机查询和退出。 [上游](https://www.zabbix.com/documentation/8.0/en/manual/installation/requirements) |
 | `zabbix_agent` | 已更新 | 新增 Debian/Ubuntu 的 8.0 LTS 安装选项。Debian 13 通过插件安装、systemd 启动和 zabbix_get 的 agent.ping。 [上游](https://www.zabbix.com/download_sources) |
+
+## 2026-11-28 安装和故障复测
+
+本次验证使用 `master` 提交 `dc9cd8d`。本地测试覆盖 OrbStack 的两个 ARM64 环境，线上使用 Debian 13 x86_64 测试服务器。
+
+| 环境 | 已验证 | 发现的问题 |
+| --- | --- | --- |
+| `ub` · Ubuntu 24.04.5 Docker | 安装完成。从 Mac 访问登录页返回 HTTP 200，登录、会话、退出、Engine.IO 握手和 `pm restart` 均通过。 | PID 1 为 Bash，防火墙安装流程调用 `systemctl` 时报告无法连接服务总线。安装脚本还尝试安装 Ubuntu 24.04 源中没有的 `libjpeg62-turbo-dev`。实际可用的开发库为 `libjpeg-turbo8-dev`，`pkg-config --modversion libjpeg` 返回 `2.1.5`。安装后单独启动了 `cron` 并确认运行。 |
+| `db` · Debian 13 Linux 机器 | PID 1 为 systemd。从 Mac 访问登录页返回 HTTP 200，登录、会话、退出、Engine.IO 握手和 `pm restart` 均通过。检查时 `cron` 和 `firewalld` 均处于活动状态。 | 本次面板安装和登录检查通过。 |
+
+### OpenResty 新建网站返回 HTTP 403
+
+线上新建测试站点后，公网和服务器本机访问首页均返回 HTTP 403。OpenResty 正在监听 80 端口，虚拟主机指向正确的网站目录，目录中已有 `index.html`。错误日志显示 `Permission denied (13)`。用 `namei -l` 确认父目录 `/www/wwwroot` 为 `root:root 0700`，用 `runuser -u www -- test -r` 确认实际工作进程用户无法读取首页。
+
+基线提交 [`e6f4b8b` 的 OpenResty 安装脚本](https://github.com/ledang3099/pmpanel/blob/e6f4b8b/plugins/openresty/install.sh#L35-L41) 会在 `www` 用户不存在时创建同名组和用户，这段逻辑在当前插件中仍然存在。[面板安装脚本](../scripts/install.sh#L216-L224) 也会创建 `www` 用户及网站父目录。[OpenResty 配置生成代码](../plugins/openresty/index.py#L139-L159) 在 Linux 上将工作进程设为 `www:www`。这次服务器上该用户和组均已存在，阻塞点是父目录缺少工作进程所需的穿越权限。`0700` 权限的来源尚未确定。
+
+线上将父目录设为 `root:www 0710`，让 `www` 组可以穿越目录，同时保留父目录的列表和写入限制。OpenResty 主进程保持运行。修复后从本机及公网分别验证了 `/` 和 `/index.html`，均返回 HTTP 200。仓库安装逻辑仍待补上对网站父目录权限的检查。
+
+### MySQL 8.4 源码安装提前退出
+
+线上两次通过软件管理安装 `MySQL 8.4` 源码版，均留下 CMake 缓存且没有生成 Makefile。在独立临时目录使用同一源码包和配置选项重跑，得到 `Could not find rpc/rpc.h in /usr/include or /usr/include/tirpc`。Debian 13 测试服务器未安装 `libtirpc-dev`，[插件的 Debian 依赖列表](../plugins/mysql/versions/8.4/install.sh#L42-L46) 也缺少该项。故障已复现至 CMake 配置阶段，完整源码编译仍待验证。
+
+同时发现[面板任务执行器](../panel_task.py#L108-L116) 在脚本结束后直接写入完成状态，缺少执行结果判断。它还将后续任务输出写入同一个 `panel_exec.log`，覆盖前次输出。这两点解释了面板为何显示任务已完成，却找不到原始安装失败日志。
