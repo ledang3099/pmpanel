@@ -55,6 +55,12 @@ class SshPortFirewallTests(unittest.TestCase):
         self.sm.effective = lambda: {'port': '22'}
         self.sm.setValues = lambda values: (self.written.append(values), {'status': True, 'msg': 'ok'})[1]
         self.sm.applyAndReload = lambda port_changed=False: {'status': True, 'msg': '设置成功'}
+        self.sm.socketActive = lambda: False
+        self.rollback = []
+        self.recover_ok = True
+        self.sm._snapshotConfig = lambda: ('/etc/ssh/sshd_config', 'Port 22\n')
+        self.sm._restoreConfig = lambda snap: self.rollback.append(('restore', snap))
+        self.sm._recoverService = lambda socket_mode=False: (self.rollback.append(('recover', socket_mode)), self.recover_ok)[1]
 
     def tearDown(self):
         for k, v in self._saved.items():
@@ -76,6 +82,52 @@ class SshPortFirewallTests(unittest.TestCase):
         r = self.sm.setPort('2222')
         self.assertTrue(r['status'])
         self.assertEqual(self.written, [{'Port': '2222'}])
+        self.assertEqual(self.rollback, [])
+
+    def test_restart_failure_restores_old_port(self):
+        FakeFirewall.result = {'status': True, 'msg': '端口已放行'}
+        self.sm.applyAndReload = lambda port_changed=False: {'status': False, 'msg': '操作失败: start-limit-hit'}
+        r = self.sm.setPort('2222')
+        self.assertFalse(r['status'])
+        self.assertIn('已恢复为原端口 22', r['msg'])
+        self.assertEqual(self.rollback, [('restore', ('/etc/ssh/sshd_config', 'Port 22\n')), ('recover', False)])
+
+    def test_restart_failure_reports_when_recovery_fails(self):
+        FakeFirewall.result = {'status': True, 'msg': '端口已放行'}
+        self.sm.applyAndReload = lambda port_changed=False: {'status': False, 'msg': '操作失败'}
+        self.recover_ok = False
+        r = self.sm.setPort('2222')
+        self.assertFalse(r['status'])
+        self.assertIn('控制台', r['msg'])
+        self.assertEqual(self.rollback[0][0], 'restore')
+
+
+class SshConfigSnapshotTests(unittest.TestCase):
+    def test_snapshot_and_restore_roundtrip(self):
+        import tempfile
+        d = tempfile.mkdtemp()
+        conf = os.path.join(d, 'sshd_config')
+        with open(conf, 'w') as f:
+            f.write('Port 22\n')
+        sm = ssh_manage.SshManage.__new__(ssh_manage.SshManage)
+        sm.usesDropin = lambda: False
+        saved = ssh_manage.SSHD_CONFIG
+        ssh_manage.SSHD_CONFIG = conf
+        try:
+            snap = sm._snapshotConfig()
+            with open(conf, 'w') as f:
+                f.write('Port 2222\n')
+            sm._restoreConfig(snap)
+            with open(conf) as f:
+                self.assertEqual(f.read(), 'Port 22\n')
+        finally:
+            ssh_manage.SSHD_CONFIG = saved
+        # drop-in 原本不存在时, 回滚应删除新建的文件
+        dropin = os.path.join(d, '00-pmpanel.conf')
+        with open(dropin, 'w') as f:
+            f.write('Port 2222\n')
+        sm._restoreConfig((dropin, None))
+        self.assertFalse(os.path.exists(dropin))
 
 
 class ClearTermSizeEnvTests(unittest.TestCase):
