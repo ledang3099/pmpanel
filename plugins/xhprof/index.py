@@ -220,10 +220,11 @@ def setXhPort():
 
 
 def installPreInspection():
-    path = mw.getServerDir() + '/php'
-    if not os.path.exists(path):
-        return "先安装一个可用的PHP版本!"
-    return 'ok'
+    # PHP 可能来自源码版(php)、APT 版(php-apt)或 YUM 版(php-yum)
+    for name in ('php', 'php-apt', 'php-yum'):
+        if os.path.exists(mw.getServerDir() + '/' + name):
+            return 'ok'
+    return "先安装一个可用的PHP版本!"
 
 if __name__ == "__main__":
     func = sys.argv[1]

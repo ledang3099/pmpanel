@@ -15,7 +15,12 @@ install_redis() (
     cd "$stage/redis-8.12.0" || return 1
     make_command=make
     if command -v gmake >/dev/null; then make_command=gmake; fi
-    "$make_command" -j2 PREFIX="$server/redis" install || return 1
+    # 失败时删除本次新建的安装目录, 避免面板按目录存在误判为已安装
+    fresh=0
+    [ -d "$server/redis" ] || fresh=1
+    trap 'rm -rf -- "$stage"; if [ "$fresh" = 1 ] && [ ! -f "$server/redis/version.pl" ]; then rm -rf -- "$server/redis"; fi' EXIT
+    # 只编译 Redis 核心: RediSearch/RedisJSON/RedisBloom/RedisTimeSeries 需要 Rust、Python 等工具链, 面板不需要
+    "$make_command" -j2 BUILD_WITH_MODULES=no PREFIX="$server/redis" install || return 1
     test -x "$server/redis/bin/redis-server" || return 1
     mkdir -p "$server/redis/data" || return 1
     if [ ! -f "$server/redis/redis.conf" ]; then
