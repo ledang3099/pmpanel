@@ -7,6 +7,8 @@ install_mongodb_linux() (
 
     arch=$(uname -m)
     case "$ID:$VERSION_ID" in
+        opensuse-leap:15.*) platform=suse15 ;;
+        opensuse-leap:16.*) platform=suse16 ;;
         debian:12|debian:13) platform="debian$VERSION_ID" ;;
         ubuntu:22.04|ubuntu:24.04|ubuntu:26.04) platform="ubuntu${VERSION_ID/.}" ;;
         rocky:8.[89]|rocky:8.10|almalinux:8.[89]|almalinux:8.10|rhel:8.[89]|rhel:8.10) platform=rhel88 ;;
@@ -28,6 +30,19 @@ install_mongodb_linux() (
         return 0
     fi
     read -r server_sha tools_sha <<< "$pinned"
+
+    if [[ "$platform" == suse* ]]; then
+        dependencies=()
+        command -v tar >/dev/null || dependencies+=(tar)
+        command -v gzip >/dev/null || dependencies+=(gzip)
+        rpm -q --whatprovides 'libgssapi_krb5.so.2()(64bit)' >/dev/null || dependencies+=(krb5)
+        if [ "$platform" = suse15 ] && ! rpm -q --whatprovides 'libcrypto.so.1.1()(64bit)' >/dev/null; then
+            dependencies+=(libopenssl1_1)
+        fi
+        if [ "${#dependencies[@]}" -ne 0 ]; then
+            zypper --non-interactive install "${dependencies[@]}" || return 1
+        fi
+    fi
 
     case "$arch" in
         x86_64)

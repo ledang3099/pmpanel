@@ -104,38 +104,40 @@ Start_App()
 
 Install_App()
 {
+    local requested=$1 installed='' archive staging digest
+    case "$requested" in
+        9.0) digest=d7d57259338efc6e6c6e6578d87098eb4c1c2b83aab8de1db9a698eaf62132cf ;;
+        9.7) digest=b3535f91afa09ba49f59d8a7fdfbb0a4f5aae2b9ed17aac7b8bfae36e834d9e0 ;;
+        *) return 1 ;;
+    esac
     if [ -d "$serverPath/lam" ]; then
-        Start_App "$1"
-        return $?
+        if [ -f "$serverPath/lam/cfg.json" ]; then
+            installed=$(cd "$rootPath" && python3 plugins/lam/index.py deployed_version) || return 1
+        fi
+        if [ "$installed:$requested" != 9.0:9.7 ]; then
+            Start_App "$requested"
+            return $?
+        fi
+        Prepare_PHP || return 1
     fi
 
-	mkdir -p ${serverPath}/source/lam
-	
-	VER=$1
+    archive="$serverPath/source/lam/ldap-account-manager-$requested.tar.bz2"
+    mkdir -p "$(dirname "$archive")" || return 1
+    source "$rootPath/scripts/tools/verified-download.sh" || return 1
+    verified_download "https://github.com/LDAPAccountManager/lam/releases/download/$requested/${archive##*/}" "$archive" "$digest" || return 1
 
-	# https://github.com/LDAPAccountManager/lam/releases/download/9.0/ldap-account-manager-9.0.tar.bz2
-	FDIR=ldap-account-manager-${VER}
-	FILE=ldap-account-manager-${VER}.tar.bz2
-	DOWNLOAD=https://github.com/LDAPAccountManager/lam/releases/download/${VER}/${FILE}
-	
-
-    archive="$serverPath/source/lam/$FILE"
-    if [ "$VER" = 9.7 ]; then
-        source "$rootPath/scripts/tools/verified-download.sh" || return 1
-        verified_download "$DOWNLOAD" "$archive" b3535f91afa09ba49f59d8a7fdfbb0a4f5aae2b9ed17aac7b8bfae36e834d9e0 || return 1
-    elif [ ! -f "$archive" ]; then
-        curl -fsSL --retry 2 "$DOWNLOAD" -o "$archive.part" && mv -- "$archive.part" "$archive" || return 1
-    fi
     staging=$(mktemp -d "$serverPath/source/lam/install.XXXXXX") || return 1
-    trap 'rm -rf -- "$staging"' EXIT
+    trap "rm -rf -- $(printf '%q' "$staging")" EXIT
     tar -xjf "$archive" -C "$staging" || return 1
-
-	mkdir -p "$serverPath/lam" && cp -R "$staging/$FDIR" "$serverPath/lam/lam" || return 1
-	# rm -rf $serverPath/source/lam/$FDIR
-	
-    Start_App "$VER" || return 1
-	echo '安装完成'
-		
+    local app="$staging/ldap-account-manager-$requested"
+    if [ "$installed:$requested" = 9.0:9.7 ]; then
+        cd "$rootPath" || return 1
+        python3 plugins/lam/index.py upgrade_app "$app" || return 1
+    else
+        mkdir -p "$serverPath/lam" && mv "$app" "$serverPath/lam/lam" || return 1
+        Start_App "$requested" || return 1
+    fi
+    echo '安装完成'
 }
 
 Uninstall_App()
@@ -146,9 +148,11 @@ Uninstall_App()
 	echo '卸载完成'
 }
 
-action=$1
-if [ "${1}" = 'install' ];then
-	Install_App $2
-else
-	Uninstall_App $2
-fi
+case "$1" in
+    install) Install_App "$2" ;;
+    upgrade)
+        case "$2" in 9.0|9.7) Install_App 9.7 ;; *) exit 1 ;; esac
+        ;;
+    uninstall) Uninstall_App ;;
+    *) exit 1 ;;
+esac

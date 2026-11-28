@@ -1992,7 +1992,7 @@ def installPreInspection(version):
     if version == '9.0' and os.path.isfile('/etc/os-release'):
         with open('/etc/os-release') as release_file:
             distro = next((line[3:].strip().strip('"') for line in release_file if line.startswith('ID=')), '')
-        if distro in ('almalinux', 'centos', 'debian', 'rhel', 'rocky', 'ubuntu'):
+        if distro in ('almalinux', 'centos', 'debian', 'opensuse-leap', 'rhel', 'rocky', 'ubuntu'):
             plugin = getPluginDir()
             result = subprocess.run(
                 ['bash', os.path.join(plugin, 'versions', '9.0', 'linux.sh'), '--check'],

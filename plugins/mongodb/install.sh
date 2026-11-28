@@ -61,7 +61,7 @@ Install_app()
 	shell_file=${curPath}/versions/${VERSION}/${OSNAME}.sh
 	if [ "$VERSION" = 9.0 ]; then
 		case "$OSNAME" in
-			alma|rocky|rhel) shell_file="$curPath/versions/9.0/linux.sh" ;;
+			alma|opensuse|rocky|rhel) shell_file="$curPath/versions/9.0/linux.sh" ;;
 		esac
 	fi
 
