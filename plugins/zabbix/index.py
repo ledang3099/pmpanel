@@ -15,6 +15,19 @@ if os.path.exists(web_dir):
 
 import core.mw as mw
 
+
+def runSystemctl(cmd):
+    """
+    执行 systemctl(参数列表, 不经过 shell), 按退出码判断成败: 成功返回 '', 失败返回错误信息。
+    注意 systemctl enable 会把 "Created symlink ..." 写到 stderr, 不能把 stderr 非空当作失败。
+    """
+    import shlex
+    import subprocess
+    p = subprocess.run(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if p.returncode == 0:
+        return ''
+    return (p.stderr or p.stdout).strip() or ('%s 执行失败(%d)' % (cmd, p.returncode))
+
 app_debug = False
 if mw.isAppleSystem():
     app_debug = True
@@ -370,11 +383,10 @@ def zOp(method):
 
     initDreplace()
 
-    data = mw.execShell('systemctl ' + method + ' zabbix-server')
+    err = runSystemctl('systemctl ' + method + ' zabbix-server')
+    # zabbix-agent 属于 zabbix_agent 插件, 可能未安装, 不影响结果
     mw.execShell('systemctl ' + method + ' zabbix-agent')
-    if data[1] == '':
-        return 'ok'
-    return data[1]
+    return err or 'ok'
 
 
 def start():
@@ -422,9 +434,9 @@ def initdInstall():
     if current_os == 'darwin':
         return "Apple Computer does not support"
 
-    data = mw.execShell('systemctl enable zabbix-server')
-    if data[1] != '':
-        return data[1]
+    err = runSystemctl('systemctl enable zabbix-server')
+    if err:
+        return err
     return 'ok'
 
 
@@ -433,9 +445,9 @@ def initdUinstall():
     if current_os == 'darwin':
         return "Apple Computer does not support"
 
-    data = mw.execShell('systemctl disable zabbix-server')
-    if data[1] != '':
-        return data[1]
+    err = runSystemctl('systemctl disable zabbix-server')
+    if err:
+        return err
     return 'ok'
 
 def runLog():
