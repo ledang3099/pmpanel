@@ -19,8 +19,10 @@ install_redis() (
     fresh=0
     [ -d "$server/redis" ] || fresh=1
     trap 'rm -rf -- "$stage"; if [ "$fresh" = 1 ] && [ ! -f "$server/redis/version.pl" ]; then rm -rf -- "$server/redis"; fi' EXIT
-    # 只编译 Redis 核心: RediSearch/RedisJSON/RedisBloom/RedisTimeSeries 需要 Rust、Python 等工具链, 面板不需要
-    "$make_command" -j2 BUILD_WITH_MODULES=no PREFIX="$server/redis" install || return 1
+    # 只编译 Redis 核心: RediSearch/RedisJSON/RedisBloom/RedisTimeSeries 需要 Rust、Python 等工具链, 面板不需要。
+    # 8.12 起顶层 Makefile 改由 scripts/deploy.sh 安装, 不再识别 BUILD_WITH_MODULES;
+    # `install` 后面跟 `redis` 表示只构建并安装核心(install 必须是第一个目标)。
+    "$make_command" -j2 PREFIX="$server/redis" install redis || return 1
     test -x "$server/redis/bin/redis-server" || return 1
     mkdir -p "$server/redis/data" || return 1
     if [ ! -f "$server/redis/redis.conf" ]; then

@@ -297,9 +297,8 @@ class SshManage(object):
             if k not in ALLOWED or not ALLOWED[k](str(v)):
                 return fail('参数不正确: %s' % k)
 
-        if self.usesDropin():
-            target = DROPIN_FILE
-            old = mw.readFile(target) if os.path.exists(target) else None
+        target, old = self._snapshotConfig()
+        if target == DROPIN_FILE:
             lines = [l for l in (old or '').splitlines() if l.strip()]
             body = [l for l in lines if not l.startswith('#')]
             current = {}
@@ -312,9 +311,7 @@ class SshManage(object):
             content += ''.join('%s %s\n' % (k, v) for k, v in current.items())
             os.makedirs(DROPIN_DIR, mode=0o755, exist_ok=True)
         else:
-            target = SSHD_CONFIG
-            old = mw.readFile(target) or ''
-            content = old
+            content = old or ''
             for k, v in values.items():
                 rep = re.compile(r'^[ \t]*#?[ \t]*' + k + r'[ \t]+\S.*$', re.M | re.I)
                 # 只替换第一处(Match 块前), 其余同名配置注释掉, 避免歧义
@@ -338,11 +335,19 @@ class SshManage(object):
         if sshd:
             code, out, err = run([sshd, '-t'])
             if code != 0:
-                self.__restore(target, old)
+                self._restoreConfig((target, old))
                 return fail('配置校验失败, 已还原: ' + (err or out).strip()[-300:])
         return ok('设置成功')
 
-    def __restore(self, target, old):
+    def _snapshotConfig(self):
+        '''返回 (setValues 将写入的文件, 其当前内容; 文件不存在时为 None)'''
+        if self.usesDropin():
+            target = DROPIN_FILE
+            return target, (mw.readFile(target) if os.path.exists(target) else None)
+        return SSHD_CONFIG, (mw.readFile(SSHD_CONFIG) or '')
+
+    def _restoreConfig(self, snap):
+        target, old = snap
         if old is None:
             if os.path.exists(target):
                 os.remove(target)
@@ -362,8 +367,25 @@ class SshManage(object):
         r = self.service('reload' if not port_changed else 'restart')
         if not r['status']:
             return r
-        self.waitListening()
+        if not self.waitListening() and port_changed:
+            return fail('SSH 服务重启后未在新端口监听')
         return ok('设置成功')
+
+    def _recoverService(self, socket_mode=False):
+        '''端口修改失败后按原配置重新拉起 sshd; socket_mode 为修改前是否由 ssh.socket 监听'''
+        unit = self.unitName()
+        if unit:
+            # 反复重启会触发 systemd 启动频率限制, 先清除失败状态再启动
+            run(['systemctl', 'reset-failed', unit])
+            if socket_mode:
+                run(['systemctl', 'daemon-reload'])
+                run(['systemctl', 'reset-failed', 'ssh.socket'])
+                run(['systemctl', 'restart', 'ssh.socket'])
+            else:
+                run(['systemctl', 'restart', unit])
+        else:
+            self.service('restart')
+        return self.waitListening()
 
     def waitListening(self, timeout=8):
         '''sshd 重载/重启时会短暂关闭监听端口, 等待其恢复后再返回'''
@@ -398,13 +420,23 @@ class SshManage(object):
             fr = fail('防火墙放行新端口出错: %s' % e)
         if not fr['status']:
             return fail('%s, 已取消修改 SSH 端口, 请先检查防火墙' % fr['msg'])
+        snap = self._snapshotConfig()
+        socket_mode = self.socketActive()
         r = self.setValues({'Port': port})
         if not r['status']:
             return r
         r = self.applyAndReload(port_changed=True)
         if r['status']:
             mw.writeLog('SSH管理', 'SSH 端口由 %s 修改为 %s' % (old_port, port))
-        return r
+            return r
+        # 重启失败: 配置改回原端口并重新拉起 sshd, 避免 SSH 断开
+        self._restoreConfig(snap)
+        if self._recoverService(socket_mode):
+            msg = '%s, 已恢复为原端口 %s' % (r['msg'], old_port)
+        else:
+            msg = '%s, 配置已恢复为原端口 %s, 但 SSH 服务未能重新启动, 请通过服务器控制台检查 sshd' % (r['msg'], old_port)
+        mw.writeLog('SSH管理', '修改 SSH 端口为 %s 失败, 已回滚: %s' % (port, r['msg']))
+        return fail(msg)
 
     def setOption(self, key, value, force=False):
         value = str(value).strip()
