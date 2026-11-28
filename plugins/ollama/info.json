@@ -4,7 +4,7 @@
 	"name": "ollama",
 	"title": "ollama",
 	"shell": "install.sh",
-	"versions":["1.0"],
+	"versions":["0.40.18"],
 	"tip": "soft",
 	"checks": "server/ollama",
 	"path": "server/ollama",

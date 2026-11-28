@@ -1,0 +1,20 @@
+--- a/pcap.pyx
++++ b/pcap.pyx
+@@ -27,2 +27 @@
+-cdef extern from "Python.h":
+-    int    PyObject_AsCharBuffer(object obj, char **buffer, Py_ssize_t *buffer_len)
++from cpython.buffer cimport Py_buffer, PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE
+@@ -189,5 +188,8 @@
+-        cdef u_char *p
+-        cdef Py_ssize_t n
+-        if PyObject_AsCharBuffer(buf, <const char**>&p, &n) < 0:
+-            raise TypeError
+-        return bpf_filter(self.fcode.bf_insns, p, <u_int>n, <u_int>n) != 0
++        cdef Py_buffer data
++        cdef u_int length
++        PyObject_GetBuffer(buf, &data, PyBUF_SIMPLE)
++        try:
++            length = <u_int>data.len
++            return bpf_filter(self.fcode.bf_insns, <const u_char *>data.buf, length, length) != 0
++        finally:
++            PyBuffer_Release(&data)

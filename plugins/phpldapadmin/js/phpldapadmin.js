@@ -114,13 +114,16 @@ function safeConf() {
                     <input style="width:110px" class="bt-input-text mr20" name="password" id="pmport" value="' + cfg['password'] + '" placeholder="密码" type="text">\
                     <button class="btn btn-success btn-sm" onclick="setPmaPassword()">保存</button>\
                 </div>\
-                <hr/>\
-                <div class="ver line">\
+                <hr class="phpldapadmin-custom-path"/>\
+                <div class="ver line phpldapadmin-custom-path">\
                     <span class="tname">路径名</span>\
                     <input style="width:180px" class="bt-input-text mr20" name="path" id="pmport" value="' + cfg['path'] + '" placeholder="" type="text">\
                     <button class="btn btn-success btn-sm" onclick="setPmaPath()">保存</button>\
                 </div>';
         $(".soft-man-con").html(con);
+        if (cfg.has_custom_path === false) {
+            $(".soft-man-con .phpldapadmin-custom-path").remove();
+        }
     });
 }
 

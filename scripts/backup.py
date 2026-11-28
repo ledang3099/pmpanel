@@ -6,6 +6,9 @@
 import sys
 import os
 import re
+import shlex
+import subprocess
+import tempfile
 import time
 
 # 按脚本位置定位项目根目录:scripts -> 项目根，避免依赖调用方 cwd
@@ -280,12 +283,9 @@ class backupTools:
             self.backupDatabase(database['name'], save)
 
     def findPathName(self, path, filename):
-        f = os.scandir(path)
-        l = []
-        for ff in f:
-            if ff.name.find(filename) > -1:
-                l.append(ff.name)
-        return l
+        pattern = re.compile(re.escape(filename) + r'_\d{8}_\d{6}\.tar\.gz')
+        with os.scandir(path) as entries:
+            return [entry.name for entry in entries if entry.is_file() and pattern.fullmatch(entry.name)]
 
     def makeExcludeDirCmd(self,echo):
         exclude_dirs = []
@@ -300,7 +300,7 @@ class backupTools:
 
         cmd = ""
         for v in exclude_dirs:
-            cmd += " --exclude='"+v+"'"
+            cmd += " " + shlex.quote("--exclude=" + v)
         return cmd
 
     def backupPath(self, path, count, echo=None):
@@ -310,21 +310,26 @@ class backupTools:
         mw.echoStart('备份')
 
         backup_path = mw.getBackupDir() + '/path'
-        if not os.path.exists(backup_path):
-            mw.execShell("mkdir -p " + backup_path)
+        os.makedirs(backup_path, exist_ok=True)
 
+        path = os.path.abspath(path)
         dirname = os.path.basename(path)
-        fname = 'path_{}_{}.tar.gz'.format(
-            dirname, mw.formatDate("%Y%m%d_%H%M%S"))
+        fname = 'path_{}_{}.tar.gz'.format(dirname, mw.formatDate("%Y%m%d_%H%M%S"))
         dfile = os.path.join(backup_path, fname)
-
         p_size = mw.getPathSize(path)
         stime = time.time()
-
-        cmd = "cd " + os.path.dirname(path) + " && tar zcvf '" + dfile + "' " + exclude_dir_cmd + " '" + dirname + "' 2>{err_log} 1> /dev/null".format(
-            err_log='/tmp/backup_err.log')
-        # print(cmd)
-        mw.execShell(cmd)
+        archive = tempfile.NamedTemporaryFile(dir=backup_path, prefix='.path-', delete=False)
+        archive.close()
+        try:
+            subprocess.run(
+                ['tar', '-czf', archive.name, '-C', os.path.dirname(path),
+                 *shlex.split(exclude_dir_cmd), '--', dirname],
+                check=True,
+            )
+            os.replace(archive.name, dfile)
+        finally:
+            if os.path.exists(archive.name):
+                os.unlink(archive.name)
 
         tar_size = os.path.getsize(dfile)
 
@@ -342,7 +347,7 @@ class backupTools:
         if num > 0:
             for backup in backups:
                 abspath_bk = backup_path + "/" + backup
-                mw.execShell("rm -f " + abspath_bk)
+                os.unlink(abspath_bk)
                 mw.echoInfo("已清理过期备份文件：" + abspath_bk)
                 num -= 1
                 if num < 1:

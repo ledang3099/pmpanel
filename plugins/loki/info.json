@@ -4,7 +4,7 @@
 	"name": "loki",
 	"title": "loki",
 	"shell": "install.sh",
-	"versions":["3.5.3"],
+	"versions":["3.5.3", "3.7.10"],
 	"tip": "soft",
 	"checks": "server/loki",
 	"path": "server/loki",

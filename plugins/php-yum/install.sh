@@ -35,27 +35,19 @@ fi
 # bash /www/server/pmpanel/scripts/getos.sh
 bash ${rootPath}/scripts/getos.sh
 OSNAME=`cat ${rootPath}/data/osname.pl`
-VERSION_ID=`cat /etc/*-release | grep VERSION_ID | awk -F = '{print $2}' | awk -F "\"" '{print $2}'`
-
-if [ "$OSNAME" = "alma" ];then
-	rpm -Uvh https://rpms.remirepo.net/enterprise/remi-release-${VERSION_ID}.rpm
+if [ "$action" != uninstall ] && ! rpm -q remi-release >/dev/null 2>&1; then
+    version_id=$(. /etc/os-release; printf '%s' "$VERSION_ID")
+    major=${version_id%%.*}
+    case "$OSNAME" in
+        alma|almalinux|rocky|centos)
+            yum install -y epel-release || exit 1
+            release_url="https://rpms.remirepo.net/enterprise/remi-release-$major.rpm"
+            ;;
+        fedora) release_url="https://rpms.remirepo.net/fedora/remi-release-$major.rpm" ;;
+        *) echo '当前发行版不支持 Remi PHP 软件源。' >&2; exit 1 ;;
+    esac
+    yum install -y "$release_url" || exit 1
 fi
-
-if [ "$OSNAME" = "rocky" ];then
-	rpm -Uvh https://rpms.remirepo.net/enterprise/remi-release-${VERSION_ID}.rpm
-fi
-
-if [ "$OSNAME" = "centos" ];then
-	rpm -Uvh https://rpms.remirepo.net/enterprise/remi-release-${VERSION_ID}.rpm
-fi
-
-
-# rpm -Uvh https://rpms.remirepo.net/fedora/remi-release-31.rpm
-if [ "$OSNAME" = "fedora" ];then
-	rpm -Uvh https://rpms.remirepo.net/fedora/remi-release-${VERSION_ID}.rpm
-fi
-
-
 
 if [ "${action}" = "uninstall" ] && [ -d ${serverPath}/php-yum/${type} ];then
 	#初始化 
@@ -74,13 +66,13 @@ if [ "${action}" = "uninstall" ] && [ -d ${serverPath}/php-yum/${type} ];then
 fi
 
 if [ "$action" = upgrade ]; then
-    case "$type" in 82|83|84|85) ;; *) exit 1 ;; esac
+    case "$type" in 82|83|84|85|86) ;; *) exit 1 ;; esac
     yum -y upgrade "php${type}" "php${type}-php-*" || exit 1
     systemctl restart "php${type}-php-fpm"
     exit $?
 fi
 
-cd ${curPath} && sh -x $curPath/versions/$2/install.sh $1
+cd "$curPath" && bash -x "$curPath/versions/$type/install.sh" "$action" || exit 1
 
 if [ "${action}" = "install" ] && [ -d ${serverPath}/php-yum/${type} ];then
 

@@ -43,10 +43,10 @@ elif grep -Eqi "Debian" /etc/issue || grep -Eq "Debian" /etc/*-release; then
 	OSNAME='debian'
 	apt update -y
 	apt install -y devscripts
-	apt install -y wget zip unzip
+	apt-get install -y wget zip unzip libssl-dev libfido2-dev libudev-dev || exit 1
 elif grep -Eqi "Ubuntu" /etc/issue || grep -Eq "Ubuntu" /etc/*-release; then
 	OSNAME='ubuntu'
-	apt install -y wget zip unzip
+	apt-get install -y wget zip unzip libssl-dev libfido2-dev libudev-dev || exit 1
 else
 	OSNAME='unknow'
 fi
@@ -105,15 +105,7 @@ Install_mysql()
 	    tar -xzf "$archive" -C "$mysqlDir" || return 1
 	fi
 
-	OPTIONS=''
-	##check openssl version
-	OPENSSL_VERSION=`openssl version|awk '{print $2}'|awk -F '.' '{print $1}'`
-	if [ "${OPENSSL_VERSION}" -ge "3" ];then
-		#openssl version to high
-		cd ${rootPath}/plugins/php/lib && /bin/bash openssl.sh
-		export PKG_CONFIG_PATH=$serverPath/lib/openssl/lib/pkgconfig
-		OPTIONS="-DWITH_SSL=${serverPath}/lib/openssl"
-	fi
+	OPTIONS='-DWITH_SSL=system'
 
 	WHERE_DIR_GCC=/usr/bin/gcc
 	WHERE_DIR_GPP=/usr/bin/g++
@@ -166,7 +158,11 @@ Install_mysql()
 
 	if [ ! -d $serverPath/mysql ];then
 		# -DCMAKE_CXX_STANDARD=17 \
-		cd ${mysqlDir}/mysql-${VERSION} && ${INSTALL_CMD} \
+		cd "$mysqlDir/mysql-$VERSION" || return 1
+		if [ ! -f Makefile ] && [ -f CMakeCache.txt ]; then
+			unlink CMakeCache.txt || return 1
+		fi
+		"$INSTALL_CMD" \
 		-DCMAKE_INSTALL_PREFIX=$serverPath/mysql \
 		-DMYSQL_USER=mysql \
 		-DMYSQL_TCP_PORT=3306 \
@@ -185,9 +181,11 @@ Install_mysql()
 		$OPTIONS \
 		-DCMAKE_C_COMPILER=$WHERE_DIR_GCC \
 		-DCMAKE_CXX_COMPILER=$WHERE_DIR_GPP \
+		-DWITH_UNIT_TESTS=OFF \
 		-DDOWNLOAD_BOOST=0 \
-		-DWITH_BOOST=${mysqlDir}/mysql-${VERSION}/boost/
-		make -j"${cpuCore}" && make install || return 1
+		-DWITH_BOOST=${mysqlDir}/mysql-${VERSION}/boost/ || return 1
+		source "$rootPath/plugins/mysql/lib/build-jobs.sh" || return 1
+		make -j"$(mysql_build_jobs "$cpuCore")" && make install || return 1
 
 		if [ -d $serverPath/mysql ];then
 			rm -rf ${mysqlDir}/mysql-${VERSION}

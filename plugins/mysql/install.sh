@@ -44,25 +44,40 @@ if [ ! -d $curPath/versions/$2 ];then
 	exit 0
 fi
 
-if [ -d $serverPath/mysql ];then
-	exit 0
+unit_file=$(systemctl show --property=FragmentPath --value mysql.service 2>/dev/null)
+if [ -n "$unit_file" ] && ! grep -Fq "ExecStart=$serverPath/mysql/bin/mysqld " "$unit_file"; then
+	echo "The mysql.service unit belongs to another installation: $unit_file" >&2
+	exit 1
 fi
 
-if [ "${action}" = "uninstall" ];then
-	
-	if [ -f /usr/lib/systemd/system/mysql.service ] || [ -f /lib/systemd/system/mysql.service ];then
+if [ -d "$serverPath/mysql" ]; then
+	if [ "$action" != install ] || [ ! -x "$serverPath/mysql/bin/mysqld" ] ||
+	   [ "$(cat "$serverPath/mysql/version.pl" 2>/dev/null)" != "$type" ]; then
+		exit 0
+	fi
+else
+	if [ "$action" = uninstall ] &&
+	   { [ -f /usr/lib/systemd/system/mysql.service ] || [ -f /lib/systemd/system/mysql.service ]; }; then
 		systemctl stop mysql
 		systemctl disable mysql
 		rm -rf /usr/lib/systemd/system/mysql.service
 		rm -rf /lib/systemd/system/mysql.service
 		systemctl daemon-reload
 	fi
+	bash -x "$curPath/versions/$type/install.sh" "$action" || exit $?
 fi
-
-bash -x "$curPath/versions/$2/install.sh" "$1" || exit $?
 
 if [[ "${action}" = "install" ]] && [[ -d $serverPath/mysql ]]; then
 	#初始化 
-	cd ${rootPath} && python3 plugins/mysql/index.py start ${type}
-	cd ${rootPath} && python3 plugins/mysql/index.py initd_install ${type}
+	cd "$rootPath" || exit 1
+	python3 plugins/mysql/index.py start "$type" || exit $?
+	for attempt in {1..30}; do
+		if [ "$(python3 plugins/mysql/index.py status "$type")" = start ]; then
+			python3 plugins/mysql/index.py initd_install "$type"
+			exit $?
+		fi
+		sleep 1
+	done
+	echo "MySQL failed to start. Check the MySQL error log." >&2
+	exit 1
 fi

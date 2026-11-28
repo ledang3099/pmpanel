@@ -6,7 +6,7 @@
 	"shell": "install.sh",
 	"versions":"1.1",
 	"tip": "soft",
-	"checks": "server/swap",
+	"checks": "server/swap/version.pl",
 	"path": "server/swap",
 	"display": 1,
 	"author": "swap",

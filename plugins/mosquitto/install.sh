@@ -40,16 +40,20 @@ Install_App()
     trap 'rm -rf -- "$build_dir"' EXIT
     tar -xzf "$archive" -C "$build_dir" || return 1
     cd "$build_dir/mosquitto-$VERSION" || return 1
-    cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX="$serverPath/mosquitto" . || return 1
+    prefix="$serverPath/mosquitto"
+    cmake -DWITH_DOCS=OFF -DWITH_TESTS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        -DCMAKE_INSTALL_PREFIX="$prefix" -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_INSTALL_RPATH="$prefix/lib" . || return 1
     make && make install || return 1
 
 	if [ -d $serverPath/mosquitto ];then
-		echo "${VERSION}" > $serverPath/mosquitto/version.pl
-		echo '安装mosquitto完成'
-
-
-		cd ${rootPath} && python3 ${rootPath}/plugins/mosquitto/index.py start
-		cd ${rootPath} && python3 ${rootPath}/plugins/mosquitto/index.py initd_install
+		cd "$rootPath" || return 1
+        [ "$(python3 plugins/mosquitto/index.py restart)" = ok ] || return 1
+        if [ "$sysName" != Darwin ]; then
+            [ "$(python3 plugins/mosquitto/index.py initd_install)" = ok ] || return 1
+        fi
+        printf '%s\n' "$VERSION" > "$prefix/version.pl" || return 1
+        echo '安装mosquitto完成'
 	fi
 }
 

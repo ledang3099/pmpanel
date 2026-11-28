@@ -25,7 +25,6 @@ rootPath=$(dirname "$curPath")
 rootPath=$(dirname "$rootPath")
 serverPath=$(dirname "$rootPath")
 
-sysName=`uname`
 action=$1
 type=$2
 
@@ -45,19 +44,19 @@ if [ "${action}" = "upgrade" ];then
 
 	# 已安装 ModSecurity 防火墙时, 按新的 OpenResty 版本重新编译防火墙模块(旧模块与新版本不兼容)
 	if [ -f $serverPath/modsecurity/version.pl ] && [ -f ${rootPath}/plugins/modsecurity/install.sh ];then
-		cd ${rootPath}/plugins/modsecurity && bash install.sh rebuild_module
-		cd $curPath
+		cd "$rootPath/plugins/modsecurity" && bash install.sh rebuild_module || exit 1
+		cd "$curPath" || exit 1
 	fi
-
-	echo "${VERSION}" > $serverPath/openresty/version.pl
 
 	mkdir -p $serverPath/web_conf/php/conf
 	echo 'set $PHP_ENV 0;' > $serverPath/web_conf/php/conf/enable-php-00.conf
 
 	#初始化 
-	cd ${rootPath} && python3 ${rootPath}/plugins/openresty/index.py start
-	cd ${rootPath} && python3 ${rootPath}/plugins/openresty/index.py initd_install
-	exit 0
+    cd "$rootPath" || exit 1
+    result=$(python3 plugins/openresty/index.py restart_for_upgrade) || exit 1
+    if [ "$result" != ok ]; then printf '%s\n' "$result" >&2; exit 1; fi
+    printf '%s\n' "$VERSION" > "$serverPath/openresty/version.pl" || exit 1
+    exit 0
 fi
 
 
@@ -86,8 +85,8 @@ if [ "${action}" = "install" ];then
 
 	# 已安装 ModSecurity 防火墙时, 按新的 OpenResty 版本重新编译防火墙模块(旧模块与新版本不兼容)
 	if [ -f $serverPath/modsecurity/version.pl ] && [ -f ${rootPath}/plugins/modsecurity/install.sh ];then
-		cd ${rootPath}/plugins/modsecurity && bash install.sh rebuild_module
-		cd $curPath
+		cd "$rootPath/plugins/modsecurity" && bash install.sh rebuild_module || exit 1
+		cd "$curPath" || exit 1
 	fi
 else
 	bash -x $curPath/versions/$2/install.sh $1

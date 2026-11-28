@@ -123,11 +123,7 @@ def stop():
 
 
 def restart():
-    status = dockerOp('restart')
-
-    log_file = runLog()
-    mw.execShell("echo '' > " + log_file)
-    return status
+    return dockerOp('restart')
 
 
 def reload():

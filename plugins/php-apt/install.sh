@@ -53,20 +53,19 @@ fi
 # apt install $(grep-aptavail -S PHP-defaults -s Package -n)
 
 
-if [ ! -f /etc/apt/sources.list.d/php.list ] && [ "$OSNAME" = "debian" ];then
-	# install php source
-	apt install -y apt-transport-https lsb-release ca-certificates curl
-	cn=$(curl -fsSL -m 10 http://ipinfo.io/json | grep "\"country\": \"CN\"")
-	if [ ! -z "$cn" ];then
-		curl -o /usr/share/keyrings/deb.sury.org-php.gpg https://mirror.sjtu.edu.cn/sury/php/apt.gpg
-	 	sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://mirror.sjtu.edu.cn/sury/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list'
-	else
-	 	curl -o /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg
-		sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list'
-	fi
-	apt update -y
-fi 
-
+if [ "$action" != uninstall ] && [ "$OSNAME" = debian ] && [ ! -f /etc/apt/sources.list.d/php.list ]; then
+    apt-get install -y lsb-release ca-certificates curl || exit 1
+    keyring=$(mktemp --suffix=.deb) || exit 1
+    curl --proto '=https' --proto-redir '=https' -fsSL https://packages.sury.org/debsuryorg-archive-keyring.deb -o "$keyring" &&
+        dpkg -i "$keyring"
+    status=$?
+    unlink "$keyring"
+    [ "$status" = 0 ] || exit "$status"
+    codename=$(lsb_release -sc) || exit 1
+    printf 'deb [signed-by=/usr/share/keyrings/debsuryorg-archive-keyring.gpg] https://packages.sury.org/php/ %s main\n' "$codename" \
+        > /etc/apt/sources.list.d/php.list || exit 1
+    apt-get update || exit 1
+fi
 
 if [ "${action}" = "uninstall" ] && [ -d ${serverPath}/php-apt/${type} ];then
 	#初始化 
@@ -94,17 +93,17 @@ if [ "${action}" = "upgrade" ];then
 	exit $?
 fi
 
-cd ${curPath} && sh -x $curPath/versions/$2/install.sh $1
+cd "$curPath" && bash -x "$curPath/versions/$type/install.sh" "$action" || exit 1
 
 if [ "${action}" = "install" ] && [ -d ${serverPath}/php-apt/${type} ];then
 	apt update -y
 	
 	#初始化 
 	cd ${rootPath} && python3 ${rootPath}/plugins/php-apt/index.py start ${type}
-	cd ${rootPath} && python3 ${rootPath}/plugins/php-apt/index.py restart ${type}
 	cd ${rootPath} && python3 ${rootPath}/plugins/php-apt/index.py initd_install ${type}
 
 	# 安装通用扩展
+	export PM_PHP_APT_DEFER_RESTART=1
 	echo "install PHP-APT[${type}] extend start"
 	cd ${rootPath}/plugins/php-apt/versions && bash common.sh ${apt_ver} install curl
 	cd ${rootPath}/plugins/php-apt/versions && bash common.sh ${apt_ver} install gd
@@ -123,6 +122,7 @@ if [ "${action}" = "install" ] && [ -d ${serverPath}/php-apt/${type} ];then
 	cd ${rootPath}/plugins/php-apt/versions && bash common.sh ${apt_ver} install zip
 	cd ${rootPath}/plugins/php-apt/versions && bash common.sh ${apt_ver} install mongodb
 	cd ${rootPath}/plugins/php-apt/versions && bash common.sh ${apt_ver} install opcache
+	unset PM_PHP_APT_DEFER_RESTART
 	echo "install PHP-APT[${type}] extend end"
 
 	if [ ! -f /usr/local/bin/composer ];then

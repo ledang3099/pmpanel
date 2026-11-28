@@ -6,6 +6,7 @@ import os
 import time
 import re
 import json
+import subprocess
 
 # print(sys.platform)
 if sys.platform != "darwin":
@@ -171,84 +172,53 @@ def deleteFile():
     return mw.returnJson(False, "删除失败")
 
 def findPathName(path, filename):
-    f = os.scandir(path)
-    l = []
-    for ff in f:
-        t = {}
-        if ff.name.find(filename) > -1:
-            t['filename'] = path + '/' + ff.name
-            l.append(t)
-    return l
+    if not os.path.isdir(path):
+        return []
+    with os.scandir(path) as entries:
+        return [
+            {'filename': entry.path} for entry in entries
+            if entry.is_file() and entry.name.startswith(filename + '_') and entry.name.endswith('.gz')
+        ]
 
 def backupAllFunc(stype):
 
     name = sys.argv[2]
     num = sys.argv[3]
 
-    prefix_dict = {
-        "site": "web",
-        "database": "db",
-        "path": "path",
-    }
+    backup_script = os.path.join(mw.getPanelDir(), 'scripts', 'backup.py')
+    args = [stype, name, num]
+    if stype in ('site', 'path'):
+        args.append(sys.argv[4] if len(sys.argv) > 4 else '')
 
-    backups = []
-    # print("stype:", stype)
-    # 提前获取-清理多余备份
-    if stype == 'site':
-        pid = mw.M('sites').where('name=?', (name,)).getField('id')
-        backups = mw.M('backup').where('type=? and pid=?', ('0', pid)).field('id,filename').select()
-    if stype == 'database':
-        db_path = mw.getServerDir() + '/mysql'
-        pid = mw.M('databases').dbPos(db_path, 'mysql').where('name=?', (name,)).getField('id')
-        backups = mw.M('backup').where('type=? and pid=?', ('1', pid)).field('id,filename').select()
-    if stype == 'path':
-        backup_dir = mw.getBackupDir()
-        backup_path = backup_dir + '/path'
-        _name = 'path_{}'.format(os.path.basename(name))
-        backups = findPathName(backup_path, _name)
-
-    # 其他类型关系性数据库(mysql类的)
-    if stype.find('database_') > -1:
-        plugin_name = stype.replace('database_', '')
-        db_path = mw.getServerDir() + '/' + plugin_name
-        pid = mw.M('databases').dbPos(db_path, 'mysql').where('name=?', (name,)).getField('id')
-        backups = mw.M('backup').where('type=? and pid=?', ('1', pid)).field('id,filename').select()
-
-    args = stype + " " + name + " " + num
-    cmd = 'python3 ' + mw.getPanelDir() + '/scripts/backup.py ' + args
-    if stype.find('database_') > -1:
-        plugin_name = stype.replace('database_', '')
-        args = "database " + name + " " + num
-        cmd = 'python3 ' + mw.getPanelDir() + '/plugins/' + plugin_name + '/scripts/backup.py ' + args
-
-    os.system(cmd)
-
-    # 开始执行上传信息.
-
-    if stype.find('database_') > -1:
-        bk_name = 'database'
-        plugin_name = stype.replace('database_', '')
-        bk_prefix = plugin_name + '/db'
+    backup_dir = mw.getBackupDir()
+    if stype.startswith('database_'):
+        plugin_name = stype[len('database_'):]
+        args = ['database', name, num]
+        backup_script = os.path.join(mw.getPanelDir(), 'plugins', plugin_name, 'scripts', 'backup.py')
+        directory = os.path.join(backup_dir, 'database', plugin_name)
+        prefix = 'db_' + name
         stype = 'database'
+    elif stype == 'database':
+        directory = os.path.join(backup_dir, 'database', 'mysql')
+        prefix = 'db_' + name
+    elif stype == 'site':
+        directory = os.path.join(backup_dir, 'site')
+        prefix = 'web_' + name
     else:
-        bk_prefix = prefix_dict[stype]
-        bk_name = stype
+        directory = os.path.join(backup_dir, 'path')
+        prefix = 'path_' + os.path.basename(name)
 
-    find_path = mw.getBackupDir() + '/' + bk_name + '/' + bk_prefix + '_' + name
-    if stype == 'path':
-        _name = 'path_{}'.format(os.path.basename(name))
-        find_path = mw.getBackupDir() + '/path/'+_name
-
-    find_new_file = "ls " + find_path + "_* | grep '.gz' | cut -d \\  -f 1 | awk 'END {print}'"
-
-    filename = mw.execShell(find_new_file)[0].strip()
-    if filename == "":
-        mw.echoInfo("not find upload file!")
-        return ''
+    backups = findPathName(directory, prefix)
+    subprocess.run([sys.executable, backup_script, *args], check=True)
+    files = findPathName(directory, prefix)
+    if not files:
+        raise SystemExit('FTP backup did not produce an archive')
+    filename = max(item['filename'] for item in files)
 
     mw.echoInfo("准备上传文件 {}".format(filename))
     ftp = FtpPSClient()
-    ftp.uploadFile(filename, stype)
+    if not ftp.uploadFile(filename, stype):
+        raise SystemExit('FTP backup upload failed')
 
     # print(backups)
     backups = sorted(backups, key=lambda x: x['filename'], reverse=False)

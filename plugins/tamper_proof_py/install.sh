@@ -11,8 +11,6 @@ serverPath=$(dirname "$rootPath")
 if [ -f ${rootPath}/bin/activate ];then
 	. ${rootPath}/bin/activate
 fi
-pip install pyinotify
-
 # cd /www/server/pmpanel/plugins/tamper_proof_py && bash install.sh install 1.0
 
 # cd /www/server/pmpanel && python3 plugins/tamper_proof_py/index.py start 1.0
@@ -26,14 +24,16 @@ APP_NAME=tamper_proof_py
 
 Install_App()
 {
+    python3 -m pip install pyinotify==0.9.6 'pyasyncore==1.0.5; python_version >= "3.12"' || return 1
+    python3 -c 'import pyinotify' || return 1
 	echo '正在安装脚本文件...'
 	mkdir -p $serverPath/tamper_proof_py
-	echo "$VERSION" > $serverPath/tamper_proof_py/version.pl
-	echo 'install complete'
-
-	#初始化 
-	cd ${serverPath}/pmpanel && python3 plugins/tamper_proof_py/index.py start $VERSION
-	cd ${serverPath}/pmpanel && python3 plugins/tamper_proof_py/index.py initd_install $VERSION
+    cd "$rootPath" || return 1
+    python3 plugins/tamper_proof_py/index.py start "$VERSION" || return 1
+    python3 plugins/tamper_proof_py/index.py initd_install "$VERSION" || return 1
+    if [ "$SYSOS" = Linux ]; then systemctl is-active --quiet tamper_proof_py || return 1; fi
+    printf '%s\n' "$VERSION" > "$serverPath/tamper_proof_py/version.pl" || return 1
+    echo 'install complete'
 }
 
 Uninstall_App()

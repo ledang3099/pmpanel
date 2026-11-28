@@ -216,6 +216,7 @@ def inject_global_variables():
 # cors_allowed_origins 保持默认(仅同源), 防止跨站WebSocket劫持 webssh
 socketio = SocketIO(logger=False,
     engineio_logger=False,
+    async_handlers=False,
     async_mode='threading')
 socketio.init_app(app)
 

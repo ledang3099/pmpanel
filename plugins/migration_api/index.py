@@ -1,5 +1,7 @@
 # coding:utf-8
 
+import gzip
+import shutil
 import sys
 import io
 import os
@@ -8,6 +10,7 @@ import re
 import hashlib
 import json
 import subprocess
+import tempfile
 import requests
 
 web_dir = os.getcwd() + "/web"
@@ -51,7 +54,7 @@ class classApi:
         post_data = requests.post(url, data=request_data, headers={
             'app-id':self.__MW_APP_ID,
             'app-secret':self.__MW_APP_SECRET
-        })
+        }, timeout=timeout)
         try:
             return post_data.json()
         except Exception as e:
@@ -97,16 +100,15 @@ class classApi:
         if os.path.exists(log_file):
             os.remove(log_file)
 
-        plugins_dir = mw.getServerDir() + '/pmpanel'
-        exe = "cd {0} && . bin/activate && python3 plugins/migration_api/index.py bg_process &>{1} &".format(
-            plugins_dir, log_file_error)
-        # mw.execShell(exe)
-        # os.system(exe)
-        subprocess.Popen(exe, shell=True, stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE)
+        panel = mw.getPanelDir()
+        command = [sys.executable, os.path.join(panel, 'plugins/migration_api/index.py'), 'bg_process']
+        with open(log_file_error, 'ab') as log:
+            worker = subprocess.Popen(
+                command, cwd=panel, stdin=subprocess.DEVNULL, stdout=log,
+                stderr=subprocess.STDOUT, start_new_session=True,
+            )
         time.sleep(1)
-        # 检查是否执行成功
-        if not getPid():
+        if worker.poll() not in (None, 0):
             return mw.returnJson(False, '创建进程失败!<br>{}'.format(mw.readFile(log_file_error)))
         return mw.returnJson(True, "迁移进程创建成功!")
 
@@ -123,9 +125,10 @@ class classApi:
             sync_info['databases'][i]['error'] = ''
             sync_info['databases'][i]['state'] = 0
             sync_info['total'] += 1
-        mw.writeFile(self._INFO_FILE, json.dumps(sync_info))
-        self.fock_process(None)
-        return mw.returnJson(True, '设置成功!')
+        os.makedirs(os.path.dirname(self._INFO_FILE), mode=0o700, exist_ok=True)
+        if not mw.writeFile(self._INFO_FILE, json.dumps(sync_info)):
+            return mw.returnJson(False, '无法保存迁移任务。')
+        return self.fock_process(None)
 
     def get_sync_info(self, args):
         # 获取要被迁移的网站、数据库
@@ -223,21 +226,8 @@ class classApi:
             pdata['dir_mode'] = mode_user['mode'] + ',' + mode_user['user']
             mode_user = self.get_mode_and_user(sfile)
             pdata['file_mode'] = mode_user['mode'] + ',' + mode_user['user']
-        f = open(sfile, 'rb')
-
-        return self.send_file(pdata, f)
-
-    def close_sync(self, args):
-        # 取消迁移
-        mw.execShell("kill -9 {}".format(self.get_pid()))
-        mw.execShell("kill -9 $(ps -ef|grep index.py|grep -v grep|awk '{print $2}')")
-        # 删除迁移配置
-        time.sleep(1)
-        if os.path.exists(self._INFO_FILE):
-            os.remove(self._INFO_FILE)
-        if os.path.exists(self._SPEED_FILE):
-            os.remove(self._SPEED_FILE)
-        return mw.returnJson(True, '已取消迁移任务!')
+        with open(sfile, 'rb') as file:
+            return self.send_file(pdata, file)
 
     def send_file(self, pdata, f):
         success_num = 0  # 连续发送成功次数
@@ -260,6 +250,7 @@ class classApi:
             max_buff = int(pdata['size'] - pdata['start'])
             if max_buff < buff_size:
                 buff_size = max_buff
+            f.seek(pdata['start'])
             files = {"blob": f.read(buff_size)}
             start_time = time.time()
 
@@ -268,7 +259,9 @@ class classApi:
                 res = requests.post(url, data=pdata, files=files, headers={
                     'app-id':self.__MW_APP_ID,
                     'app-secret':self.__MW_APP_SECRET
-                },timeout=30000)
+                }, timeout=timeout)
+                res.raise_for_status()
+                result = res.json()
 
                 success_num += 1
                 err_num = 0
@@ -279,33 +272,22 @@ class classApi:
                     if self._buff_size > max_buff_size:
                         self._buff_size = max_buff_size
                     write_log("|-发送顺利, 尝试调整分片大小为: {}".format(toSize(self._buff_size)))
-            except Exception as e:
+            except (requests.Timeout, requests.ConnectionError) as e:
                 times = time.time() - start_time
                 total_time += times
-                ex = str(e)
-                if ex.find('Read timed out') != -1 or ex.find('Connection aborted') != -1:
-                    # 发生超时的时候尝试调整分片大小, 以确保网络情况不好的时候能继续上传
-                    self._buff_size = int(self._buff_size / 2)
-                    if self._buff_size < min_buff_size:
-                        self._buff_size = min_buff_size
-                    success_num = 0
-                    write_log(
-                        "|-发送超时, 尝试调整分片大小为: {}".format(toSize(self._buff_size)))
-                    continue
-
-                # 如果连接超时
-                if ex.find('Max retries exceeded with') != -1 and err_num <= max_err_num:
-                    err_num += 1
-                    write_log("|-连接超时, 第{}次重试".format(err_num))
-                    time.sleep(1)
-                    continue
-
-                # 超过重试次数
-                write_log("|-上传失败, 跳过本次上传任务")
-                write_log(mw.getTracebackInfo())
+                err_num += 1
+                if err_num > max_err_num:
+                    write_log("|-上传失败, 已达到重试次数: {}".format(e))
+                    return False
+                self._buff_size = max(min_buff_size, self._buff_size // 2)
+                success_num = 0
+                write_log("|-连接中断, 第{}次重试, 分片大小: {}".format(err_num, toSize(self._buff_size)))
+                time.sleep(1)
+                continue
+            except (requests.RequestException, ValueError) as e:
+                write_log("|-上传失败: {}".format(e))
                 return False
 
-            result = res.json()
             times = time.time() - start_time
             total_time += times
 
@@ -318,10 +300,10 @@ class classApi:
                 if split_num > 10:
                     write_log("|-上传失败, 跳过本次上传任务")
                     return False
-                if result['data'] > pdata['size']:
+                if not isinstance(result['data'], int) or not 0 <= result['data'] <= pdata['size']:
                     write_log("|-上传失败, 跳过本次上传任务")
                     return False
-                self.write_speed('used', result)
+                self.write_speed('used', result['data'])
                 self.write_speed('speed', int(buff_size / times))
                 write_log("|-已上传 {},上传速度 {}/s, 共用时 {}分{:.2f}秒,  {:.2f}%".format(toSize(result['data']), toSize(
                     buff_size / times), int(total_time // 60), total_time % 60, (float(result['data']) / float(pdata['size']) * 100)))
@@ -343,59 +325,58 @@ class classApi:
         write_log("|-总耗时：{} 分钟, {:.2f} 秒, 平均速度：{}/s".format(int(total_time // 60), total_time % 60, toSize(pdata['size'] / total_time)))
         return True
 
-    def send_list(self, s_files):
-        # 发送文件列表
-        for f in s_files:
-            if not os.path.exists(f[0]):
-                continue
-            self.send_file_list(f[0], f[0])
+    def send_list(self, files):
+        for path, description in files:
+            if os.path.lexists(path) and not self.send_file_list(path, path):
+                self.error('迁移{}失败：{}'.format(description, path))
+                return False
+        return True
 
     def send_file_list(self, spath, dpath):
-
-        if os.path.islink(spath):
-            dpath = os.readlink(spath)
-            # mw.buildSoftLink(spath, dpath, True)
-            self.send('/files/exec_shell',
-                      {"shell": 'ln -sf "' + spath + '" "' + dpath + '"', "path": "/www"}, 30)
-            return True
-
-        if not os.path.isdir(spath):
+        source_is_link = os.path.islink(spath)
+        if not source_is_link and not os.path.isdir(spath):
             return self.upload_file(spath, dpath, True)
 
-        # 创建目录
-        self.send('/files/create_dir', {"path": dpath})
-
-        backup_path = mw.getFatherDir() + '/backup'
-        if not os.path.exists(backup_path):
-            os.makedirs(backup_path, 384)
-
-        zip_file = backup_path + \
-            "/psync_tmp_{}.tar.gz".format(os.path.basename(spath))
-        zip_dst = mw.getPanelDir() + '/tmp/psync_tmp_{}.tar.gz'.format(
-            os.path.basename(dpath))
-        write_log("|-正在压缩目录[{}]...".format(spath))
-        self.write_speed('done', '正在压缩')
-
-        mw.execShell("cd {} && tar zcvf {} ./ > /dev/null".format(spath, zip_file))
-        if not os.path.exists(zip_file):
-            self.error("目录[{}]打包失败!".format(spath))
+        source_dir = os.path.dirname(spath) if source_is_link else spath
+        archive_entry = os.path.basename(spath) if source_is_link else '.'
+        target_dir = os.path.dirname(dpath) if source_is_link else dpath
+        if source_is_link and os.path.basename(dpath) != archive_entry:
             return False
 
-        self.set_mode(zip_file, 600)
-        if not self.upload_file(zip_file, zip_dst, True):
-            self.error("目录[{}]上传失败!".format(spath))
-            if os.path.exists(zip_file):
-                os.remove(zip_file)
+        result = self.send('/files/create_dir', {'path': target_dir})
+        if not isinstance(result, dict) or (not result['status'] and result['msg'] != '指定目录已存在!'):
             return False
 
-        if os.path.exists(zip_file):
-            os.remove(zip_file)
-        write_log("|-正在解压文件到目录[{}]...".format(dpath))
-        self.write_speed('done', '正在解压')
-
-        self.send('/files/uncompress',{"sfile": zip_dst, "dfile": dpath, 'path': dpath})
-        self.send('/files/exec_shell',{"shell": "rm -f " + zip_dst, "path": "/www"}, 30)
-        return True
+        backup_dir = os.path.join(mw.getFatherDir(), 'backup')
+        os.makedirs(backup_dir, mode=0o700, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=backup_dir, prefix='psync_', suffix='.tar.gz') as archive:
+            remote_archive = os.path.join(mw.getPanelDir(), 'tmp', os.path.basename(archive.name))
+            write_log('|-正在压缩目录[{}]...'.format(spath))
+            self.write_speed('done', '正在压缩')
+            try:
+                subprocess.run(
+                    ['tar', '-czf', archive.name, '-C', source_dir, '--', archive_entry],
+                    check=True,
+                )
+            except (OSError, subprocess.CalledProcessError):
+                self.error('目录[{}]打包失败!'.format(spath))
+                return False
+            if not self.upload_file(archive.name, remote_archive, True):
+                self.error('目录[{}]上传失败!'.format(spath))
+                return False
+            write_log('|-正在解压文件到目录[{}]...'.format(target_dir))
+            self.write_speed('done', '正在解压')
+            result = self.send('/files/uncompress', {
+                'sfile': remote_archive, 'dfile': target_dir, 'path': target_dir, 'wait': '1',
+            })
+            if not isinstance(result, dict) or not result['status']:
+                self.error('目录[{}]解压失败!'.format(target_dir))
+                return False
+            if result.get('data') != {'completed': True}:
+                self.error('目标面板未确认解压完成：{}'.format(target_dir))
+                return False
+            self.send('/files/delete', {'path': remote_archive}, 30)
+            return True
 
     def state(self, stype, index, state, error=''):
         # 设置状态
@@ -446,9 +427,8 @@ class classApi:
             self.error(err_msg)
             return False
 
-        self.create_site(siteInfo, index)
-        # if not self.create_site(siteInfo, index):
-        #     return False
+        if not self.create_site(siteInfo, index):
+            return False
 
         s_files = [
             [self.__VHOST_PATH +
@@ -475,14 +455,12 @@ class classApi:
         s_files.append(
             [self.__VHOST_PATH + "/ssl/{}/privkey.pem".format(siteInfo['name']), "网站SSL[privkey]证书"])
 
-        self.send_list(s_files)
-
-        if not self.send_file_list(siteInfo['path'], siteInfo['path']):
+        if not self.send_list(s_files) or not self.send_file_list(siteInfo['path'], siteInfo['path']):
             self.state('sites', index, -1, '数据传输失败!')
             return False
+        return True
 
     def sync_site(self):
-        data = getCfgData()
         sites = self._SYNC_INFO['sites']
         for i in range(len(sites)):
 
@@ -505,13 +483,11 @@ class classApi:
                 siteInfo['domain'] = mw.M('domain').where(
                     'pid=? and name!=?', (site_id, site_name)).field('name,port').select()
 
-                siteInfo['binding'] = mw.M('binding').where(
-                    'pid=?', (id,)).field('domain,path,port').select()
-
                 if self.send_site(siteInfo, i):
                     self.state('sites', i, 2)
                 write_log("=" * 50)
-            except Exception as e:
+            except Exception as exc:
+                self.state('sites', i, -1, str(exc))
                 self.error(mw.getTracebackInfo())
 
     def getConf(self, mtype='mysql'):
@@ -634,24 +610,6 @@ class classApi:
         self.error(err_msg)
         return False
 
-    # 数据库密码处理
-    def myPass(self, act, root):
-        # conf_file = '/etc/my.cnf'
-        conf_file = self.getConf('mysql')
-        mw.execShell("sed -i '/user=root/d' {}".format(conf_file))
-        mw.execShell("sed -i '/password=/d' {}".format(conf_file))
-        if act:
-            mycnf = mw.readFile(conf_file)
-            src_dump = "[mysqldump]\n"
-            sub_dump = src_dump + "user=root\npassword=\"{}\"\n".format(root)
-            if not mycnf:
-                return False
-            mycnf = mycnf.replace(src_dump, sub_dump)
-            if len(mycnf) > 100:
-                mw.writeFile(conf_file, mycnf)
-            return True
-        return True
-
     def recognizeDbMode(self):
         conf = self.getConf('mysql')
         con = mw.readFile(conf)
@@ -668,83 +626,75 @@ class classApi:
 
     def export_database(self, name, index):
         self.write_speed('done', '正在导出数据库')
-        write_log("|-正在导出数据库[{}]...".format(name))
-        conn = self.getMyConn()
-        result = conn.execute("show databases")
-        isError = self.isSqlError(result)
-        if isError:
-            err_msg = '数据库[{}]导出失败,{}!'.format(name, isError['msg'])
-            self.state('databases', index, -1, err_msg)
-            self.error(err_msg)
-            return None
-
+        write_log('|-正在导出数据库[{}]...'.format(name))
         root = self.getDbConn('mysql', 'config').where(
             'id=?', (1,)).getField('mysql_root')
-
-        backup_path = mw.getFatherDir() + '/backup'
-        if not os.path.exists(backup_path):
-            os.makedirs(backup_path, 384)
-
-        backup_name = backup_path + '/psync_import.sql.gz'
-        if os.path.exists(backup_name):
-            os.remove(backup_name)
-
-        root_dir = mw.getServerDir() + '/mysql'
-        my_cnf = self.getConf('mysql')
-
-        mode = self.recognizeDbMode()
-        gtid_option = ''
-        if mode == 'gtid':
-            gtid_option = ' --set-gtid-purged=off '
-
-        self.myPass(True, root)
-        cmd = root_dir + "/bin/mysqldump --defaults-file=" + my_cnf + " --default-character-set=" + \
-            self.getDatabaseCharacter(
-                name) + gtid_option + " --force --opt \"" + name + "\" | gzip > " + backup_name
-        # print(cmd)
-        mw.execShell(cmd)
-
-        self.myPass(False, root)
-        if not os.path.exists(backup_name) or os.path.getsize(backup_name) < 30:
-            if os.path.exists(backup_name):
-                os.remove(backup_name)
-            err_msg = '数据库[{}]导出失败!'.format(name)
-            self.state('databases', index, -1, err_msg)
-            self.error(err_msg)
-            write_log("失败")
+        backup_dir = os.path.join(mw.getFatherDir(), 'backup')
+        os.makedirs(backup_dir, mode=0o700, exist_ok=True)
+        root_dir = os.path.join(mw.getServerDir(), 'mysql')
+        command = [
+            os.path.join(root_dir, 'bin', 'mysqldump'),
+            '--defaults-file=' + self.getConf('mysql'),
+            '--user=root',
+            '--default-character-set=' + self.getDatabaseCharacter(name),
+            '--opt',
+        ]
+        if self.recognizeDbMode() == 'gtid':
+            command.append('--set-gtid-purged=OFF')
+        command.extend(['--', name])
+        env = os.environ.copy()
+        env['MYSQL_PWD'] = root or ''
+        filename = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=backup_dir, prefix='psync_', suffix='.sql.gz', delete=False) as archive:
+                filename = archive.name
+                with tempfile.TemporaryFile() as stderr, subprocess.Popen(
+                    command, stdout=subprocess.PIPE, stderr=stderr, env=env,
+                ) as dump:
+                    with gzip.GzipFile(fileobj=archive, mode='wb') as compressed:
+                        shutil.copyfileobj(dump.stdout, compressed)
+                    if dump.wait() != 0:
+                        stderr.seek(0)
+                        raise OSError(stderr.read(4096).decode(errors='replace').strip() or 'mysqldump 失败。')
+            return filename
+        except OSError as exc:
+            if filename:
+                os.unlink(filename)
+            message = '数据库[{}]导出失败：{}'.format(name, exc)
+            self.state('databases', index, -1, message)
+            self.error(message)
             return None
-        write_log("成功")
-        return backup_name
 
     def send_database(self, dbInfo, index):
-        # print(dbInfo)
-        # 创建远程库
-        # if not self.create_database(dbInfo, index):
-        #     return False
-
-        self.create_database(dbInfo, index)
+        destination = self.sendPlugins('mysql', 'get_db_backup_import_list', {})
+        if not destination['status'] or not destination['data'].get('upload_dir'):
+            self.state('databases', index, -1, '无法获取目标面板的数据库导入目录。')
+            return False
+        if not self.create_database(dbInfo, index):
+            return False
         filename = self.export_database(dbInfo['name'], index)
         if not filename:
             return False
-
-        db_dir = '/www/backup/import'
-        new_db_name = 'psync_import_{}.sql.gz'.format(dbInfo['name'])
-        upload_file = db_dir + '/' + new_db_name
-        self.send('/files/exec_shell', {"shell": "rm -f " + upload_file, "path": "/www"}, 30)
-
-        if self.upload_file(filename, upload_file):
+        remote_name = os.path.basename(filename)
+        remote_path = os.path.join(destination['data']['upload_dir'], remote_name)
+        try:
+            if not self.upload_file(filename, remote_path):
+                self.state('databases', index, -1, '数据传输失败。')
+                return False
             self.write_speed('done', '正在导入数据库')
-            write_log("|-正在导入数据库{}...".format(dbInfo['name']))
-
-            self.sendPlugins('mysql', 'import_db_external', {"file": new_db_name, "name": dbInfo['name']})
-            self.send('/files/exec_shell',{"shell": "rm -f " + upload_file, "path": "/www"}, 30)
+            write_log('|-正在导入数据库{}...'.format(dbInfo['name']))
+            result = self.sendPlugins('mysql', 'import_db_external', {
+                'file': remote_name, 'name': dbInfo['name'],
+            })
+            if not result['status']:
+                self.state('databases', index, -1, result['msg'])
+                return False
+            self.send('/files/delete', {'path': remote_path}, 30)
             return True
-        self.state('databases', index, -1, "数据传输失败")
-        return False
+        finally:
+            os.unlink(filename)
 
     def sync_database(self):
-        data = getCfgData()
-
         databases = self._SYNC_INFO['databases']
         for i in range(len(databases)):
             db = databases[i]['name']
@@ -760,7 +710,8 @@ class classApi:
                 if self.send_database(dbInfo, i):
                     self.state('databases', i, 2)
                 write_log("=" * 50)
-            except:
+            except Exception as exc:
+                self.state('databases', i, -1, str(exc))
                 self.error(mw.getTracebackInfo())
 
 
@@ -826,7 +777,12 @@ class classApi:
         # self.sync_path()
         self.sync_plugin()
         self.write_speed('action', 'True')
-        write_log('|-所有项目迁移完成!')
+        items = self._SYNC_INFO['sites'] + self._SYNC_INFO['databases']
+        failures = sum(item['state'] != 2 for item in items)
+        if failures:
+            write_log('|-迁移任务结束，{} 项失败或未完成。'.format(failures))
+        else:
+            write_log('|-所有项目迁移完成!')
 
 
 # 字节单位转换
@@ -867,15 +823,16 @@ def getConf():
 def getCfgData():
     path = getConf()
     if not os.path.exists(path):
-        mw.writeFile(path, "{}")
-
-    t = mw.readFile(path)
-    return json.loads(t)
+        return {}
+    os.chmod(path, 0o600)
+    with open(path, encoding='utf-8') as config:
+        return json.load(config)
 
 
 def writeConf(data):
-    path = getConf()
-    mw.writeFile(path, json.dumps(data))
+    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=getServerDir(), delete=False) as config:
+        json.dump(data, config)
+    os.replace(config.name, getConf())
     return True
 
 
@@ -946,6 +903,8 @@ def stepOne():
     # api =
     # classApi('http://127.0.0.1:7200','HfJNKGP5RPqGvhIOyrwpXG4A2fTjSh9B')
     rdata = api.send('/task/count', {})
+    if not isinstance(rdata, dict):
+        return mw.returnJson(False, '无法连接目标面板或验证 API 密钥。')
     if not rdata['status']:
         return mw.returnJson(False, rdata['msg'])
     data = getCfgData()
@@ -1071,7 +1030,7 @@ def stepFour():
 
     sites = args['sites']
     databases = args['databases']
-    plugin = args['plugin']
+    plugin = args.get('plugin', '')
 
     data = getCfgData()
     args = {

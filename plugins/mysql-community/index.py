@@ -280,8 +280,17 @@ def process_status():
     return 'start'
 
 def status(version=''):
-    pid = getPidFile()
-    if not os.path.exists(pid):
+    if mw.isSupportSystemctl():
+        result = subprocess.run(['systemctl', 'is-active', '--quiet', getPluginName()])
+        return 'start' if result.returncode == 0 else 'stop'
+
+    try:
+        with open(getPidFile()) as pid_file:
+            pid = int(pid_file.read().strip())
+        if pid <= 0:
+            return 'stop'
+        os.kill(pid, 0)
+    except (OSError, ValueError):
         return 'stop'
     return 'start'
 
@@ -467,58 +476,25 @@ def pGetDbUser():
     return 'mysql'
 
 
-def initMysql57Data():
+def initMysqlData(*options):
     datadir = getDataDir()
-    if not os.path.exists(datadir + '/mysql'):
-        serverdir = getServerDir()
-        myconf = serverdir + "/etc/my.cnf"
-        user = pGetDbUser()
+    if os.path.exists(os.path.join(datadir, 'mysql')):
+        return True
 
-        cmd = serverdir + '/bin/mysqld --basedir=' + serverdir + ' --datadir=' + \
-            datadir + ' --initialize-insecure --explicit_defaults_for_timestamp'
-        # print(cmd)
-        data = mw.execShell(cmd)
-        # print(data)
-        if data[1].lower().find('error') != -1:
-            exit("Init MySQL5.7 Data Error:"+data[1])
+    serverdir = getServerDir()
+    # The host may also have MariaDB or another MySQL instance with global defaults.
+    result = subprocess.run(
+        [serverdir + '/bin/mysqld', '--no-defaults', '--basedir=' + serverdir,
+         '--datadir=' + datadir, '--initialize-insecure', *options],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+    )
+    if result.returncode:
+        raise SystemExit('MySQL initialization failed:\n' + result.stdout)
 
-        if not mw.isAppleSystem():
-            mw.execShell('chown -R mysql:mysql ' + datadir)
-            mw.execShell('chmod -R 755 ' + datadir)
-        return False
-    return True
-
-
-def initMysql8Data():
-    '''
-    chmod 644 /www/server/mysql-community/etc/my.cnf
-    try:
-    mysqld --basedir=/usr  --datadir=/www/server/mysql-community/data --initialize-insecure
-    mysqld --defaults-file=/www/server/mysql-community/etc/my.cnf --initialize-insecure
-    mysqld --initialize-insecure
-    select user, plugin from user;
-    update user set authentication_string=password("123123"),plugin='mysql_native_password' where user='root';
-    '''
-    datadir = getDataDir()
-    if not os.path.exists(datadir + '/mysql'):
-        serverdir = getServerDir()
-        user = pGetDbUser()
-
-        cmd = serverdir + '/bin/mysqld --basedir=' + serverdir + ' --datadir=' + datadir + \
-            ' --initialize-insecure --lower-case-table-names=1'
-        # print(cmd)
-        data = mw.execShell(cmd)
-        # print(data)
-        if data[1].lower().find('error') != -1:
-            exit("Init MySQL8+ Data Error:"+data[1])
-        if data[1].lower().find('not found') != -1:
-            exit("Init MySQL8+ Data Error:"+data[1])
-
-        if not mw.isAppleSystem():
-            mw.execShell('chown -R mysql:mysql ' + datadir)
-            mw.execShell('chmod -R 755 ' + datadir)
-        return False
-    return True
+    if not mw.isAppleSystem():
+        subprocess.run(['chown', '-R', 'mysql:mysql', datadir], check=True)
+        subprocess.run(['chmod', '-R', '755', datadir], check=True)
+    return False
 
 
 def initMysql8Pwd():
@@ -579,9 +555,9 @@ def my8cmd(version, method):
 
         isInited = True
         if mw.inArray(mdb8, version):
-            isInited = initMysql8Data()
+            isInited = initMysqlData('--lower-case-table-names=1')
         else:
-            isInited = initMysql57Data()
+            isInited = initMysqlData('--explicit_defaults_for_timestamp')
 
         if not isInited:
             if not mw.isSupportSystemctl():

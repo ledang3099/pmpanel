@@ -12,6 +12,7 @@ import time
 import shutil
 import json
 import base64
+import subprocess
 
 import core.mw as mw
 from shlex import quote as _q
@@ -129,7 +130,7 @@ def unzip(sfile, dfile, stype, path):
     except:
         return mw.returnData(False, '文件解压失败!')
 
-def uncompress(sfile, dfile, path):
+def uncompress(sfile, dfile, path, wait=False):
     if dfile == '' or dfile == '/':
         return mw.returnData(False, '不能在根目录解压!')
 
@@ -148,6 +149,18 @@ def uncompress(sfile, dfile, path):
 
     if not extension in ['tar.gz', 'tgz', 'gz', 'zip', 'rar', '7z', 'xz','bz2']:
         return mw.returnData(False, '现在仅支持gz,zip,rar,7z,xz,bz2格式解压!')
+
+    if wait:
+        if extension not in ('tar.gz', 'tgz'):
+            return mw.returnData(False, '同步解压仅支持 tar.gz。')
+        if not os.path.isdir(dfile) or os.path.realpath(dfile) == '/':
+            return mw.returnData(False, '解压目录无效。')
+        try:
+            subprocess.run(['tar', '-xzf', os.path.abspath(sfile), '-C', dfile], check=True, capture_output=True)
+        except (OSError, subprocess.CalledProcessError):
+            return mw.returnData(False, '文件解压失败。')
+        mw.writeLog('文件管理', '文件[{1}]解压[{2}]成功!', (sfile, dfile))
+        return mw.returnData(True, '文件解压成功!', {'completed': True})
 
     if extension == 'rar' and not mw.checkBinExist('rar'):
         return mw.returnData(False, 'rar解压命令不存在，请安装!')

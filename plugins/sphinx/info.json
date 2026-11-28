@@ -4,7 +4,7 @@
 	"name": "sphinx",
 	"title": "sphinx",
 	"shell": "install.sh",
-	"versions":["3.1.1"],
+	"versions":["3.1.1", "3.9.1"],
 	"tip": "soft",
 	"install_pre_inspection":true,
 	"checks": "server/sphinx",
@@ -12,9 +12,9 @@
 	"display": 1,
 	"author": "pmpanel",
 	"date": "2017-04-01",
-	"home": "http://sphinxsearch.com/",
-	"doc1": "http://sphinxsearch.com/docs/sphinx3.html",
-	"doc2": "http://sphinxsearch.com/docs/manual-2.3.2.html",
+	"home": "https://sphinxsearch.com/",
+	"doc1": "https://sphinxsearch.com/docs/sphinx3.html",
+	"doc2": "https://sphinxsearch.com/docs/manual-2.3.2.html",
 	"type": 0,
 	"pid": "2"
 }

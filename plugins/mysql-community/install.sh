@@ -122,6 +122,14 @@ if [ ! -d $curPath/versions/$2 ];then
 	exit 0
 fi
 
+if [ "$action" = "install" ] && [ -f "$serverPath/mysql-community/etc/my.cnf" ]; then
+	current_status=$(cd "$rootPath" && python3 plugins/mysql-community/index.py status "$type") || exit $?
+	if [ "$current_status" = "start" ]; then
+		echo "Stop MySQL Community before reinstalling its binaries." >&2
+		exit 1
+	fi
+fi
+
 if [ "${action}" = "uninstall" ];then
 	
 	cd ${rootPath} && python3 ${rootPath}/plugins/mysql-community/index.py stop ${type}
@@ -149,11 +157,11 @@ fi
 
 
 if [ "${action}" = "install" ];then
-	#初始化
-
-	if [ "$?" != "0" ];then
-		exit $?
+	cd "$rootPath" || exit 1
+	python3 "$rootPath/plugins/mysql-community/index.py" start "$type" || exit $?
+	if [ "$(python3 "$rootPath/plugins/mysql-community/index.py" status "$type")" != 'start' ]; then
+		echo "MySQL Community failed to start. Check the MySQL error log." >&2
+		exit 1
 	fi
-	cd ${rootPath} && python3 ${rootPath}/plugins/mysql-community/index.py start ${type}
-	cd ${rootPath} && python3 ${rootPath}/plugins/mysql-community/index.py initd_install ${type}
+	python3 "$rootPath/plugins/mysql-community/index.py" initd_install "$type"
 fi

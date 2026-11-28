@@ -5,6 +5,8 @@ import io
 import os
 import time
 import re
+import shutil
+import shlex
 
 web_dir = os.getcwd() + "/web"
 if os.path.exists(web_dir):
@@ -85,6 +87,18 @@ def status():
     return 'stop'
 
 
+def supervisorBin(command):
+    panel_bin = os.path.join(mw.getPanelDir(), 'bin', command)
+    if os.access(panel_bin, os.X_OK):
+        return panel_bin
+    return shutil.which(command)
+
+
+def controlCommand():
+    binary = supervisorBin('supervisorctl')
+    return shlex.quote(binary or 'supervisorctl') + ' -c ' + shlex.quote(getConf())
+
+
 def initDreplace():
 
     confD = getServerDir() + "/conf.d"
@@ -110,14 +124,12 @@ def initDreplace():
         conf_content = conf_content.replace('{$OS_USER}', user)
         mw.writeFile(conf, conf_content)
 
-    if os.path.exists(systemDir) and not os.path.exists(systemService):
-        activate_file = mw.getPanelDir() + '/bin/activate'
-        if os.path.exists(activate_file):
-            supervisord_bin = mw.execShell(
-                'source ' + activate_file + '&& command -v supervisord')[0].strip()
-        else:
-            supervisord_bin = mw.execShell('command -v supervisord')[0].strip()
-
+    unit = mw.readFile(systemService) if os.path.exists(systemService) else ''
+    legacy_unit = 'ExecReload=kill -s HUP $MAINPID' in unit and 'Type=forking' in unit
+    if os.path.exists(systemDir) and (legacy_unit or not os.path.exists(systemService)):
+        supervisord_bin = supervisorBin('supervisord')
+        if not supervisord_bin:
+            return False
         se_content = mw.readFile(systemServiceTpl)
         se_content = se_content.replace('{$SERVER_PATH}', service_path)
         se_content = se_content.replace('{$SUP_BIN}', supervisord_bin)
@@ -128,7 +140,8 @@ def initDreplace():
 
 
 def supOp(method):
-    initDreplace()
+    if not initDreplace():
+        return '找不到 supervisord。'
 
     if not mw.isAppleSystem():
         data = mw.execShell('systemctl ' + method + ' supervisor')
@@ -139,7 +152,10 @@ def supOp(method):
     if method in ('reload', 'restart'):
         return 'ok'
 
-    cmd = 'supervisord -c ' + getServerDir() + '/supervisor.conf'
+    binary = supervisorBin('supervisord')
+    if not binary:
+        return '找不到 supervisord。'
+    cmd = shlex.quote(binary) + ' -c ' + shlex.quote(getConf())
     if method == 'stop':
         cmd = "ps -ef|grep supervisor | grep -v grep | grep -v index.py | awk '{print $2}'|xargs kill"
     data = mw.execShell(cmd)
@@ -188,7 +204,7 @@ def initdUinstall():
         if mw.isAppleSystem():
             return "Apple Computer does not support"
 
-    mw.execShell('systemctl diable supervisor')
+    mw.execShell('systemctl disable supervisor')
     return 'ok'
 
 
@@ -196,7 +212,7 @@ def getSupList():
     data = {}
 
     statusFile = getServerDir() + "/status.txt"
-    supCtl = 'supervisorctl -c ' + getServerDir() + "/supervisor.conf"
+    supCtl = controlCommand()
     cmd = "%s update; %s status > %s" % (supCtl, supCtl, statusFile)
     mw.execShell(cmd)
 
@@ -359,7 +375,7 @@ def startJob():
     if not data[0]:
         return data[1]
 
-    supCtl = 'supervisorctl -c ' + getServerDir() + "/supervisor.conf"
+    supCtl = controlCommand()
 
     name = args['name']
     status = args['status']
@@ -384,7 +400,7 @@ def restartJob():
     if not data[0]:
         return data[1]
 
-    supCtl = 'supervisorctl -c ' + getServerDir() + "/supervisor.conf"
+    supCtl = controlCommand()
 
     name = args['name']
     status = args['status']
@@ -406,7 +422,7 @@ def delJob():
         return data[1]
     name = args['name']
 
-    supCtl = 'supervisorctl'
+    supCtl = controlCommand()
     log_dir = getServerDir() + '/log/'
 
     result = mw.execShell("{0} stop ".format(supCtl) + name + ":")

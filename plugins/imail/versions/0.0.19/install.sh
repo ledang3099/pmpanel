@@ -12,88 +12,63 @@ VERSION=0.0.19
 # bash install.sh install 0.0.19
 ## cd /www/server/pmpanel/plugins/imail && bash install.sh install 0.0.19
 
-bash ${rootPath}/scripts/getos.sh
-OSNAME=`cat ${rootPath}/data/osname.pl`
-OSNAME_ID=`cat /etc/*-release | grep VERSION_ID | awk -F = '{print $2}' | awk -F "\"" '{print $2}'`
-
-
-ARCH="amd64"
-
-get_arch() {
-	TMP_ARCH=`arch`
-	if [ "$TMP_ARCH" = "x86_64" ];then
-		ARCH="amd64"
-	elif [ "$TMP_ARCH" = "aarch64" ];then
-		ARCH="arm64"
-	else
-		echo $ARCH
-	fi
-}
-
-load_vars() {
-	OS=$(uname | tr '[:upper:]' '[:lower:]')
-	TARGET_DIR="$serverPath/imail"
-}
-
-get_download_url() {
-	DOWNLOAD_URL="https://github.com/midoks/imail/releases/download/$VERSION/imail_${VERSION}_${OS}_${ARCH}.tar.gz"
-}
-
-# download file
-download_file() {
-    url="${1}"
-    destination="${2}"
-
-    printf "Fetching ${url} \n\n"
-
-    if test -x "$(command -v curl)"; then
-        code=$(curl --connect-timeout 15 -w '%{http_code}' -L "${url}" -o "${destination}")
-    elif test -x "$(command -v wget)"; then
-        code=$(wget -t2 -T15 -O "${destination}" --server-response "${url}" 2>&1 | awk '/^  HTTP/{print $2}' | tail -1)
-    else
-        printf "\e[1;31mNeither curl nor wget was available to perform http requests.\e[0m\n"
-        exit 1
-    fi
-
-    if [ "${code}" != 200 ]; then
-        printf "\e[1;31mRequest failed with code %s\e[0m\n" $code
-        exit 1
-    else 
-	    printf "\n\e[1;33mDownload succeeded\e[0m\n"
-    fi
-}
-
-
 Install_App()
-{
-	echo '正在安装脚本文件...'
-	mkdir -p $serverPath/source
+(
+    os=$(uname -s)
+    machine=$(uname -m)
+    case "$os:$machine" in
+        Linux:x86_64) platform=linux_amd64; digest=971d14bc70ed6ab53a74c9588f01a4f8378aafa5ff447213214ca6da6b9e05c2 ;;
+        Linux:aarch64) platform=linux_arm64; digest=0c37a53cbc0787101eba48a4e62bc2f13ee265b7a0ef3f4ffbcd52856edf1b8b ;;
+        Linux:i386|Linux:i686) platform=linux_386; digest=ef33faf2f46472efdd9dfd61cb9dbfa31710121401e2ae7d4873a796745543ec ;;
+        Linux:armv7l|Linux:armv6l) platform=linux_arm; digest=871c8cba662151cef546050284d30db8572a3e7f14d5b1ac48519a0a4e177129 ;;
+        Darwin:x86_64) platform=darwin_amd64; digest=34c0d573c3360305d95519d808ba7e0f1ef282782d5bba08d1da46af01a55548 ;;
+        *)
+            printf 'iMail %s has no package for %s %s\n' "$VERSION" "$os" "$machine" >&2
+            return 1
+            ;;
+    esac
 
-	load_vars
-	get_arch
-	get_download_url
+    if [ -f "$rootPath/bin/activate" ]; then
+        source "$rootPath/bin/activate" || return 1
+    fi
+    if [ "$os" = Linux ] && ! command -v git >/dev/null; then
+        if command -v apt-get >/dev/null; then
+            apt-get install -y git || return 1
+        elif command -v dnf >/dev/null; then
+            dnf install -y git || return 1
+        elif command -v yum >/dev/null; then
+            yum install -y git || return 1
+        else
+            echo 'iMail setup requires git.' >&2
+            return 1
+        fi
+    fi
 
-	DOWNLOAD_FILE="$(mktemp).tar.gz"
-	download_file $DOWNLOAD_URL $DOWNLOAD_FILE
+    source "$rootPath/scripts/tools/verified-download.sh" || return 1
+    cache="$serverPath/source/imail"
+    target="$serverPath/imail"
+    mkdir -p "$cache" || return 1
+    archive="imail_${VERSION}_$platform.tar.gz"
+    verified_download "https://github.com/midoks/imail/releases/download/$VERSION/$archive" "$cache/$archive" "$digest" || return 1
+    staging=$(mktemp -d "$cache/install.XXXXXX") || return 1
+    trap 'rm -rf -- "$staging"' EXIT
+    tar -xzf "$cache/$archive" -C "$staging" || return 1
+    test -x "$staging/imail" || return 1
+    mkdir -p "$target" || return 1
+    cp -Rn "$staging/." "$target/" || return 1
+    mv -f -- "$staging/imail" "$target/imail" || return 1
 
-	if [ ! -d "$TARGET_DIR" ]; then
-		mkdir -p "$TARGET_DIR"
-	fi
-
-	tar -C "$TARGET_DIR" -zxf $DOWNLOAD_FILE
-	rm -rf $DOWNLOAD_FILE
-
-	pushd "$TARGET_DIR/scripts" >/dev/null 2>&1
-	bash make.sh
-
-	if [ -d $serverPath/imail ];then
-		echo "$VERSION" > $serverPath/imail/version.pl
-
-		cd ${rootPath} && python3 ${rootPath}/plugins/imail/index.py start
-		cd ${rootPath} && python3 ${rootPath}/plugins/imail/index.py initd_install
-	fi
-	echo 'install successful'
-}
+    cd "$rootPath" || return 1
+    result=$(python3 plugins/imail/index.py start) || return 1
+    if [ "$result" != ok ]; then
+        printf '%s\n' "$result" >&2
+        return 1
+    fi
+    if [ "$os" = Linux ]; then
+        systemctl restart imail && systemctl enable imail || return 1
+    fi
+    printf '%s\n' "$VERSION" > "$target/version.pl"
+)
 
 Uninstall_App()
 {

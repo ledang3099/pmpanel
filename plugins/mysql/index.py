@@ -521,16 +521,19 @@ def initMysql8Data():
     datadir = getDataDir()
     if not os.path.exists(datadir + '/mysql'):
         serverdir = getServerDir()
-        user = pGetDbUser()
-        # cmd = 'cd ' + serverdir + ' && ./bin/mysqld --basedir=' + serverdir + ' --datadir=' + \
-        #     datadir + ' --initialize'
-
-        cmd = 'cd ' + serverdir + ' && ./bin/mysqld --basedir=' + serverdir + ' --datadir=' + \
-            datadir + ' --initialize-insecure'
-
-        # print(cmd)
-        data = mw.execShell(cmd)
-        # print(data)
+        command = [serverdir + '/bin/mysqld', '--no-defaults', '--basedir=' + serverdir,
+                   '--datadir=' + datadir, '--initialize-insecure']
+        # MySQL saves this setting at initialization and rejects a later mismatch.
+        table_names = re.search(r'^\s*lower[-_]case[-_]table[-_]names\s*=\s*([012])\b',
+                                mw.readFile(getConf()), re.MULTILINE)
+        if table_names:
+            command.append('--lower-case-table-names=' + table_names.group(1))
+        result = subprocess.run(command, cwd=serverdir, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True)
+        if result.returncode:
+            raise SystemExit('MySQL initialization failed:\n' + result.stdout)
+        if not mw.isAppleSystem():
+            subprocess.run(['chown', '-R', 'mysql:mysql', datadir], check=True)
         return False
     return True
 
@@ -685,7 +688,7 @@ def my8cmd(version, method):
                 mw.execShell('systemctl start mysql')
 
             for x in range(10):
-                mydb_status = process_status()
+                mydb_status = status(version)
                 if mydb_status == 'start':
                     initMysql8Pwd()
                     break
@@ -1217,25 +1220,27 @@ def importDbExternal():
         return mw.returnJson(False, '未找SQL文件')
 
     pwd = pSqliteDb('config').where('id=?', (1,)).getField('mysql_root')
-    sock = getSocketFile()
-
-    my_cnf = getConf()
-
-    myPass(True, pwd)
-    mysql_cmd = getServerDir() + '/bin/mysql --defaults-file=' + my_cnf + \
-        ' -uroot -p"' + pwd + '" -f ' + name + ' < ' + import_sql
-
-    # print(mysql_cmd)
-    rdata = mw.execShell(mysql_cmd)
-    myPass(False, pwd)
-    # print(rdata)
-    if ext != 'sql':
-        os.remove(import_sql)
-
-    if rdata[1].lower().find('error') > -1:
-        return mw.returnJson(False, rdata[1])
-
+    command = [
+        getServerDir() + '/bin/mysql',
+        '--defaults-file=' + getConf(),
+        '--user=root',
+        '--',
+        name,
+    ]
+    env = os.environ.copy()
+    env['MYSQL_PWD'] = pwd or ''
+    try:
+        with open(import_sql, 'rb') as sql:
+            result = subprocess.run(command, stdin=sql, capture_output=True, text=False, env=env)
+    except OSError as exc:
+        return mw.returnJson(False, str(exc))
+    finally:
+        if ext != 'sql':
+            os.remove(import_sql)
+    if result.returncode != 0:
+        return mw.returnJson(False, result.stderr.decode(errors='replace'))
     return mw.returnJson(True, 'ok')
+
 
 def importDbExternalProgress():
     args = getArgs()

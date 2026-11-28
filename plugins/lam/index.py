@@ -6,6 +6,10 @@ import os
 import time
 import re
 import json
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
 
 web_dir = os.getcwd() + "/web"
 if os.path.exists(web_dir):
@@ -89,33 +93,28 @@ def getHomePage():
         return mw.returnJson(False, '插件未启动!')
 
 
-def getPhpVer(expect=83):
-    php_vers = MwSites.instance().getPhpVersion()
-    v = php_vers['data']
-    is_find = False
-    for i in range(len(v)):
-        t = str(v[i]['version'])
-        if (t == expect):
-            is_find = True
-            return str(t)
-        expect_str = str(expect)
-        new_ex = expect_str[0:1]+"."+expect_str[1:2]
-        if t.find(new_ex) > -1:
-            is_find = True
-            return str(t)
-    if not is_find:
-        if len(v) > 1:
-            return v[1]['version']
-        return v[0]['version']
-    return str(expect)
+def getPhpVer():
+    versions = MwSites.instance().getPhpVersion()
+    if isinstance(versions, dict):
+        versions = versions['data']
+    conf_dir = mw.getServerDir() + '/web_conf/php/conf'
+    enabled = []
+    for version in versions:
+        name = str(version['version'])
+        match = re.search(r'(?:^|\D)(8)\.?([0-9])(?:\D|$)', name)
+        if match and tuple(map(int, match.groups())) >= (8, 2):
+            if os.path.isfile(os.path.join(conf_dir, f'enable-php-{name}.conf')):
+                enabled.append((tuple(map(int, match.groups())), name))
+    return max(enabled, default=((), ''))[1]
 
 
 def getCachePhpVer():
     cacheFile = getServerDir() + '/php.pl'
     v = ''
     if os.path.exists(cacheFile):
-        v = mw.readFile(cacheFile)
-    else:
+        v = mw.readFile(cacheFile).strip()
+    conf = mw.getServerDir() + '/web_conf/php/conf/enable-php-' + v + '.conf'
+    if not v or not os.path.isfile(conf):
         v = getPhpVer()
         mw.writeFile(cacheFile, v)
     return v
@@ -221,6 +220,8 @@ def delPort():
 
 
 def start():
+    if not getCachePhpVer():
+        return '请先安装并配置 PHP 8.2 或更高版本。'
     initCfg()
     openPort()
 
@@ -430,6 +431,66 @@ def errorLog():
 def installVersion():
     return mw.readFile(getServerDir() + '/version.pl')
 
+def deployedApp():
+    name = getCfg()['path']
+    if not name or name in ('.', '..') or Path(name).name != name:
+        raise ValueError('LAM 应用目录无效。')
+    app = Path(getServerDir()) / name
+    if not app.is_dir() or app.is_symlink():
+        raise ValueError('未找到 LAM 应用目录。')
+    return app
+
+
+def upgradeApp(source):
+    active = deployedApp()
+    if (active / 'VERSION').read_text().strip() != '9.0' or (source / 'VERSION').read_text().strip() != '9.7':
+        raise ValueError('此升级仅支持 LAM 9.0 到 9.7。')
+
+    old_cfg = active / 'config'
+    if old_cfg.is_symlink():
+        raise ValueError('请先按上游说明备份并迁移外部配置目录。')
+    configs = [old_cfg / 'config.cfg'] + [path for path in old_cfg.glob('*.conf') if not path.name.endswith('.sample.conf')]
+    for path in configs:
+        try:
+            if path.is_symlink() or not isinstance(json.loads(path.read_text(encoding='utf-8')), dict):
+                raise ValueError
+        except (OSError, ValueError) as exc:
+            raise ValueError(f'{path.name} 需先在 LAM 9.0 中重新保存为 JSON。') from exc
+
+    backup_root = Path(mw.getServerDir()) / '.lam-upgrades'
+    backup_root.mkdir(mode=0o700, exist_ok=True)
+    if backup_root.is_symlink():
+        raise ValueError('LAM 升级备份目录异常。')
+    backup = Path(tempfile.mkdtemp(prefix='from-9.0-', dir=backup_root))
+    previous, staged = backup / 'previous', backup / 'staged'
+    try:
+        shutil.copytree(source, staged)
+        for path in configs:
+            shutil.copy2(path, staged / 'config' / path.name)
+        for name in ('pdf', 'profiles'):
+            path = old_cfg / name
+            if path.exists():
+                if path.is_symlink() or any(entry.is_symlink() for entry in path.rglob('*')):
+                    raise ValueError(f'{name} 含符号链接，需手动迁移。')
+                shutil.copytree(path, staged / 'config' / name, dirs_exist_ok=True)
+        if not mw.isAppleSystem():
+            subprocess.run(['chown', '-R', 'www:www', str(staged)], check=True)
+        marker = backup / 'version.pl'
+        marker.write_text('9.7\n', encoding='utf-8')
+        active.rename(previous)
+        try:
+            staged.rename(active)
+            marker.replace(active.parent / 'version.pl')
+        except OSError:
+            if active.exists():
+                active.rename(staged)
+            previous.rename(active)
+            raise
+    finally:
+        shutil.rmtree(staged, ignore_errors=True)
+    print(f'旧版应用已保存到 {previous}')
+
+
 if __name__ == "__main__":
     func = sys.argv[1]
     if func == 'status':
@@ -446,6 +507,17 @@ if __name__ == "__main__":
         print(getConf())
     elif func == 'version':
         print(installVersion())
+    elif func == 'upgrade_check':
+        update = (installVersion() or '').strip() == '9.0'
+        print(mw.returnJson(update, 'ok', '9.7' if update else ''))
+    elif func == 'deployed_version':
+        print((deployedApp() / 'VERSION').read_text(encoding='utf-8').strip())
+    elif func == 'upgrade_app':
+        try:
+            upgradeApp(Path(sys.argv[2]))
+        except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(1)
     elif func == 'get_cfg':
         print(returnCfg())
     elif func == 'config_inc':

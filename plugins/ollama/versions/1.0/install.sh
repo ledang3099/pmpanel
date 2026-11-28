@@ -7,43 +7,23 @@ rootPath=$(dirname "$curPath")
 rootPath=$(dirname "$rootPath")
 serverPath=$(dirname "$rootPath")
 
-VERSION=1.0
-sysName=`uname`
-
-# bash install.sh install 1.0
-# cd /www/server/pmpanel/plugins/ollama && bash install.sh install 1.0
-# cd /Users/dev/Desktop/pmdev/server/pmpanel/plugins/ollama && bash install.sh install 1.0
-
-bash ${rootPath}/scripts/getos.sh
-
-
-
-OSNAME=`cat ${rootPath}/data/osname.pl`
-OSNAME_ID=`cat /etc/*-release | grep VERSION_ID | awk -F = '{print $2}' | awk -F "\"" '{print $2}'`
-
-
-ARCH="amd64"
-
-get_arch() {
-	TMP_ARCH=`arch`
-	if [ "$TMP_ARCH" = "x86_64" ];then
-		ARCH="amd64"
-	elif [ "$TMP_ARCH" = "aarch64" ];then
-		ARCH="arm64"
-	else
-		echo $ARCH
-	fi
-}
+VERSION=0.40.18
 
 Install_App()
 {
-	curl -fsSL https://ollama.com/install.sh | sh
-
-	mkdir -p $serverPath/ollama
-	echo "$VERSION" > $serverPath/ollama/version.pl
-
-	cd ${rootPath} && python3 ${rootPath}/plugins/ollama/index.py start
-	echo 'install successful'
+    [ "$(uname -s)" = Linux ] || return 1
+    source "$rootPath/scripts/tools/verified-download.sh" || return 1
+    sources="$serverPath/source/ollama"
+    mkdir -p "$sources" || return 1
+    installer="$sources/install-$VERSION.sh"
+    verified_download "https://github.com/ollama/ollama/releases/download/v$VERSION/install.sh" "$installer" \
+        17659c2456c9e65a3b11056b76da51774911cb822f47bf44f7f3ecc0c40528a8 || return 1
+    OLLAMA_VERSION="$VERSION" sh "$installer" || return 1
+    command -v ollama >/dev/null || return 1
+    mkdir -p "$serverPath/ollama" || return 1
+    printf '%s\n' "$VERSION" > "$serverPath/ollama/version.pl"
+    cd "$rootPath" || return 1
+    [ "$(python3 plugins/ollama/index.py start)" = ok ]
 }
 
 Uninstall_App()
@@ -72,6 +52,8 @@ Uninstall_App()
 action=$1
 if [ "${1}" = 'install' ];then
 	Install_App
+elif [ "$action" = uninstall ]; then
+    Uninstall_App
 else
-	Uninstall_App
+    exit 1
 fi

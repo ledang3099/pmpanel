@@ -19,25 +19,39 @@ fi
 
 Install_App()
 {
-	echo '正在安装脚本文件...'
-	mkdir -p $serverPath/task_manager
+    echo '正在安装脚本文件...'
+    if command -v apt-get >/dev/null; then
+        apt-get install -y libpcap-dev || return 1
+    elif command -v dnf >/dev/null; then
+        dnf install -y libpcap-devel || return 1
+    elif command -v yum >/dev/null; then
+        yum install -y libpcap-devel || return 1
+    fi
 
-	if [ -f /usr/bin/apt ]; then
-		apt install libpcap-dev -y
-	fi
+    if ! python3 -c 'import pcap' >/dev/null 2>&1; then
+        source "$rootPath/scripts/tools/verified-download.sh" || return 1
+        sources="$serverPath/source/task_manager"
+        mkdir -p "$sources" || return 1
+        archive="$sources/pypcap-1.3.0.tar.gz"
+        verified_download \
+            https://files.pythonhosted.org/packages/db/4f/419ad9b163f3e86c32ae3b1e2937709520e24dce589897a26fb875189520/pypcap-1.3.0.tar.gz \
+            "$archive" 669976786b2b4c43869c0ecf6228cbbb70336d1d8eb8d4fe2a3a81df395f45b5 || return 1
+        stage=$(mktemp -d "$sources/build.XXXXXX") || return 1
+        trap 'rm -rf -- "$stage"' EXIT
+        tar -xzf "$archive" -C "$stage" || return 1
+        python3 -m venv "$stage/build-env" || return 1
+        "$stage/build-env/bin/python" -m pip install 'Cython>=3,<4' setuptools wheel || return 1
+        cd "$stage/pypcap-1.3.0" || return 1
+        patch -p1 < "$curPath/pypcap-buffer.patch" || return 1
+        "$stage/build-env/bin/cython" -3 pcap.pyx || return 1
+        "$stage/build-env/bin/python" -m pip wheel --no-build-isolation --no-deps -w "$stage" . || return 1
+        python3 -m pip install "$stage"/pypcap-*.whl || return 1
+    fi
+    python3 -c 'import pcap' || return 1
+    mkdir -p "$serverPath/task_manager" || return 1
+    printf '%s\n' "$VERSION" > "$serverPath/task_manager/version.pl" || return 1
+    echo '安装任务管理器成功'
 
-	if [ -f /usr/bin/yum ]; then
-		yum install libpcap-devel -y
-	fi
-
-	if [ -f /usr/bin/dnf ]; then
-		dnf install libpcap-devel -y
-	fi
-
-	pip3 install pypcap
-
-	echo "$VERSION" > $serverPath/task_manager/version.pl
-	echo "安装任务管理器成功"
 }
 
 Uninstall_App()

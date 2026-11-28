@@ -44,18 +44,17 @@ Install_App()
 	echo '正在安装脚本文件...'
 	mkdir -p $serverPath/source/grafana
 
-	mkdir -p $serverPath/grafana
-	echo "${VERSION}" > $serverPath/grafana/version.pl
 
 	shell_file=${curPath}/versions/${VERSION}/linux.sh
 
 	if [ -f $shell_file ];then
-		bash -x $shell_file install ${VERSION}
+		bash -x "$shell_file" install "$VERSION" || return 1
 	else
 		echo '不支持...'
 		exit 1
 	fi
 
+	printf "%s\n" "$VERSION" > "$serverPath/grafana/version.pl"
 	#初始化 
 	cd ${rootPath} && python3 ${rootPath}/plugins/grafana/index.py start
 	cd ${rootPath} && python3 ${rootPath}/plugins/grafana/index.py initd_install

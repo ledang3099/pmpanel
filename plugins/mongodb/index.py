@@ -7,6 +7,7 @@ import time
 import re
 import json
 import datetime
+import subprocess
 import yaml
 
 web_dir = os.getcwd() + "/web"
@@ -72,7 +73,7 @@ def getConfTpl():
     path = getPluginDir() + "/config/mongodb.conf"
 
     ver_pl = getServerDir()+"/version.pl"
-    ver = mw.readFile(ver_pl)
+    ver = os.getenv('PMPANEL_MONGODB_INSTALL_VERSION') or mw.readFile(ver_pl) or ''
     if ver.startswith('3.0'):
         path = getPluginDir() + "/config/mongodb3.conf"
     return path
@@ -173,6 +174,12 @@ def checkArgs(data, ck=[]):
     return (True, mw.returnJson(True, 'ok'))
 
 def status():
+    if mw.isAppleSystem():
+        config = getConf()
+        script = os.path.join(getServerDir(), 'init.d', getPluginName())
+        if not os.path.isfile(config) or not os.path.isfile(script):
+            return 'stop'
+        return 'start' if macMongoOp(script, 'status') == 'ok' else 'stop'
     cmd = "ps -ef|grep mongod |grep -v mongosh|grep -v grep | grep -v /Applications | grep -v python | grep -v pmpanel | awk '{print $2}'"
     data = mw.execShell(cmd)
     if data[0] == '':
@@ -314,20 +321,23 @@ def initDreplace():
         os.mkdir(data_dir)
 
     install_ok = getServerDir() + "/install.lock"
-    if os.path.exists(install_ok):
+    installed = os.path.exists(install_ok)
+    if not installed or mw.isAppleSystem():
+        content = mw.readFile(file_tpl).replace('{$SERVER_PATH}', service_path)
+        if not os.path.isfile(file_bin) or mw.readFile(file_bin) != content:
+            mw.writeFile(file_bin, content)
+            os.chmod(file_bin, 0o755)
+    if installed and os.path.isfile(getConf()):
         return file_bin
+
+    if not os.path.isfile(getConf()):
+        conf_content = mw.readFile(getConfTpl()).replace('{$SERVER_PATH}', service_path)
+        if not mw.writeFile(getConf(), conf_content):
+            raise OSError('无法写入 MongoDB 配置。')
     mw.writeFile(install_ok, 'ok')
 
-    # initd replace
-    content = mw.readFile(file_tpl)
-    content = content.replace('{$SERVER_PATH}', service_path)
-    mw.writeFile(file_bin, content)
-    mw.execShell('chmod +x ' + file_bin)
-
-    # config replace
-    conf_content = mw.readFile(getConfTpl())
-    conf_content = conf_content.replace('{$SERVER_PATH}', service_path)
-    mw.writeFile(getServerDir() + '/mongodb.conf', conf_content)
+    if mw.isAppleSystem():
+        return file_bin
 
     # systemd
     systemDir = mw.systemdCfgDir()
@@ -343,14 +353,21 @@ def initDreplace():
     return file_bin
 
 
+def macMongoOp(script, method):
+    config = getConfigData() or {}
+    management = config.get('processManagement') or {}
+    env = os.environ.copy()
+    env['MONGODB_CONFIG_OVERRIDE_NOFORK'] = '1'
+    if management.get('pidFilePath'):
+        env['PMPANEL_MONGODB_PIDFILE'] = management['pidFilePath']
+    result = subprocess.run([script, method], env=env, capture_output=True, text=True)
+    return 'ok' if result.returncode == 0 else (result.stderr.strip() or 'fail')
+
+
 def mgOp(method):
     file = initDreplace()
     if mw.isAppleSystem():
-        data = mw.execShell(file + ' ' + method)
-        # print(data)
-        if data[1] == '':
-            return 'ok'
-        return data[1]
+        return macMongoOp(file, method)
 
     data = mw.execShell('systemctl ' + method + ' ' + getPluginName())
     if data[1] == '':
@@ -372,6 +389,8 @@ def reload():
 
 
 def restart():
+    if mw.isAppleSystem():
+        return mgOp('restart')
     if os.path.exists("/tmp/mongodb-27017.sock"):
         mw.execShell('rm -rf ' + "/tmp/mongodb-27017.sock")
 
@@ -1969,6 +1988,17 @@ def installPreInspectionDebainCheck(sysId,version):
 def installPreInspection(version):
     if mw.isAppleSystem():
         return 'ok'
+
+    if version == '9.0' and os.path.isfile('/etc/os-release'):
+        with open('/etc/os-release') as release_file:
+            distro = next((line[3:].strip().strip('"') for line in release_file if line.startswith('ID=')), '')
+        if distro in ('almalinux', 'centos', 'debian', 'opensuse-leap', 'rhel', 'rocky', 'ubuntu'):
+            plugin = getPluginDir()
+            result = subprocess.run(
+                ['bash', os.path.join(plugin, 'versions', '9.0', 'linux.sh'), '--check'],
+                cwd=plugin, capture_output=True, text=True,
+            )
+            return 'ok' if result.returncode == 0 else result.stderr.strip()
 
     cmd = "cat /etc/*-release | grep PRETTY_NAME |awk -F = '{print $2}' | awk -F '\"' '{print $2}'| awk '{print $1}'"
     sys = mw.execShell(cmd)

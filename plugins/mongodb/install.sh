@@ -33,10 +33,13 @@ VERSION=$2
 sysName=`uname`
 echo "use system: ${sysName}"
 
-OSNAME=`bash ${rootPath}/scripts/getos.sh`
-
-if [ "" = "$OSNAME" ];then
-	OSNAME=`cat ${rootPath}/data/osname.pl`
+if [ "$sysName" = Darwin ]; then
+    OSNAME=macos
+else
+    OSNAME=$(bash "$rootPath/scripts/getos.sh")
+    if [ -z "$OSNAME" ]; then
+        OSNAME=$(cat "$rootPath/data/osname.pl")
+    fi
 fi
 
 if [ "macos" != "$OSNAME" ];then
@@ -51,8 +54,16 @@ Install_app()
 	echo '正在安装脚本文件...'
 	mkdir -p $serverPath/source
 
-	cd ${rootPath}/plugins/php/lib && bash openssl_11.sh
+	if [ "$VERSION" != 9.0 ]; then
+        cd "${rootPath}/plugins/php/lib" && bash openssl_11.sh
+    fi
+    cd "$curPath" || return 1
 	shell_file=${curPath}/versions/${VERSION}/${OSNAME}.sh
+	if [ "$VERSION" = 9.0 ]; then
+		case "$OSNAME" in
+			alma|opensuse|rocky|rhel) shell_file="$curPath/versions/9.0/linux.sh" ;;
+		esac
+	fi
 
 	if [ -f $shell_file ];then
 		bash -x $shell_file
@@ -67,13 +78,23 @@ Install_app()
 	fi
 
 	if [ "$?" = "0" ];then
-		mkdir -p $serverPath/mongodb
-		echo "${VERSION}" > $serverPath/mongodb/version.pl
-		echo 'mongodb安装完成'
-
-		#初始化 
-		cd ${rootPath} && python3 ${rootPath}/plugins/mongodb/index.py start
-		cd ${rootPath} && python3 ${rootPath}/plugins/mongodb/index.py initd_install
+		mkdir -p "$serverPath/mongodb" || return 1
+		cd "$rootPath" || return 1
+        local result
+        if [ "$action" = upgrade ]; then
+            result=$(PMPANEL_MONGODB_INSTALL_VERSION="$VERSION" python3 plugins/mongodb/index.py restart) || return 1
+        else
+            result=$(PMPANEL_MONGODB_INSTALL_VERSION="$VERSION" python3 plugins/mongodb/index.py start) || return 1
+        fi
+        if [ "$result" != ok ]; then
+            printf '%s\n' "$result" >&2
+            return 1
+        fi
+        if [ "$OSNAME" != macos ]; then
+            python3 plugins/mongodb/index.py initd_install || return 1
+        fi
+        printf '%s\n' "$VERSION" > "$serverPath/mongodb/version.pl" || return 1
+        echo 'mongodb安装完成'
 	fi
 
 	if [ "${VERSION}" = "3.0" ];then

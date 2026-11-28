@@ -45,9 +45,17 @@ def getConf():
     path = getServerDir() + "/conf/loki-config.yaml"
     return path
 
+def collectorService():
+    if getInstallVerion() == '3.7.10':
+        return 'pmpanel-loki-alloy'
+    return 'promtail'
+
+
 def getPromtailConf():
-    path = getServerDir() + "/conf/promtail-config.yaml"
-    return path
+    if collectorService() == 'pmpanel-loki-alloy':
+        return getServerDir() + '/conf/collector.alloy'
+    return getServerDir() + '/conf/promtail-config.yaml'
+
 
 def getConfTpl():
     path = getPluginDir() + "/conf/loki-config.yaml"
@@ -142,7 +150,7 @@ def initDreplace():
 
     file_tpl = getPromtailConfTpl()
     dst_file = getPromtailConf()
-    if not os.path.exists(dst_file):
+    if collectorService() == "promtail" and not os.path.exists(dst_file):
         content = mw.readFile(file_tpl)
         content = contentReplace(content)
         mw.writeFile(dst_file, content)
@@ -160,9 +168,10 @@ def initDreplace():
 
     # systemd
     systemDir = mw.systemdCfgDir()
-    systemService = systemDir + '/promtail.service'
+    collector = collectorService()
+    systemService = systemDir + '/' + collector + '.service'
     if os.path.exists(systemDir) and not os.path.exists(systemService):
-        systemServiceTpl = getPluginDir() + '/init.d/promtail.service.tpl'
+        systemServiceTpl = getPluginDir() + '/init.d/' + collector + '.service.tpl'
         service_path = mw.getServerDir()
         content = mw.readFile(systemServiceTpl)
         content = content.replace('{$SERVER_PATH}', service_path)
@@ -179,7 +188,7 @@ def gOp(method):
     if data[1] != '':
         return data[1]
 
-    data = mw.execShell('systemctl ' + method + ' promtail')
+    data = mw.execShell('systemctl ' + method + ' ' + collectorService())
     if data[1] != '':
         return data[1]
     return 'ok'
@@ -207,7 +216,7 @@ def initdStatus():
     if data[0] == '':
         return 'fail'
 
-    shell_cmd = 'systemctl status promtail|grep loaded|grep "enabled;"'
+    shell_cmd = 'systemctl status ' + collectorService() + '|grep loaded|grep "enabled;"'
     data = mw.execShell(shell_cmd)
     if data[0] == '':
         return 'fail'
@@ -223,7 +232,7 @@ def initdInstall():
     if data[1] != '':
         return data[1]
 
-    data = mw.execShell('systemctl enable promtail')
+    data = mw.execShell('systemctl enable ' + collectorService())
     if data[1] != '':
         return data[1]
     return 'ok'
@@ -238,7 +247,7 @@ def initdUinstall():
     if data[1] != '':
         return data[1]
 
-    data = mw.execShell('systemctl enable promtail')
+    data = mw.execShell('systemctl disable ' + collectorService())
     if data[1] != '':
         return data[1]
     return 'ok'

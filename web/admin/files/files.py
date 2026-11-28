@@ -178,7 +178,7 @@ def uncompress():
     sfile = request.form.get('sfile', '')
     dfile = request.form.get('dfile', '')
     path = request.form.get('path', '')
-    return file.uncompress(sfile, dfile, path)
+    return file.uncompress(sfile, dfile, path, wait=request.form.get('wait') == '1')
 
 # 批量操作
 @blueprint.route('/set_batch_data', endpoint='set_batch_data', methods=['POST'])

@@ -32,15 +32,10 @@ fi
 action=$1
 type=$2
 
-if [ "${2}" = "" ];then
-	echo '缺少安装脚本.'
-	exit 0
-fi 
-
-if [ ! -d $curPath/versions/$2 ];then
-	echo '缺少安装脚本..'
-	exit 0
-fi
+case "$type" in
+    84|85) ;;
+    *) echo '缺少安装脚本.' >&2; exit 1 ;;
+esac
 
 if [ "${action}" = "uninstall" ];then
 	
@@ -53,15 +48,15 @@ if [ "${action}" = "uninstall" ];then
 	fi
 fi
 
-cd ${curPath} && sh -x $curPath/versions/$2/install.sh $1
+bash "$curPath/versions/$type/install.sh" "$action" || exit 1
 
 
 if [ "${action}" = "install" ] && [ -d ${serverPath}/rapira/${type} ];then
-	#初始化
-	echo "cd ${rootPath} && . bin/activate && python3 plugins/rapira/index.py start ${type}"
-	echo "cd ${rootPath} && . bin/activate && python3 plugins/rapira/index.py initd_install ${type}"
-	cd ${rootPath} && . bin/activate && python3 plugins/rapira/index.py start ${type}
-	cd ${rootPath} && . bin/activate && python3 plugins/rapira/index.py initd_install ${type}
+    cd "$rootPath" || exit 1
+    [ "$(python3 plugins/rapira/index.py start "$type")" = ok ] || exit 1
+    if [ "$sysName" != Darwin ]; then
+        [ "$(python3 plugins/rapira/index.py initd_install "$type")" = ok ] || exit 1
+    fi
 
 	# 安装通用扩展
 	echo "install PHP${type} extend start"

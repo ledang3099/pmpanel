@@ -12,8 +12,11 @@ from pprint import pprint
 
 
 # print(os.getcwd())
-sys.path.append(os.getcwd() + "/class/core")
-import mw
+web_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../web'))
+if os.getcwd() != web_dir:
+    sys.path.insert(0, web_dir)
+    os.chdir(web_dir)
+from core import mw
 
 # cd /www/server/pmpanel && . bin/activate
 # python3 plugins/cryptocurrency_trade/ccxt/public_data/data.py run
@@ -30,7 +33,7 @@ import mw
 # })
 
 # exchange = ccxt.poloniex()
-exchange = ccxt.okex()
+exchange = ccxt.okx()
 
 
 def getPluginName():

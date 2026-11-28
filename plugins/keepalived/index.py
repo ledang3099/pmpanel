@@ -200,7 +200,10 @@ def initDreplace():
     # systemd
     systemDir = mw.systemdCfgDir()
     systemService = systemDir + '/' + getPluginName() + '.service'
-    if os.path.exists(systemDir) and not os.path.exists(systemService):
+    current_unit = mw.readFile(systemService) if os.path.exists(systemService) else ''
+    legacy_exec = 'ExecStart=' + getServerDir() + '/sbin/keepalived -D'
+    legacy_unit = 'Description=Redis In-Memory Data Store' in current_unit and legacy_exec in current_unit
+    if os.path.exists(systemDir) and (legacy_unit or not os.path.exists(systemService)):
         systemServiceTpl = getPluginDir() + '/init.d/' + getPluginName() + '.service.tpl'
         content = mw.readFile(systemServiceTpl)
         content = contentReplace(content)

@@ -1,55 +1,28 @@
 #!/bin/bash
-# chkconfig: 2345 55 25
-# description: PM Panel Service
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+app_file="{$SERVER_PATH}"
 
-### BEGIN INIT INFO
-# Provides:          bt
-# Required-Start:    $all
-# Required-Stop:     $all
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: starts pm
-# Description:       starts the pm
-### END INIT INFO
+active()
+{
+    swapon --show=NAME --noheadings --raw | grep -Fxq -- "$app_file"
+}
 
-
-PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
-
-app_file={$SERVER_PATH}
-
-app_start(){
-	isStart=`free -m|grep Swap|awk '{print $2}'`
-	if [ "$isStart" == '0' ];then
-        echo -e "Starting swap... \c"
-        swapon $app_file
-        echo -e "\033[32mdone\033[0m"
-    else
-        echo "Starting swap already running"
-    fi
+app_start()
+{
+    active || swapon -- "$app_file"
 }
 
 app_stop()
 {
-    echo -e "Stopping swap... \c";
-    swapoff $app_file
-    echo -e "\033[32mdone\033[0m"
-}
-
-app_status()
-{
-    isStart=`free -m|grep Swap|awk '{print $2}'`
-    if [ "$isStart" == '0' ];then
-        echo -e "\033[32mswap already running\033[0m"
-    else
-        echo -e "\033[31mswap not running\033[0m"
+    if active; then
+        swapoff -- "$app_file"
     fi
 }
 
 case "$1" in
-    'start') app_start;;
-    'stop') app_stop;;
-    'restart'|'reload') 
-        app_stop
-        app_start;;
-    'status') app_status;;
+    start) app_start ;;
+    stop) app_stop ;;
+    restart|reload) app_stop && app_start ;;
+    status) active ;;
+    *) exit 1 ;;
 esac

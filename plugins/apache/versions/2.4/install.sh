@@ -1,172 +1,55 @@
-#!/bin/bash
-PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin:/opt/homebrew/bin
-export PATH
+#!/usr/bin/env bash
+set -e
 
-# cd /Users/dev/Desktop/pmdev/server/pmpanel/plugins/apache && bash install.sh install 2.4
-# cd /www/server/pmpanel/plugins/apache && bash install.sh install 2.4
+panel=$(cd ../.. && pwd)
+server=$(dirname "$panel")
+runtime="$server/apache"
+sources="$server/source/apache"
 
-curPath=`pwd`
-rootPath=$(dirname "$curPath")
-rootPath=$(dirname "$rootPath")
-serverPath=$(dirname "$rootPath")
+case "$1" in
+    install) if [ -x "$runtime/httpd/bin/httpd" ]; then exit 0; fi ;;
+    upgrade) ;;
+    uninstall) exit 0 ;;
+    *) exit 1 ;;
+esac
 
-sysName=`uname`
-action=$1
-type=$2
+source "$panel/scripts/tools/verified-download.sh"
+mkdir -p "$sources"
+apr=apr-1.7.6
+apu=apr-util-1.6.6
+httpd=httpd-2.4.71
+download=https://dlcdn.apache.org
+verified_download "$download/apr/$apr.tar.gz" "$sources/$apr.tar.gz" \
+    6a10e7f7430510600af25fabf466e1df61aaae910bf1dc5d10c44a4433ccc81d
+verified_download "$download/apr/$apu.tar.gz" "$sources/$apu.tar.gz" \
+    acd5f38440eda830e40c4fe35c2a6b8119493cfdba9c9d73d985c317beb4e4f8
+verified_download "$download/httpd/$httpd.tar.bz2" "$sources/$httpd.tar.bz2" \
+    2bc5da5a33c247341de082717d4ebcb5cb49e8b73a05b7fddf7d5d6dc2f8de62
+stage=$(mktemp -d "$sources/build.XXXXXX")
+trap 'rm -rf -- "$stage"' EXIT
 
-VERSION=2.4.71
-apacheDir=${serverPath}/source/apache
-
-Install_App()
-{
-	if [ "${action}" = "install" ];then
-		if [ -d $serverPath/apache ];then
-			exit 0
-		fi
-	fi
-	
-	# ----- cpu start ------
-	if [ -z "${cpuCore}" ]; then
-    	cpuCore="1"
-	fi
-
-	if [ -f /proc/cpuinfo ];then
-		cpuCore=`cat /proc/cpuinfo | grep "processor" | wc -l`
-	fi
-
-	MEM_INFO=$(free -m|grep Mem|awk '{printf("%.f",($2)/1024)}')
-	if [ "${cpuCore}" != "1" ] && [ "${MEM_INFO}" != "0" ];then
-	    if [ "${cpuCore}" -gt "${MEM_INFO}" ];then
-	        cpuCore="${MEM_INFO}"
-	    fi
-	else
-	    cpuCore="1"
-	fi
-
-	if [ "$cpuCore" -gt "2" ];then
-		cpuCore=`echo "$cpuCore" | awk '{printf("%.f",($1)*0.8)}'`
-	else
-		cpuCore="1"
-	fi
-	# ----- cpu end ------
-
-	mkdir -p ${apacheDir}
-	echo 'install script ...'
-	OPTIONS=''
-
-	# 安装 APR 和 APR-util
-	APR_VERSION=1.7.6
-	APR_UTIL_VERSION=1.6.3
-
-	if [ ! -f ${apacheDir}/apr-${APR_VERSION}.tar.bz2 ];then
-		wget --no-check-certificate -O ${apacheDir}/apr-${APR_VERSION}.tar.bz2 https://downloads.apache.org/apr/apr-${APR_VERSION}.tar.bz2 -T 3
-	fi
-
-	if [ ! -f ${apacheDir}/apr-util-${APR_UTIL_VERSION}.tar.bz2 ];then
-		wget --no-check-certificate -O ${apacheDir}/apr-util-${APR_UTIL_VERSION}.tar.bz2 https://downloads.apache.org/apr/apr-util-${APR_UTIL_VERSION}.tar.bz2 -T 3
-	fi
-
-	# 安装 APR
-	if [ ! -d ${serverPath}/apache/apr ];then
-		cd ${apacheDir} && tar -jxf apr-${APR_VERSION}.tar.bz2
-		cd ${apacheDir}/apr-${APR_VERSION} && ./configure --prefix=${serverPath}/apache/apr
-		make -j${cpuCore} && make install
-		if [ "$?" = "0" ];then
-					# 检查 APR 配置文件
-					APR_CONFIG=$(find ${serverPath}/apache/apr -name "apr-*config" | head -1)
-					if [ -z "$APR_CONFIG" ];then
-						echo "APR installation failed: apr-config not found"
-						exit 1
-					fi
-					echo "APR installed successfully: $APR_CONFIG"
-				else
-					echo "APR configure failed"
-					exit 1
-				fi
-	fi
-
-	# 安装 APR-util
-	if [ ! -d ${serverPath}/apache/apr-util ];then
-		cd ${apacheDir} && tar -jxf apr-util-${APR_UTIL_VERSION}.tar.bz2
-		cd ${apacheDir}/apr-util-${APR_UTIL_VERSION} && ./configure --prefix=${serverPath}/apache/apr-util --with-apr=${serverPath}/apache/apr
-		make -j${cpuCore} && make install
-		if [ "$?" = "0" ];then
-					# 检查 APR-util 配置文件
-					APU_CONFIG=$(find ${serverPath}/apache/apr-util -name "apu-*config" | head -1)
-					if [ -z "$APU_CONFIG" ];then
-						echo "APR-util installation failed: apu-config not found"
-						find ${serverPath}/apache/apr-util -name "apu-*config"
-						exit 1
-					fi
-					echo "APR-util installed successfully: $APU_CONFIG"
-				else
-					echo "APR-util configure failed"
-					exit 1
-				fi
-	fi
-
-	if [ ! -f ${apacheDir}/httpd-${VERSION}.tar.bz2 ];then
-		wget --no-check-certificate -O ${apacheDir}/httpd-${VERSION}.tar.bz2 https://downloads.apache.org/httpd/httpd-${VERSION}.tar.bz2 -T 3
-	fi
-
-	if [ ! -d ${apacheDir}/httpd-${VERSION} ];then
-		cd ${apacheDir} && tar -jxf ${apacheDir}/httpd-${VERSION}.tar.bz2
-	fi
-	
-
-	# 检查 APR 和 APR-util 可执行文件
-	APR_CONFIG=$(find ${serverPath}/apache/apr -name "apr-*config" | head -1)
-	APU_CONFIG=$(find ${serverPath}/apache/apr-util -name "apu-*config" | head -1)
-
-	if [ -z "$APR_CONFIG" ];then
-		echo "APR config not found"
-		exit 1
-	fi
-
-	if [ -z "$APU_CONFIG" ];then
-		echo "APR-util config not found"
-		exit 1
-	fi
-
-	OPTIONS="${OPTIONS} --with-apr=$APR_CONFIG"
-	OPTIONS="${OPTIONS} --with-apr-util=$APU_CONFIG"
-
-	# if [ "$sysName" != "Darwin" ];then
-	# 	OPTIONS="${OPTIONS} --enable-systemd"
-	# fi
-	# echo "cd ${apacheDir}/httpd-${VERSION} && ./configure --prefix=$serverPath/apache $OPTIONS"
-	cd ${apacheDir}/httpd-${VERSION} && ./configure \
-	--prefix=$serverPath/apache/httpd \
-	$OPTIONS
-
-	make -j${cpuCore} && make install && make clean
-
-
-	if [ -d ${apacheDir}/apr-${APR_VERSION} ];then
-    	rm -rf ${apacheDir}/apr-${APR_VERSION}
-    fi
-
-    if [ -d ${apacheDir}/apr-util-${APR_UTIL_VERSION} ];then
-    	rm -rf ${apacheDir}/apr-util-${APR_UTIL_VERSION}
-    fi
-
-    if [ -d ${apacheDir}/httpd-${APR_UTIL_VERSION} ];then
-    	rm -rf ${apacheDir}/httpd-${APR_UTIL_VERSION}
-    fi
-
-	echo 'installation of apache completed'
-}
-
-Uninstall_App()
-{
-	echo 'uninstalling apache completed'
-}
-
-action=$1
-if [ "${1}" = "install" ];then
-	Install_App
-elif [ "${1}" = "upgrade" ];then
-	Install_App
-else
-	Uninstall_App
+apr_prefix="$runtime/$apr"
+apu_prefix="$runtime/$apu"
+if [ ! -x "$apr_prefix/bin/apr-1-config" ]; then
+    tar -xzf "$sources/$apr.tar.gz" -C "$stage"
+    cd "$stage/$apr"
+    ./configure --prefix="$apr_prefix"
+    make -j2
+    make install
 fi
+if [ ! -x "$apu_prefix/bin/apu-1-config" ]; then
+    tar -xzf "$sources/$apu.tar.gz" -C "$stage"
+    cd "$stage/$apu"
+    ./configure --prefix="$apu_prefix" --with-apr="$apr_prefix/bin/apr-1-config"
+    make -j2
+    make install
+fi
+tar -xjf "$sources/$httpd.tar.bz2" -C "$stage"
+cd "$stage/$httpd"
+options=("--prefix=$runtime/httpd" "--with-apr=$apr_prefix/bin/apr-1-config"
+    "--with-apr-util=$apu_prefix/bin/apu-1-config" --with-mpm=event --enable-mods-shared=most)
+if pkg-config --exists libbrotlienc; then options+=(--enable-brotli=shared); fi
+./configure "${options[@]}"
+make -j2
+make install
+"$runtime/httpd/bin/httpd" -v

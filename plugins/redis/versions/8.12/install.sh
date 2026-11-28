@@ -1,61 +1,31 @@
-#!/bin/bash
-PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin:/opt/homebrew/bin
-export PATH
+#!/usr/bin/env bash
 
-action=$1
-
-curPath=`pwd`
-rootPath=$(dirname "$curPath")
-rootPath=$(dirname "$rootPath")
-serverPath=$(dirname "$rootPath")
-
-VERSION=8.12.0
-PLUGIN_VERSION=8.12
-
-Install_App()
-{
-    echo '正在安装脚本文件...'
-    mkdir -p $serverPath/source
-    mkdir -p $serverPath/source/redis
-
-    FILE_TGZ=redis-${VERSION}.tar.gz
-    REDIS_DIR=$serverPath/source/redis
-
-    if [ ! -f $REDIS_DIR/${FILE_TGZ} ];then
-        wget -O $REDIS_DIR/${FILE_TGZ} https://download.redis.io/releases/${FILE_TGZ}
+install_redis() (
+    panel=$(cd ../.. && pwd) || return 1
+    server=$(dirname "$panel")
+    source "$panel/scripts/tools/verified-download.sh" || return 1
+    sources="$server/source/redis"
+    mkdir -p "$sources" || return 1
+    archive="$sources/redis-8.12.0.tar.gz"
+    verified_download https://download.redis.io/releases/redis-8.12.0.tar.gz "$archive" \
+        b0100a879b2d45dc97d8fda941127609d648f8913008db1b65a2f72a8ae36c8b || return 1
+    stage=$(mktemp -d "$sources/install.XXXXXX") || return 1
+    trap 'rm -rf -- "$stage"' EXIT
+    tar -xzf "$archive" -C "$stage" || return 1
+    cd "$stage/redis-8.12.0" || return 1
+    make_command=make
+    if command -v gmake >/dev/null; then make_command=gmake; fi
+    "$make_command" -j2 PREFIX="$server/redis" install || return 1
+    test -x "$server/redis/bin/redis-server" || return 1
+    mkdir -p "$server/redis/data" || return 1
+    if [ ! -f "$server/redis/redis.conf" ]; then
+        sed '/^ *#/d' redis.conf > "$server/redis/redis.conf" || return 1
     fi
+    printf '8.12\n' > "$server/redis/version.pl"
+)
 
-    cd $REDIS_DIR && tar -zxvf ${FILE_TGZ}
-
-    CMD_MAKE=`which gmake`
-    if [ "$?" = "0" ];then
-        cd redis-${VERSION} && gmake PREFIX=$serverPath/redis install
-    else
-        cd redis-${VERSION} && make PREFIX=$serverPath/redis install
-    fi
-
-    if [ ! -d $serverPath/redis/data ];then
-        mkdir -p $serverPath/redis/data
-        sed '/^ *#/d' redis.conf > $serverPath/redis/redis.conf
-        echo '安装完成'
-    fi
-
-    echo "${PLUGIN_VERSION}" > $serverPath/redis/version.pl
-
-    if [ -d ${REDIS_DIR}/redis-${VERSION} ];then
-        rm -rf ${REDIS_DIR}/redis-${VERSION}
-    fi
-}
-
-Uninstall_App()
-{
-    echo "卸载redis成功"
-}
-
-if [ "${1}" = 'install' ] || [ "$action" = "upgrade" ];then
-    Install_App
-elif [ "${1}" = 'uninstall' ];then
-    Uninstall_App
-else
-    echo "OPTIONS ERROR"
-fi
+case "$1" in
+    install|upgrade) install_redis ;;
+    uninstall) exit 0 ;;
+    *) exit 1 ;;
+esac

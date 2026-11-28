@@ -6,7 +6,7 @@
 	"title": "Rapira",
 	"coexist": true,
 	"versions": ["84","85"],
-	"updates": ["8.4.2","8.5.12"],
+	"updates": ["8.4.28","8.5.13"],
 	"tip": "soft",
 	"install_pre_inspection":true,
 	"checks": "server/rapira/VERSION/bin/rapira",

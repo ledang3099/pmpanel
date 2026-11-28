@@ -7,6 +7,8 @@ import time
 import re
 import requests
 import json
+import shutil
+import subprocess
 
 web_dir = os.getcwd() + "/web"
 if os.path.exists(web_dir):
@@ -514,25 +516,14 @@ def getDnsapiData(dnsapi_id):
         return tdata[0]
     return {}
 
-def getDnsapiExportVar(val):
-    cmd_list =  val.split('~')
-    def_var = ''
-    for x in range(len(cmd_list)):
-        v = cmd_list[x]
-        vlist = v.split('|')
-        def_var += 'export '+vlist[0]+'="'+vlist[1]+'"\n'
-    return def_var
-
 def getDnsapiKv(val):
-    cmd_list =  val.split('~')
-    def_var = {}
-    for x in range(len(cmd_list)):
-        v = cmd_list[x]
-        vlist = v.split('|')
-        kk = vlist[0]
-        vv = vlist[1]
-        def_var[kk] = vv
-    return def_var
+    result = {}
+    for record in val.split('~'):
+        key, separator, value = record.partition('|')
+        if separator:
+            result[key] = value
+    return result
+
 
 def domainApplyPathJudge(domain):
     acme_dir = "/root/.acme.sh"
@@ -600,41 +591,49 @@ def runHookDstDomain(row):
             return
 
     hookWriteLog('开始申请【'+domain+'】SSL证书')
-    cmd = "#!/bin/bash\n"
-    cmd += "PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin:/opt/homebrew/bin:/root/.acme.sh\n"
-    cmd += "export PATH\n"
+    provider = getDnsapiData(row['dnsapi_id'])
+    provider_type = provider.get('type', '')
+    if not re.fullmatch(r'dns_[a-z0-9_]+', provider_type):
+        hookWriteLog('缺少有效的 DNS 提供商配置。')
+        return
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]', domain):
+        hookWriteLog('域名格式不正确。')
+        return
 
-    if mw.isAppleSystem():
-        user = getRunUser()
-        cmd += ". /Users/"+user+"/.zshrc\n"
+    credentials = getDnsapiKv(provider.get('val', ''))
+    for key in credentials:
+        if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*', key) or key.startswith(('LD_', 'DYLD_')) or key in {
+            'PATH', 'HOME', 'SHELL', 'ENV', 'BASH_ENV', 'IFS', 'CDPATH', 'SHELLOPTS', 'BASHOPTS',
+            'PYTHONPATH', 'PYTHONHOME', 'PERL5OPT', 'RUBYOPT',
+        }:
+            hookWriteLog('DNS 凭据变量名称无效。')
+            return
 
-    cmd_data = getDnsapiData(row['dnsapi_id'])
-    # print(cmd_data)
-    export_val =  getDnsapiExportVar(cmd_data['val'])
-    cmd += export_val
+    engine = os.path.join(getHomeDir(), '.acme.sh', 'acme.sh')
+    if not os.access(engine, os.X_OK):
+        engine = shutil.which('acme.sh')
+    if not engine:
+        hookWriteLog('未找到 acme.sh。')
+        return
 
-    # acme.sh --register-account -m my@example.com
-    cmd_register = 'acme.sh --register-account -m '+ email + '\n'
-    cmd += cmd_register
-
-    
-    # acme.sh --issue -d "example.com" -d "*.example.com" --dns dns_cf
-    cmd_apply = 'acme.sh --issue --dns '+str(cmd_data['type'])+' -d '+domain+' -d "*.'+domain+'"'
+    env = os.environ.copy()
+    env.update(credentials)
+    issue = [engine, '--issue', '--dns', provider_type, '-d', domain, '-d', '*.' + domain]
     if row['effective_date'] != '':
-        effective_date = int(row['effective_date'])
-        now_int = int(time.time())
-        day = (now_int - effective_date)/86400
-        if int(day) > 7:
-            cmd_apply = 'acme.sh --issue --dns '+str(cmd_data['type'])+' -d '+domain+' -d "*.'+domain+'" --force'
-    cmd += cmd_apply
+        issue.append('--force')
+    try:
+        with open(runLog(), 'a', encoding='utf-8') as log:
+            subprocess.run([engine, '--register-account', '-m', email], env=env, stdout=log, stderr=subprocess.STDOUT)
+            result = subprocess.run(issue, env=env, stdout=log, stderr=subprocess.STDOUT)
+    except OSError as exc:
+        hookWriteLog(f'acme.sh 执行失败：{exc.strerror}')
+        return
+    if result.returncode not in (0, 2):
+        hookWriteLog(f'acme.sh 签发失败，退出码 {result.returncode}。')
+        return
 
-    run_log = runLog()
-    cmd += ' >> '+ run_log
-    print(cmd)
-    os.system(cmd)
     hookWriteLog('结束申请【'+domain+'】SSL证书')
     isok, path = domainApplyPathJudge(domain)
-    print(isok,path)
     if isok:
         autoUpdateSslData(domain, path)
         hookWriteLog('开始执行【'+domain+'】Hook脚本')

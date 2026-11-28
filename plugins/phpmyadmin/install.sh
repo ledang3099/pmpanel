@@ -42,36 +42,45 @@ fi
 
 Install_phpmyadmin()
 {
-	if [ -d $serverPath/phpmyadmin ];then
-		exit 0
-	fi
+    if [ -d "$serverPath/phpmyadmin" ]; then
+        if [ "$(cat "$serverPath/phpmyadmin/version.pl" 2>/dev/null)" = "$1" ]; then
+            cd "$rootPath" || return 1
+            result=$(python3 plugins/phpmyadmin/index.py start) || return 1
+            if [ "$result" != ok ]; then printf '%s\n' "$result" >&2; return 1; fi
+            return 0
+        fi
+        echo '检测到已安装的 phpMyAdmin。请备份现有配置之后再安装所选版本。' >&2
+        return 1
+    fi
 
-	mkdir -p ${serverPath}/source/phpmyadmin
-	
-	VER=$1
-	
-	FDIR=phpMyAdmin-${VER}-all-languages
-	FILE=phpMyAdmin-${VER}-all-languages.tar.gz
-	DOWNLOAD=https://files.phpmyadmin.net/phpMyAdmin/${VER}/$FILE
-	
+    version=$1
+    case "$version" in
+        4.4.15|4.9.11|5.2.3) ;;
+        *) return 1 ;;
+    esac
+    sources="$serverPath/source/phpmyadmin"
+    mkdir -p "$sources" || return 1
+    dir="phpMyAdmin-$version-all-languages"
+    archive="$sources/$dir.tar.gz"
+    url="https://files.phpmyadmin.net/phpMyAdmin/$version/$dir.tar.gz"
+    if [ "$version" = 5.2.3 ]; then
+        source "$rootPath/scripts/tools/verified-download.sh" || return 1
+        verified_download "$url" "$archive" 12ba1c425fa4071abbd4e7668c9ebdeac0b0755a467a6d6d5026122bb47c102b || return 1
+    elif [ ! -s "$archive" ]; then
+        curl -fsSL "$url" -o "$archive.part" && mv -f -- "$archive.part" "$archive" || return 1
+    fi
+    stage=$(mktemp -d "$sources/install.XXXXXX") || return 1
+    trap 'rm -rf -- "$stage"' EXIT
+    tar -xzf "$archive" -C "$stage" || return 1
+    test -f "$stage/$dir/index.php" || return 1
+    mkdir -p "$serverPath/phpmyadmin" || return 1
+    mv -- "$stage/$dir" "$serverPath/phpmyadmin/phpmyadmin" || return 1
+    printf '%s\n' "$version" > "$serverPath/phpmyadmin/version.pl" || return 1
+    cd "$rootPath" || return 1
+    result=$(python3 plugins/phpmyadmin/index.py start) || return 1
+    if [ "$result" != ok ]; then printf '%s\n' "$result" >&2; return 1; fi
+    echo '安装完成'
 
-	if [ ! -f $serverPath/source/phpmyadmin/$FILE ];then
-		wget --no-check-certificate -O $serverPath/source/phpmyadmin/$FILE $DOWNLOAD
-	fi
-
-	if [ ! -d $serverPath/source/phpmyadmin/$FDIR ];then
-		cd $serverPath/source/phpmyadmin  && tar zxvf $FILE
-	fi
-	
-	mkdir -p ${serverPath}/phpmyadmin
-	cp -r $serverPath/source/phpmyadmin/$FDIR $serverPath/phpmyadmin/
-	cd $serverPath/phpmyadmin/ && mv $FDIR phpmyadmin
-	rm -rf $serverPath/source/phpmyadmin/$FDIR
-
-	echo "${1}" > ${serverPath}/phpmyadmin/version.pl
-	cd ${rootPath} && python3 ${rootPath}/plugins/phpmyadmin/index.py start
-	
-	echo '安装完成'
 }
 
 Uninstall_phpmyadmin()
@@ -83,8 +92,8 @@ Uninstall_phpmyadmin()
 }
 
 action=$1
-if [ "${1}" = 'install' ];then
-	Install_phpmyadmin $2
-else
-	Uninstall_phpmyadmin $2
-fi
+case "$action" in
+    install) Install_phpmyadmin "$2" ;;
+    uninstall) Uninstall_phpmyadmin ;;
+    *) exit 1 ;;
+esac

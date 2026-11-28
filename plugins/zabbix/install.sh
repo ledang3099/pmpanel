@@ -39,21 +39,22 @@ Install_App()
 	echo '正在安装脚本文件...'
 	mkdir -p $serverPath/source/zabbix
 
-	mkdir -p $serverPath/zabbix
-	echo "${VERSION}" > $serverPath/zabbix/version.pl
 
 	shell_file=${curPath}/versions/${VERSION}/${OSNAME}.sh
 
 	if [ -f $shell_file ];then
-		bash -x $shell_file install
+		bash -x "$shell_file" install || return 1
 	else
 		echo '不支持...'
 		exit 1
 	fi
 
+	mkdir -p "$serverPath/zabbix" && printf "%s\n" "$VERSION" > "$serverPath/zabbix/version.pl" || return 1
 	#初始化 
-	cd ${rootPath} && python3 ${rootPath}/plugins/zabbix/index.py start
-	cd ${rootPath} && python3 ${rootPath}/plugins/zabbix/index.py initd_install
+	cd "$rootPath" || return 1
+	python3 plugins/zabbix/index.py start || return $?
+	systemctl is-active --quiet zabbix-server || return $?
+	python3 plugins/zabbix/index.py initd_install || return $?
 
 
 	if [ -d /etc/zabbix/web ];then

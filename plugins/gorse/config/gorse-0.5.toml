@@ -1,0 +1,15 @@
+[database]
+cache_store = "sqlite://{$SERVER_PATH}/gorse/data/cache.sqlite"
+data_store = "sqlite://{$SERVER_PATH}/gorse/data/gorse.sqlite"
+table_prefix = "gorse_"
+
+[master]
+host = "0.0.0.0"
+port = 8086
+http_host = "0.0.0.0"
+http_port = 8088
+dashboard_user_name = "{$CONFIG_ADMIN}"
+dashboard_password = "{$CONFIG_PASS}"
+
+[server]
+api_key = "{$CONFIG_API_KEY}"

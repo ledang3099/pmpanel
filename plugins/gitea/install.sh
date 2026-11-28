@@ -87,20 +87,27 @@ Install_App()
 		file=gitea-${version}-linux-amd64
 	fi
 
-	file_xz="${file}.xz"
-	echo "wget -O $serverPath/source/gitea/$file_xz ${URL_DOWNLOAD}/gitea/${version}/${file_xz}"
-	if [ ! -f $serverPath/source/gitea/$file_xz ];then
-		wget -O "$serverPath/source/gitea/$file_xz.part" "${URL_DOWNLOAD}/gitea/${version}/${file_xz}" && mv "$serverPath/source/gitea/$file_xz.part" "$serverPath/source/gitea/$file_xz" || return 1
-	fi
+    archive="$serverPath/source/gitea/$file.xz"
+    url="$URL_DOWNLOAD/gitea/$version/$file.xz"
+    if [ "$version" = 28.4.0 ]; then
+        case "$platform-$architecture" in
+            linux-amd64) digest=0b60b8efd1c7d948d927ef29e849d7263eb000c3cb2ae5d4303e3ecbdeaaa237 ;;
+            linux-arm64) digest=b33a221b9d970a262fc71bbb6e993ad5c4549ed597f078c04ea2112900280a0c ;;
+            darwin-amd64) digest=976a3f7636e0dae5a17123adaa5a100fe72d15e1f942ca4f0d3fd297a44bfb2c ;;
+            darwin-arm64) digest=5556974ede49e173940a80a5db966d33487655d888fa7c90a1def61c55fc44a8 ;;
+        esac
+        source "$rootPath/scripts/tools/verified-download.sh" || return 1
+        verified_download "$url" "$archive" "$digest" || return 1
+    elif [ ! -f "$archive" ]; then
+        curl -fsSL --retry 2 "$url" -o "$archive.part" && mv -- "$archive.part" "$archive" || return 1
+    fi
 
-	cd "$serverPath/source/gitea" && xz -kf -d "$file_xz" || return 1
-	if [ -f $file ];then
-		mkdir -p $serverPath/gitea
-		mv $serverPath/source/gitea/$file $serverPath/gitea/gitea
-		chmod +x $serverPath/gitea/gitea
-
-		chown -R www:www $serverPath/gitea
-	fi
+    mkdir -p "$serverPath/gitea" || return 1
+    binary=$(mktemp "$serverPath/gitea/.gitea.XXXXXX") || return 1
+    trap 'unlink "$binary" 2>/dev/null || true' EXIT
+    xz -dc "$archive" > "$binary" && chmod 0755 "$binary" || return 1
+    chown www:www "$binary" && mv -f -- "$binary" "$serverPath/gitea/gitea" || return 1
+    chown -R www:www "$serverPath/gitea" || return 1
 
 	if [ -d $serverPath/gitea ] && [ "${action}" = 'install' ] ;then
 		cd ${rootPath} && python3 plugins/gitea/index.py start

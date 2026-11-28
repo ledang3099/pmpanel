@@ -53,6 +53,10 @@ fi
 echo "apt install -y php${version}-${extName}"
 echo "apt remove -y php${version}-${extName}"
 
+if [ "${PM_PHP_APT_DEFER_RESTART:-}" = 1 ]; then
+	exit 0
+fi
+
 php_status=`systemctl status php${version}-fpm | grep inactive`
 echo "status:$php_status"
 if [ "$php_status" = "" ];then

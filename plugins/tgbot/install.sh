@@ -9,25 +9,25 @@ serverPath=$(dirname "$rootPath")
 
 VERSION=$2
 
-# pip3 install ccxt
 if [ -f ${rootPath}/bin/activate ];then
 	. ${rootPath}/bin/activate	
 fi
 
-pip3 install pyTelegramBotAPI
-pip3 install telebot
-
 Install_App()
 {
+    python3 -m pip install 'pyTelegramBotAPI==4.37.1' || return 1
+    python3 -c 'from telebot import TeleBot; from telebot.util import quick_markup' || return 1
 	echo '正在安装脚本文件...'
 	mkdir -p $serverPath/source
 	mkdir -p $serverPath/tgbot
-	echo "${VERSION}" > $serverPath/tgbot/version.pl
-
-	cp -rf ${rootPath}/plugins/tgbot/startup/* $serverPath/tgbot
-
-	cd ${rootPath} && python3 ${rootPath}/plugins/tgbot/index.py start
-	cd ${rootPath} && python3 ${rootPath}/plugins/tgbot/index.py initd_install
+    cp -R "$rootPath/plugins/tgbot/startup"/. "$serverPath/tgbot/" || return 1
+    cd "$rootPath" || return 1
+    result=$(python3 plugins/tgbot/index.py start) || return 1
+    if [ "$result" != ok ]; then printf '%s\n' "$result" >&2; return 1; fi
+    if [ "$(uname)" = Linux ]; then
+        systemctl is-active --quiet tgbot && systemctl enable tgbot || return 1
+    fi
+    printf '%s\n' "$VERSION" > "$serverPath/tgbot/version.pl" || return 1
 	echo '安装完成'
 }
 

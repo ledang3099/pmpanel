@@ -1,156 +1,73 @@
 #!/usr/bin/env bash
+set -e
 
-red='\033[0;31m'
-green='\033[0;32m'
-yellow='\033[0;33m'
-plain='\033[0m'
+panel=$(cd "$(dirname "$0")/../.." && pwd)
+server=$(dirname "$panel")
+source "$panel/scripts/tools/verified-download.sh"
+release=0.3.4.4
 
-cur_dir=$(pwd)
-
-# check root
-[[ $EUID -ne 0 ]] && echo -e "${red}错误：${plain} 必须使用root用户运行此脚本！\n" && exit 1
-
-# check os
-if [[ -f /etc/redhat-release ]]; then
-    release="centos"
-elif cat /etc/issue | grep -Eqi "debian"; then
-    release="debian"
-elif cat /etc/issue | grep -Eqi "ubuntu"; then
-    release="ubuntu"
-elif cat /etc/issue | grep -Eqi "centos|red hat|redhat"; then
-    release="centos"
-elif cat /proc/version | grep -Eqi "debian"; then
-    release="debian"
-elif cat /proc/version | grep -Eqi "ubuntu"; then
-    release="ubuntu"
-elif cat /proc/version | grep -Eqi "centos|red hat|redhat"; then
-    release="centos"
-else
-    echo -e "${red}未检测到系统版本，请联系脚本作者！${plain}\n" && exit 1
+if [ "$(uname -s)" != Linux ]; then
+    echo 'x-ui 需要 Linux 和 systemd。' >&2
+    exit 1
 fi
+case "$(uname -m)" in
+    x86_64) architecture=amd64; digest=a210908eedf717627dcc8d409f9fa3783748ca080acae131815a0c55d3883bd9 ;;
+    aarch64|arm64) architecture=arm64; digest=51b54a0199d037f100f60a4fe2ceca4634182e17f701fb76ba11ca13a6f82af0 ;;
+    s390x) architecture=s390x; digest=7cf5220140fe9f3d356b1353acba5d8f9cf13128f6b4c2d438e4aa9ea6c275e7 ;;
+    *) echo '不支持当前 CPU 架构。' >&2; exit 1 ;;
+esac
 
-arch=$(arch)
-
-if [[ $arch = "x86_64" || $arch = "x64" || $arch = "s390x" || $arch = "amd64" ]]; then
-    arch="amd64"
-elif [[ $arch = "aarch64" || $arch = "arm64" ]]; then
-    arch="arm64"
-else
-    arch="amd64"
-    echo -e "${red}检测架构失败，使用默认架构: ${arch}${plain}"
-fi
-
-echo "架构: ${arch}"
-
-if [ $(getconf WORD_BIT) != '32' ] && [ $(getconf LONG_BIT) != '64' ]; then
-    echo "本软件不支持 32 位系统(x86)，请使用 64 位系统(x86_64)，如果检测有误，请联系作者"
-    exit -1
-fi
-
-os_version=""
-
-# os version
-if [[ -f /etc/os-release ]]; then
-    os_version=$(awk -F'[= ."]' '/VERSION_ID/{print $3}' /etc/os-release)
-fi
-if [[ -z "$os_version" && -f /etc/lsb-release ]]; then
-    os_version=$(awk -F'[= ."]+' '/DISTRIB_RELEASE/{print $2}' /etc/lsb-release)
-fi
-
-if [[ x"${release}" = x"centos" ]]; then
-    if [[ ${os_version} -le 6 ]]; then
-        echo -e "${red}请使用 CentOS 7 或更高版本的系统！${plain}\n" && exit 1
+sources="$server/source/xui"
+mkdir -p "$sources"
+file="x-ui-linux-$architecture.tar.gz"
+archive="$sources/$release-$file"
+verified_download "https://github.com/FranzKafkaYu/x-ui/releases/download/$release/$file" "$archive" "$digest"
+stage=$(mktemp -d /usr/local/x-ui-install.XXXXXX)
+unit=/etc/systemd/system/x-ui.service
+cli=/usr/bin/x-ui
+install_started=0
+was_active=0
+cleanup() {
+    status=$?
+    if [ "$status" != 0 ] && [ "$install_started" = 1 ]; then
+        set +e
+        systemctl stop x-ui
+        rm -rf -- /usr/local/x-ui
+        if [ -d "$stage/prior" ]; then mv "$stage/prior" /usr/local/x-ui; fi
+        if [ -e "$stage/prior.service" ]; then mv "$stage/prior.service" "$unit"; else rm -f -- "$unit"; fi
+        if [ -e "$stage/prior.cli" ]; then mv "$stage/prior.cli" "$cli"; else rm -f -- "$cli"; fi
+        systemctl daemon-reload
+        if [ "$was_active" = 1 ]; then systemctl start x-ui; fi
     fi
-elif [[ x"${release}" = x"ubuntu" ]]; then
-    if [[ ${os_version} -lt 16 ]]; then
-        echo -e "${red}请使用 Ubuntu 16 或更高版本的系统！${plain}\n" && exit 1
-    fi
-elif [[ x"${release}" = x"debian" ]]; then
-    if [[ ${os_version} -lt 8 ]]; then
-        echo -e "${red}请使用 Debian 8 或更高版本的系统！${plain}\n" && exit 1
-    fi
-fi
-
-install_base() {
-    if [[ x"${release}" = x"centos" ]]; then
-        yum install wget curl tar jq -y
-    else
-        apt install wget curl tar jq -y
-    fi
+    rm -rf -- "$stage"
 }
+trap cleanup EXIT
+tar -xzf "$archive" -C "$stage"
+chmod 0755 "$stage/x-ui/"{x-ui,x-ui.sh,"bin/xray-linux-$architecture"}
 
-#This function will be called when user installed x-ui out of sercurity
-config_after_install() {
-    echo -e "${yellow}出于安全考虑，安装/更新完成后需要强制修改端口与账户密码${plain}"
-    if [[ ! -f "/etc/x-ui/x-ui.db" ]]; then
-        local usernameTemp=$(head -c 6 /dev/urandom | base64)
-        local passwordTemp=$(head -c 6 /dev/urandom | base64)
-        local portTemp=$(echo $RANDOM)
-        /usr/local/x-ui/x-ui setting -username ${usernameTemp} -password ${passwordTemp}
-        /usr/local/x-ui/x-ui setting -port ${portTemp}
-        echo -e "检测到您属于全新安装,出于安全考虑已自动为您生成随机用户与端口:"
-        echo -e "###############################################"
-        echo -e "${green}面板登录用户名:${usernameTemp}${plain}"
-        echo -e "${green}面板登录用户密码:${passwordTemp}${plain}"
-        echo -e "${red}面板登录端口:${portTemp}${plain}"
-        echo -e "###############################################"
-        echo -e "${red}如您遗忘了面板登录相关信息,可在安装完成后输入x-ui,输入选项7查看面板登录信息${plain}"
-    else
-        echo -e "${red}当前属于版本升级,保留之前设置项,登录方式保持不变,可输入x-ui后键入数字7查看面板登录信息${plain}"
-    fi
-}
-
-install_x-ui() {
+if [ -e "$unit" ]; then cp -a "$unit" "$stage/prior.service"; fi
+if [ -e "$cli" ]; then cp -a "$cli" "$stage/prior.cli"; fi
+if systemctl is-active --quiet x-ui; then
+    was_active=1
     systemctl stop x-ui
-    cd /usr/local/
+fi
+if [ -e /usr/local/x-ui ]; then
+    mv /usr/local/x-ui "$stage/prior"
+fi
+install_started=1
+mv "$stage/x-ui" /usr/local/x-ui
+install -m 0644 /usr/local/x-ui/x-ui.service "$unit"
+install -m 0755 /usr/local/x-ui/x-ui.sh "$cli"
 
-    if [ $# = 0 ]; then
-        last_version=$(curl -Lsk "https://api.github.com/repos/FranzKafkaYu/x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-        if [[ ! -n "$last_version" ]]; then
-            echo -e "${red}检测 x-ui 版本失败，可能是超出 Github API 限制，请稍后再试，或手动指定 x-ui 版本安装${plain}"
-            exit 1
-        fi
-        echo -e "检测到 x-ui 最新版本：${last_version}，开始安装"
-        wget -N --no-check-certificate -O /usr/local/x-ui-linux-${arch}.tar.gz https://github.com/FranzKafkaYu/x-ui/releases/download/${last_version}/x-ui-linux-${arch}.tar.gz
-        if [[ $? -ne 0 ]]; then
-            echo -e "${red}下载 x-ui 失败，请确保你的服务器能够下载 Github 的文件${plain}"
-            exit 1
-        fi
-    else
-        last_version=$1
-        url="https://github.com/FranzKafkaYu/x-ui/releases/download/${last_version}/x-ui-linux-${arch}.tar.gz"
-        echo -e "开始安装 x-ui v$1"
-        wget -N --no-check-certificate -O /usr/local/x-ui-linux-${arch}.tar.gz ${url}
-        if [[ $? -ne 0 ]]; then
-            echo -e "${red}下载 x-ui v$1 失败，请确保此版本存在${plain}"
-            exit 1
-        fi
-    fi
+if [ ! -e /etc/x-ui/x-ui.db ]; then
+    username=$(openssl rand -hex 8)
+    password=$(openssl rand -hex 16)
+    port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("", 0)); print(s.getsockname()[1])')
+    /usr/local/x-ui/x-ui setting -username "$username" -password "$password" > /dev/null
+    /usr/local/x-ui/x-ui setting -port "$port" > /dev/null
+fi
 
-    if [[ -e /usr/local/x-ui/ ]]; then
-        rm /usr/local/x-ui/ -rf
-    fi
-
-    tar zxvf x-ui-linux-${arch}.tar.gz
-    rm x-ui-linux-${arch}.tar.gz -f
-    cd x-ui
-    chmod +x x-ui bin/xray-linux-${arch}
-    cp -f x-ui.service /etc/systemd/system/
-    wget --no-check-certificate -O /usr/bin/x-ui https://raw.githubusercontent.com/FranzKafkaYu/x-ui/main/x-ui.sh
-    chmod +x /usr/local/x-ui/x-ui.sh
-    chmod +x /usr/bin/x-ui
-    config_after_install
-    #echo -e "如果是全新安装，默认网页端口为 ${green}54321${plain}，用户名和密码默认都是 ${green}admin${plain}"
-    #echo -e "请自行确保此端口没有被其他程序占用，${yellow}并且确保 54321 端口已放行${plain}"
-    #    echo -e "若想将 54321 修改为其它端口，输入 x-ui 命令进行修改，同样也要确保你修改的端口也是放行的"
-    #echo -e ""
-    #echo -e "如果是更新面板，则按你之前的方式访问面板"
-    #echo -e ""
-    systemctl daemon-reload
-    systemctl enable x-ui
-    systemctl start x-ui
-}
-
-echo -e "${green}开始安装${plain}"
-install_base
-install_x-ui $1
+systemctl daemon-reload
+systemctl start x-ui
+systemctl is-active --quiet x-ui
+systemctl enable x-ui

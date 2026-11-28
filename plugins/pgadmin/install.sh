@@ -63,35 +63,30 @@ Install_pgadmin()
 
 	if version_lt "$P_VER" "3.8.0" ;then
 		echo 'Python版本太低,无法安装'
-		exit 0
+		return 1
 	fi
 	PG_DIR=${serverPath}/pgadmin/run
 	PG_DATA_DIR=${serverPath}/pgadmin/data
 	mkdir -p $PG_DIR
 	mkdir -p $PG_DATA_DIR
-	echo "${1}" > ${serverPath}/pgadmin/version.pl
+    if [ ! -x "$PG_DIR/bin/python" ]; then
+        python3 -m venv "$PG_DIR" || return 1
+    fi
+    "$PG_DIR/bin/python" -m pip install gunicorn pgadmin4==9.19 || return 1
+    cd "$rootPath" || return 1
+    python3 plugins/pgadmin/index.py start || return 1
+    if [ "$(uname)" = Linux ]; then
+        for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS --max-time 3 --unix-socket /tmp/pgadmin4.sock http://localhost/misc/ping >/dev/null 2>&1; then
+                printf '%s\n' "$1" > "$serverPath/pgadmin/version.pl"
+                return $?
+            fi
+            sleep 1
+        done
+        return 1
+    fi
+    printf '%s\n' "$1" > "$serverPath/pgadmin/version.pl"
 
-	if [ ! -f $PG_DIR/bin/activate ];then
-	    if version_ge "$P_VER" "3.11.0" ;then
-	        echo "python3 > 3.11"
-	        cd $PG_DIR && python3 -m venv $PG_DIR
-	    else
-	        echo "python3 < 3.10"
-	        cd $PG_DIR && python3 -m venv .
-	    fi
-	fi
-
-	if [ -f ${PG_DIR}/bin/activate ];then
-		. ${PG_DIR}/bin/activate
-	fi
-	pip install gunicorn
-	pip install pgadmin4
-
-	# pip install https://ftp.postgresql.org/pub/pgadmin/pgadmin4/v8.10/pip/pgadmin4-8.10-py3-none-any.whl
-	# pip install https://ftp.postgresql.org/pub/pgadmin/pgadmin4/v8.13/pip/pgadmin4-8.13-py3-none-any.whl
-
-	cd ${rootPath} && python3 ${rootPath}/plugins/pgadmin/index.py start
-	echo '安装完成'
 }
 
 Uninstall_pgadmin()

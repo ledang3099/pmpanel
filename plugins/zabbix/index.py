@@ -2,7 +2,9 @@
 
 import sys
 import io
+import json
 import os
+import subprocess
 import time
 import re
 
@@ -99,7 +101,8 @@ def contentReplace(content):
     service_path = mw.getServerDir()
     content = content.replace('{$ROOT_PATH}', mw.getFatherDir())
     content = content.replace('{$SERVER_PATH}', service_path)
-    content = content.replace('{$ZABBIX_ROOT}', '/usr/share/zabbix')
+    frontend = '/usr/share/zabbix/ui' if getInstallVerion() == '8.0' else '/usr/share/zabbix'
+    content = content.replace('{$ZABBIX_ROOT}', frontend)
     content = content.replace('{$ZABBIX_PORT}', '18888')
 
     psdb = pSqliteDb('databases')
@@ -109,27 +112,34 @@ def contentReplace(content):
     return content
 
 
+MYSQL_CLIENT_PATHS = {
+    'mysql-apt': 'bin/usr/bin/mysql', 'mysql-yum': 'bin/usr/bin/mysql',
+    'mysql': 'bin/mysql', 'mysql-community': 'bin/mysql',
+}
+
+
+def findMySQL(version):
+    for plugin in MYSQL_CLIENT_PATHS:
+        root = os.path.join(mw.getServerDir(), plugin)
+        if not os.path.isfile(os.path.join(root, 'etc', 'my.cnf')):
+            continue
+        if version == '8.0':
+            series = mw.readFile(os.path.join(root, 'version.pl'))
+            if not series or not re.match(r'^(8\.4|9\.[0-7])(?:\.|$)', series.strip()):
+                continue
+        return plugin
+    return ''
+
+
 def getMySQLConf():
-    choose_mysql = getServerDir()+'/mysql.pl'
-    if os.path.exists(choose_mysql):
-        ver = mw.readFile(choose_mysql)
-        return mw.getServerDir() + '/'+ver+'/etc/my.cnf'
-
-    apt_path = mw.getServerDir() + '/mysql-apt/etc/my.cnf'
-    if os.path.exists(apt_path):
-        mw.writeFile(choose_mysql, 'mysql-apt')
-        return apt_path
-
-    yum_path = mw.getServerDir() + '/mysql-yum/etc/my.cnf'
-    if os.path.exists(yum_path):
-        mw.writeFile(choose_mysql, 'mysql-yum')
-        return yum_path
-
-    path = mw.getServerDir() + '/mysql/etc/my.cnf'
-    if os.path.exists(path):
-        mw.writeFile(choose_mysql, 'mysql')
-        return path
-    return path
+    choose_mysql = getServerDir() + '/mysql.pl'
+    selected = mw.readFile(choose_mysql)
+    plugin = selected.strip() if selected else findMySQL(getInstallVerion())
+    if plugin not in MYSQL_CLIENT_PATHS:
+        raise RuntimeError('需要安装受支持的 MySQL 版本')
+    if not selected:
+        mw.writeFile(choose_mysql, plugin)
+    return os.path.join(mw.getServerDir(), plugin, 'etc', 'my.cnf')
 
 
 def getMySQLPort():
@@ -147,30 +157,12 @@ def getMySQLSocketFile():
     return tmp.groups()[0].strip()
 
 def getMySQLBin():
-    choose_mysql = getServerDir()+'/mysql.pl'
-    ver = mw.readFile(choose_mysql)
-    mysql_dir = mw.getServerDir() + '/'+ver
-
-    if ver == 'mysql-apt':
-        return '/www/server/mysql-apt/bin/usr/bin/mysql'
-    if ver == 'mysql-yum':
-        return '/www/server/mysql-yum/bin/usr/bin/mysql'
-    return '/www/server/mysql/bin/mysql'
-
-def getMySQLBinLink():
-    choose_mysql = getServerDir()+'/mysql.pl'
-    ver = mw.readFile(choose_mysql)
-    mysql_dir = mw.getServerDir() + '/'+ver
-
-    if ver == 'mysql-apt':
-        return '/www/server/mysql-apt/bin/usr/bin/mysql -S /www/server/mysql-apt/mysql.sock'
-    if ver == 'mysql-yum':
-        return '/www/server/mysql-yum/bin/usr/bin/mysql -S /www/server/mysql-yum/mysql.sock'
-    return '/www/server/mysql/bin/mysql -S /www/server/mysql/mysql.sock'
+    plugin = mw.readFile(getServerDir() + '/mysql.pl').strip()
+    return os.path.join(mw.getServerDir(), plugin, MYSQL_CLIENT_PATHS[plugin])
 
 def pSqliteDb(dbname='databases'):
     choose_mysql = getServerDir()+'/mysql.pl'
-    ver = mw.readFile(choose_mysql)
+    ver = mw.readFile(choose_mysql).strip()
 
     mysql_dir = mw.getServerDir() + '/'+ver
     conn = mw.M(dbname).dbPos(mysql_dir, 'mysql')
@@ -187,41 +179,23 @@ def pMysqlDb():
     return db
 
 
-def getInstalledPhpConfDir():
-    phpver = ["80","81","82","83","84"]
-    php_type = ['php-apt','php-yum', 'php'];
-
-    for pt in php_type:
-        for ver in phpver:
-            php_install_dir = mw.getServerDir() + '/'+ pt+'/'+ver
-            if os.path.exists(php_install_dir):
-                if pt == 'php-apt':
-                    return pt + ver[0:1]+'.'+ver[1:2]
-                if pt == 'php':
-                    return pt + '-' + ver
-                if pt == 'php-yum':
-                    return pt + '-' + ver
-                return pt + ver
-    return 'php-80'
-
-def isInstalledPhp():
-    phpver = ["80","81","82","83","84","85"]
-    php_type = ['php-apt','php-yum', 'php'];
-
-    for pt in php_type:
-        for ver in phpver:
-            php_install_dir = mw.getServerDir() + '/'+ pt+'/'+ver
-            if os.path.exists(php_install_dir):
-                return True
-    return False
-
-def isInstalledMySQL():
-    mysql_type = ['mysql-apt','mysql-yum', 'mysql'];
-    for mt in mysql_type:
-        mysql_install_dir = mw.getServerDir() + '/'+ mt
-        if os.path.exists(mysql_install_dir):
-            return True
-    return False
+def getInstalledPhpConfDir(version=None):
+    if version is None:
+        version = getInstallVerion()
+    phpver = ["85", "84", "83", "82"] if version == "8.0" else ["80", "81", "82", "83", "84", "85"]
+    server = mw.getServerDir()
+    root = os.path.join(server, 'web_conf', 'php', 'conf')
+    for ver in phpver:
+        dotted = ver[0] + '.' + ver[1]
+        candidates = (
+            ('php-apt' + dotted, f'/etc/php/{dotted}/fpm/php-fpm.conf'),
+            ('php-yum' + ver, f'/etc/opt/remi/php{ver}/php-fpm.conf'),
+            ('php-' + ver, os.path.join(server, 'php', ver, 'sbin', 'php-fpm')),
+        )
+        for name, fpm in candidates:
+            if os.path.isfile(fpm) and os.path.isfile(os.path.join(root, 'enable-' + name + '.conf')):
+                return name
+    return ''
 
 
 def zabbixNginxConf():
@@ -247,6 +221,8 @@ def zabbixImportMySQLDataFile():
     ver = getInstallVerion()
     if ver == '6.0':
         return tgz_file
+    if ver == '8.0':
+        return '/usr/share/zabbix/sql-scripts/mysql/server.sql.gz'
     return '/usr/share/zabbix-sql-scripts/mysql/server.sql.gz'
 
 def zabbixImportMySQLData():
@@ -255,7 +231,7 @@ def zabbixImportMySQLData():
         exit("需要安装MySQL")
 
     choose_mysql = getServerDir()+'/mysql.pl'
-    ver = mw.readFile(choose_mysql)
+    ver = mw.readFile(choose_mysql).strip()
 
     pmdb = pMysqlDb()
     psdb = pSqliteDb('databases')
@@ -263,9 +239,20 @@ def zabbixImportMySQLData():
     if len(find_ps_zabbix) < 1:
         db_pass = mw.getRandomString(16)
         # 创建数据
-        cmd = 'python3 plugins/'+ver+'/index.py add_db  {"name":"zabbix","codeing":"utf8mb4","db_user":"zabbix","password":"'+db_pass+'","dataAccess":"127.0.0.1","ps":"zabbix","address":"127.0.0.1"}'
-        # print(cmd)
-        mw.execShell(cmd)
+        args = {'name': 'zabbix', 'codeing': 'utf8mb4', 'db_user': 'zabbix',
+                'password': db_pass, 'dataAccess': '127.0.0.1', 'ps': 'zabbix',
+                'address': '127.0.0.1'}
+        result = subprocess.run(
+            [sys.executable, 'plugins/' + ver + '/index.py', 'add_db',
+             *[f'{name}:{value}' for name, value in args.items()]],
+            cwd=mw.getPanelDir(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        try:
+            created = not result.returncode and json.loads(result.stdout)['status']
+        except (ValueError, KeyError):
+            created = False
+        if not created:
+            raise RuntimeError('Zabbix database creation failed')
         pmdb.query("ALTER DATABASE `zabbix` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin")
         pmdb.query("grant all privileges on zabbix.* to zabbix@127.0.0.1")
 
@@ -274,16 +261,27 @@ def zabbixImportMySQLData():
     find_zabbix_version = pmdb.query("show tables like 'dbversion'")
     if len(find_zabbix_version) == 0:
         # 初始化导入数据
-        pmdb.query("set global log_bin_trust_function_creators=1")
-
-        mysql_bin = getMySQLBinLink()
-
         tgz_file = zabbixImportMySQLDataFile()
-        # zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | /www/server/mysql/bin/mysql --default-character-set=utf8mb4 -uzabbix -p"LGhb1f7QG6SDL5CX" zabbix
-        import_data_cmd = 'zcat '+tgz_file+' | '+mysql_bin+' --default-character-set=utf8mb4 -uzabbix -p"'+db_pass+'" zabbix'
-        # print(import_data_cmd)
-        mw.execShell(import_data_cmd)
-        # pmdb.query("set global log_bin_trust_function_creators=0")
+        import gzip
+        import shutil
+
+        command = [getMySQLBin(), '--no-defaults', '--protocol=TCP', '-h', '127.0.0.1',
+                   '-P', getMySQLPort(), '--default-character-set=utf8mb4', '-uzabbix', 'zabbix']
+        trust = pmdb.query("show global variables like 'log_bin_trust_function_creators'")
+        restore_trust = bool(trust and trust[0]['Value'] == 'OFF')
+        if restore_trust:
+            pmdb.execute('set global log_bin_trust_function_creators=1')
+        try:
+            with gzip.open(tgz_file, 'rb') as schema, subprocess.Popen(
+                command, stdin=subprocess.PIPE, env=dict(os.environ, MYSQL_PWD=db_pass),
+            ) as database:
+                with database.stdin:
+                    shutil.copyfileobj(schema, database.stdin)
+                if database.wait():
+                    raise RuntimeError('Zabbix database schema import failed')
+        finally:
+            if restore_trust:
+                pmdb.execute('set global log_bin_trust_function_creators=0')
 
 
     ver = getInstallVerion()
@@ -296,13 +294,15 @@ def initOpConf():
     nginx_src_tpl = getPluginDir()+'/conf/zabbix.nginx.conf'
     nginx_dst_vhost = zabbixNginxConf()
 
-    phpver = getInstalledPhpConfDir()
-
-    # nginx配置
+    logs = mw.getLogsDir()
+    os.makedirs(logs, exist_ok=True)
     if not os.path.exists(nginx_dst_vhost):
+        phpver = getInstalledPhpConfDir()
+        if not phpver:
+            raise RuntimeError('需要安装受支持的 PHP-FPM 版本')
         content = mw.readFile(nginx_src_tpl)
         content = contentReplace(content)
-        content = content.replace('{$PHP_VER}',phpver)
+        content = content.replace('{$PHP_VER}', phpver).replace('{$ZABBIX_LOG_DIR}', logs)
         mw.writeFile(nginx_dst_vhost, content)
 
 def initZsConf():
@@ -461,7 +461,18 @@ def zabbixAgentLog():
     return '/var/log/zabbix/zabbix_agentd.log'
 
 
-def installPreInspection():
+def installPreInspection(version=''):
+    if version == '8.0':
+        try:
+            with open('/etc/os-release', encoding='utf-8') as release_file:
+                release = dict(line.strip().replace('"', '').split('=', 1)
+                               for line in release_file if '=' in line and not line.startswith('#'))
+        except OSError:
+            release = {}
+        supported = {'debian': ('12', '13'), 'ubuntu': ('22.04', '24.04')}
+        if release.get('VERSION_ID') not in supported.get(release.get('ID'), ()):
+            return 'Zabbix 8.0 当前支持 Debian 12/13 和 Ubuntu 22.04/24.04'
+
     cmd = "cat /etc/*-release | grep PRETTY_NAME |awk -F = '{print $2}' | awk -F '\"' '{print $2}'| awk '{print $1}'"
     sys = mw.execShell(cmd)
 
@@ -476,21 +487,19 @@ def installPreInspection():
     if not sysName in ['debian','centos','ubuntu','almalinux','rocky']:
         return '不支持该系统'
 
-    if sysName == 'debian' and not sysId in ['12']:
+    if version != '8.0' and sysName == 'debian' and sysId != '12':
         return '不支持,'+sysName+'['+sysId+'],仅支持debian12!'
 
     openresty_dir = mw.getServerDir() + "/openresty"
     if not os.path.exists(openresty_dir):
         return '需要安装Openresty插件'
 
-    is_installed_php = isInstalledPhp()
-    if not is_installed_php:
-        return '需要安装PHP/PHP-APT/PHP-YUM插件,至少8.0!'
+    if not getInstalledPhpConfDir(version):
+        return 'Zabbix 8.0 需要 PHP 8.2–8.5' if version == '8.0' else '需要安装 PHP-FPM 8.0–8.5'
 
 
-    is_installed_mysql = isInstalledMySQL()
-    if not is_installed_mysql:
-        return '需要安装MySQL/MySQL-APT/MySQL-YUM插件,至少8.0!'
+    if not findMySQL(version):
+        return 'Zabbix 8.0 需要 MySQL 8.4–9.7' if version == '8.0' else '需要安装 MySQL 插件'
 
     return 'ok'
 
@@ -518,7 +527,7 @@ if __name__ == "__main__":
     elif func == 'initd_uninstall':
         print(initdUinstall())
     elif func == 'install_pre_inspection':
-        print(installPreInspection())
+        print(installPreInspection(sys.argv[2] if len(sys.argv) > 2 else ''))
     elif func == 'uninstall_pre_inspection':
         print(uninstallPreInspection())
     elif func == 'conf':

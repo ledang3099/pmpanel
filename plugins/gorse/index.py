@@ -144,7 +144,9 @@ def contentReplace(content):
     content = content.replace('{$SERVER_PATH}', service_path)
     content = content.replace('{$CONFIG_ADMIN}', mw.getRandomString(6))
     content = content.replace('{$CONFIG_PASS}', mw.getRandomString(10))
-    content = content.replace('{$CONFIG_REDIS}', initRedisConf())
+    content = content.replace('{$CONFIG_API_KEY}', mw.getRandomString(32))
+    if '{$CONFIG_REDIS}' in content:
+        content = content.replace('{$CONFIG_REDIS}', initRedisConf())
     return content
 
 
@@ -174,8 +176,13 @@ def initDreplace():
     # config replace
     dst_conf = getServerDir() + '/gorse.toml'
     dst_conf_init = getServerDir() + '/init.pl'
+    version_file = getServerDir() + '/version.pl'
+    current_release = os.path.exists(version_file) and mw.readFile(version_file).strip() == '0.5.11'
     if not os.path.exists(dst_conf_init):
-        content = mw.readFile(getConfTpl())
+        template = getConfTpl()
+        if current_release:
+            template = getPluginDir() + '/config/gorse-0.5.toml'
+        content = mw.readFile(template)
         content = content.replace('{$SERVER_PATH}', service_path)
         content = contentReplace(content)
         mw.writeFile(dst_conf, content)
@@ -184,11 +191,18 @@ def initDreplace():
     # systemd
     systemDir = mw.systemdCfgDir()
     systemService = systemDir + '/' + getPluginName() + '.service'
-    if os.path.exists(systemDir) and not os.path.exists(systemService):
+    current_unit = mw.readFile(systemService) if os.path.exists(systemService) else ''
+    old_exec = 'ExecStart=' + getServerDir() + '/bin/gorse-in-one -c '
+    cache_path = getServerDir() + ('/data' if current_release else '/data/cache.data')
+    legacy_unit = old_exec in current_unit and (
+        'WorkingDirectory=' not in current_unit or (current_release and '/data/cache.data' in current_unit)
+    )
+    if os.path.exists(systemDir) and (legacy_unit or not os.path.exists(systemService)):
         systemServiceTpl = getPluginDir() + '/init.d/' + getPluginName() + '.service.tpl'
         service_path = mw.getServerDir()
         content = mw.readFile(systemServiceTpl)
         content = content.replace('{$SERVER_PATH}', service_path)
+        content = content.replace('{$CACHE_PATH}', cache_path)
         mw.writeFile(systemService, content)
         mw.execShell('systemctl daemon-reload')
 

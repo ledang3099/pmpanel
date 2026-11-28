@@ -27,7 +27,7 @@ VERSION=$2
 action=$1
 
 if [ "${action}" = "upgrade" ];then
-	cd ${curPath} && sh -x $curPath/versions/${VERSION}/install.sh upgrade
+	cd "$curPath" && bash -x "$curPath/versions/$VERSION/install.sh" upgrade || exit $?
 	which systemctl && systemctl restart redis
 	exit 0
 fi
@@ -56,7 +56,7 @@ if [ "${action}" = "uninstall" ];then
 	fi
 fi
 
-cd ${curPath} && sh -x $curPath/versions/$2/install.sh $1
+cd "$curPath" && bash -x "$curPath/versions/$2/install.sh" "$1" || exit $?
 
 if [ "${action}" == "install" ];then
 	cd ${rootPath} && python3 ${rootPath}/plugins/redis/index.py start
