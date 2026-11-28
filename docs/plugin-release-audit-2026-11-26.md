@@ -20,7 +20,7 @@
 | `dynamic-tracking` | 已更新 | 固定 Brendan Gregg 官方 FlameGraph 源码提交和摘要。Debian 13 完成安装并从测试堆栈生成 SVG。 [上游](https://github.com/brendangregg/FlameGraph) |
 | `dztasks` | 安装修复 | 1.2 为最新官方版本。修正 Linux arm64 归档名，校验归档并保留现有扩展。Debian 13 验证服务、登录页面跳转和示例扩展文件。 [上游](https://github.com/midoks/dztasks/releases/tag/1.2) |
 | `fail2ban` | 软件源 | 上游 1.1.1，面板安装发行版软件包。Debian 13 通过安装、服务启动和 fail2ban-client ping。 [上游](https://github.com/fail2ban/fail2ban/releases) |
-| `gdrive` | 依赖已更新 | 移除旧版 SDK 强制降级和 ICMP 前置检查。面板环境安装 Google Drive SDK 2.202.0 并验证可直接导入。Debian 13 使用实际路径归档和模拟云端验证首次备份、含空格路径、保留及上传失败；清理按备份文件夹和 ID 定位。实际 OAuth 和云盘写入需有效测试账户。 [上游](https://pypi.org/project/google-api-python-client/) |
+| `gdrive` | 依赖已更新 | 移除旧版 SDK 强制降级和 ICMP 前置检查。面板环境安装 Google Drive SDK 2.202.0 并验证可直接导入。Debian 13 使用实际路径归档和模拟云端验证首次备份、含空格路径、保留及上传失败；清理按备份文件夹和 ID 定位。共享计划任务脚本另从测试站点和 MySQL 单表生成归档，验证内容可读。实际 OAuth 和云盘写入需有效测试账户。 [上游](https://pypi.org/project/google-api-python-client/) |
 | `gitea` | 已更新 | 新增 28.4.0，校验下载摘要，保留旧版安装入口。Debian 13 服务和初始设置页面通过。 [上游](https://github.com/go-gitea/gitea/releases/tag/v28.4.0) |
 | `gogs` | 已更新 | 新增 0.14.4，校验官方归档，修复 Debian 13 systemd 启动失败。服务和初始设置页面通过。 [上游](https://github.com/gogs/gogs/releases/tag/v0.14.4) |
 | `gorse` | 已更新 | 新增 0.5.11，适配新配置格式和服务缓存路径。全新安装采用 SQLite；Debian 13 启动后健康接口确认数据及缓存连接成功。 [上游](https://github.com/gorse-io/gorse/releases/tag/v0.5.11) |
@@ -53,7 +53,7 @@
 | `php-apt` | 已更新 | 使用 APT 候选包判断更新，新增 8.6，配置 Sury 签名仓库并修正内置 OPcache。安装通用扩展时延后面板触发的逐项重启。Debian 13 验证 8.2–8.6 的安装、已是最新版时的升级命令和 FastCGI 版本响应，并验证 8.6 加载 OPcache。 [软件源](https://packages.sury.org/php/pool/main/p/php8.6/) |
 | `php-guard` | 面板集成 | Debian 13 安装 PHP 管理适配器通过。 |
 | `php-yum` | 已更新 | 8.2–8.6 使用 Remi 仓库判断并执行升级，修正 Rocky 等发行版的仓库安装。Rocky Linux 9 通过五个系列的安装、已是最新版时的升级命令和 FastCGI 版本响应。 [软件源](https://rpms.remirepo.net/) |
-| `phpldapadmin` | 已更新 | 新增 2.3.13 全新安装，独立站点根目录、PHP-FPM 8.4+ 与 LDAP 配置。Debian 13 完成 Composer 和前端构建，经 OpenResty 在 Chrome 中通过两层认证。通过 LDIF 导入创建 LDAP 组并修改描述，LDAP 查询确认写入。1.x 配置迁移待验证。 [上游](https://github.com/leenooks/phpLDAPadmin/releases/tag/2.3.13) |
+| `phpldapadmin` | 已更新 | 新增 2.3.13 全新安装，独立站点根目录、PHP-FPM 8.4+ 与 LDAP 配置。Debian 13 完成 Composer 和前端构建，经 OpenResty 在 Chrome 中通过两层认证。通过 LDIF 导入创建 LDAP 组并修改描述，LDAP 查询确认写入。在独立 PHP 7.4 环境验证 1.2.6.7。将同一单服务器配置映射到 2.3.13 后，两版本都用同一测试账号登录 OpenLDAP，2.3.13 查询到相同目录根。多服务器或自定义模板迁移待验证。 [上游](https://github.com/leenooks/phpLDAPadmin/releases/tag/2.3.13) |
 | `phpmyadmin` | 安装修复 | 5.2.3 为上游当前稳定版，校验发布归档。Debian 13 通过 OpenResty 和 PHP-FPM 登录页检查。 [上游](https://www.phpmyadmin.net/downloads/) |
 | `postgresql` | 已更新 | 新增 19.0 全新安装，15–18 补丁已与官网一致，14 保留停止维护标识。Debian 13 编译 19.0、初始化集群，并通过 SQL 建表、写入和查询。 [上游](https://www.postgresql.org/support/versioning/) |
 | `prometheus` | 已更新 | 新增 3.16.0，修正 Linux arm64 归档选择。Debian 13 完成安装，readiness 接口通过。 [上游](https://github.com/prometheus/prometheus/releases/tag/v3.16.0) |
@@ -69,7 +69,7 @@
 | `system_safe` | 功能修复 | 使用面板 Python 环境加载 psutil，缺少文件属性命令时安装 e2fsprogs。Debian 13 验证服务启动及测试文件属性保护，实测含空格的路径可设为只读、写入被拒绝，移除保护后可写并恢复原权限。 |
 | `tamper_proof_py` | 兼容修复 | 为 Python 3.12+ 安装 asyncore 兼容包。Debian 13 已确认 pyinotify 能加载、初始化，并启动服务。 [上游](https://pypi.org/project/pyasyncore/) |
 | `task_manager` | 兼容修复 | 通过 Cython 3 重新生成 pypcap 1.3.0，并使用 Python 缓冲区 API。Debian 13/Python 3.13 编译扩展并通过 BPF 测试数据检查。 [上游](https://pypi.org/project/pypcap/) |
-| `tgbot` | 已更新 | 固定 PyTelegramBotAPI 4.37.1，并修复 Debian 的启动脚本解释器。通过两条后台进程启动，真实机器人发信需要有效令牌。 [上游](https://pypi.org/project/pyTelegramBotAPI/) |
+| `tgbot` | 已更新 | 固定 PyTelegramBotAPI 4.37.1，并修复 Debian 的启动脚本解释器。通过两条后台进程启动，并用实际推送钩子和 SDK 向本地 Bot API 测试端点发送消息。Telegram 公网发信需要有效测试令牌。 [上游](https://pypi.org/project/pyTelegramBotAPI/) |
 | `valkey` | 已更新 | 新增 9.2.1，校验源码和编译结果，保留现有配置。Debian 13 插件编译、安装、systemd 启动和认证读写通过。 [上游](https://github.com/valkey-io/valkey/releases/tag/9.2.1) |
 | `varnish` | 软件源 | 安装发行版 Varnish 包。Debian 13 通过安装、systemd 和本地代理访问。 [上游](https://varnish-cache.org/releases/) |
 | `webhook` | 安装修复 | 缺少 pm 命令时安装仍可完成。Debian 13 验证安装和面板 HTTP 回调，测试脚本按预期输出且调用计数增加一次。 |
