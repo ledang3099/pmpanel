@@ -26,8 +26,8 @@ Install_App()
 	    echo "postgres uid is `id -u postgres`"
 	    echo "postgres shell is `grep "^postgres:" /etc/passwd |cut -d':' -f7 `"
 	else
-	    which groupadd && groupadd postgres
-		which useradd && useradd -g postgres postgres
+	    which groupadd && groupadd -r postgres
+		which useradd && useradd -r -g postgres -s /bin/bash -d /www/server/postgresql postgres
 	fi
 
 	if [ "$sysName" != "Darwin" ];then

@@ -403,7 +403,22 @@ def status(version=''):
     return 'stop'
 
 def pgCmd(cmd):
-    return "su - postgres -c \"" + cmd + "\""
+    # 用 runuser -u(非登录 shell)代替 su - postgres:
+    # su - 会通过 pam_systemd 为 postgres 创建 logind 会话, 会话结束时 systemd 的 RemoveIPC
+    # 会删除 postgres 用户的全部共享内存, 正在运行的数据库随之报
+    # "could not open shared memory segment"。runuser 的 PAM 配置不含 pam_systemd。
+    return "runuser -u postgres -- env HOME=/tmp bash -c \"cd /tmp && " + cmd + "\""
+
+
+def runAsPostgres(argv, timeout=60):
+    '''以 postgres 用户执行命令(参数列表, 不经过 shell), stdin 关闭, 避免等待交互输入而挂起'''
+    try:
+        p = subprocess.run(['runuser', '-u', 'postgres', '--', 'env', 'HOME=/tmp'] + argv,
+                           stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                           timeout=timeout, text=True, cwd='/tmp')
+        return p.returncode, p.stdout, p.stderr
+    except subprocess.TimeoutExpired:
+        return 124, '', 'timeout'
 
 
 def _psqlBase(psql_path, database, port, pg_pwd=None):
@@ -447,22 +462,34 @@ def initPgPwd():
     serverdir = getServerDir()
     pwd = mw.getRandomString(16)
 
-    cmd_pass = serverdir + '/bin/createuser -s -r postgres'
+    if mw.isAppleSystem():
+        cmd_pass = serverdir + '/bin/createuser -s -r postgres'
+        mw.execShell(cmd_pass)
+        cmd_pass = "echo \"alter user postgres with password '" + pwd + "'\" | " + serverdir + '/bin/psql -d postgres'
+        mw.execShell(cmd_pass)
+        pSqliteDb('config').where('id=?', (1,)).save('pg_root', (pwd,))
+        return True
 
-    if not mw.isAppleSystem():
-        cmd_pass = 'su - postgres -c "' + cmd_pass + '"'
-    data = mw.execShell(cmd_pass)
-
-    cmd_pass = "echo \"alter user postgres with password '" + pwd + "'\" | "
-    if not mw.isAppleSystem():
-        cmd = serverdir + '/bin/psql -d postgres'
-        cmd_pass = cmd_pass + ' ' + pgCmd(cmd)
-    else:
-        cmd_pass = cmd_pass + serverdir + '/bin/psql -d postgres'
-
-    data = mw.execShell(cmd_pass)
-    # print(cmd_pass)
-    # print(data)
+    # initdb 以系统用户 postgres 执行, 已自动创建同名超级用户, 无需 createuser。
+    # pg_hba.conf 此时已全部是 scram-sha-256, 而 postgres 还没有密码, 直接连接会等待输入密码而挂起。
+    # 先临时允许本机 postgres 用户以 peer 方式连接, 设好密码后恢复原配置。
+    data_dir = serverdir + '/data'
+    pg_ctl = serverdir + '/bin/pg_ctl'
+    hba = pgHbaConf()
+    hba_orig = mw.readFile(hba) or ''
+    mw.writeFile(hba, 'local   all             postgres                                peer\n' + hba_orig)
+    try:
+        runAsPostgres([pg_ctl, 'reload', '-D', data_dir])
+        time.sleep(1)
+        sql = "ALTER USER postgres WITH PASSWORD '" + pwd + "'"
+        code, out, err = runAsPostgres([serverdir + '/bin/psql', '-h', '/tmp', '-d', 'postgres',
+                                        '-v', 'ON_ERROR_STOP=1', '--no-password', '-c', sql])
+    finally:
+        mw.writeFile(hba, hba_orig)
+        runAsPostgres([pg_ctl, 'reload', '-D', data_dir])
+    if code != 0:
+        print('initPgPwd failed: ' + (err or out).strip()[-300:])
+        return False
 
     pSqliteDb('config').where('id=?', (1,)).save('pg_root', (pwd,))
     return True
