@@ -20,6 +20,7 @@ from .firewall import blueprint as FirewallModule
 from .monitor import blueprint as MonitorModule
 from .system import blueprint as SystemModule
 from .database import blueprint as DatabaseModule
+from .terminal import blueprint as TerminalModule
 
 def get_submodules():
     return [
@@ -35,5 +36,6 @@ def get_submodules():
         MonitorModule,
         SystemModule,
         DatabaseModule,
+        TerminalModule,
         SettingModule,
     ]

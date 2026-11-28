@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+{% block content %}
+<style>
+.tm-wrap { display: flex; flex-direction: column; height: calc(100vh - 120px); min-height: 420px; }
+.tm-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--pm-border); flex-wrap: wrap; }
+.tm-tabs { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; min-width: 0; }
+.tm-tab { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 12px; border-radius: 6px; background: #f3f4f6; color: var(--pm-text-2); font-size: 13px; cursor: pointer; user-select: none; }
+.tm-tab.on { background: #1e2430; color: #fff; }
+.tm-tab .tm-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
+.tm-tab.dead .tm-dot { background: #9ca3af; }
+.tm-tab .tm-x { width: 16px; height: 16px; line-height: 15px; text-align: center; border-radius: 3px; font-size: 14px; color: inherit; opacity: .6; }
+.tm-tab .tm-x:hover { opacity: 1; background: rgba(127, 127, 127, .25); }
+.tm-add { padding: 5px 10px; border-radius: 6px; border: 1px dashed var(--pm-border-strong); font-size: 13px; cursor: pointer; color: var(--pm-text-2); }
+.tm-add:hover { color: var(--pm-primary); border-color: var(--pm-primary); }
+.tm-main { flex: 1; min-height: 0; display: flex; }
+.tm-screens { flex: 1; min-width: 0; position: relative; background: #1e2430; }
+.tm-screen { position: absolute; inset: 0; padding: 8px 4px 4px 10px; display: none; }
+.tm-screen.on { display: block; }
+.tm-screen .terminal { height: 100%; background: #1e2430; color: #e5e7eb; font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; }
+.tm-screen .terminal .xterm-viewport { background: #1e2430 !important; }
+.tm-side { width: 260px; border-left: 1px solid var(--pm-border); display: flex; flex-direction: column; background: #fff; }
+.tm-side.hide { display: none; }
+.tm-side-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--pm-border); font-size: 13px; font-weight: 600; }
+.tm-cmds { flex: 1; overflow-y: auto; }
+.tm-cmd { padding: 8px 12px; border-bottom: 1px solid #f1f3f6; cursor: pointer; }
+.tm-cmd:hover { background: var(--pm-row-hover); }
+.tm-cmd .n { font-size: 13px; color: var(--pm-text); display: flex; justify-content: space-between; gap: 6px; }
+.tm-cmd .c { font-family: Menlo, Consolas, monospace; font-size: 12px; color: var(--pm-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.tm-cmd .ops { display: none; font-size: 12px; }
+.tm-cmd:hover .ops { display: inline; }
+.tm-cmd .ops a + a { margin-left: 6px; }
+.tm-empty { color: #9ca3af; text-align: center; padding: 60px 20px; font-size: 13px; }
+.tm-full .tm-wrap { position: fixed; inset: 0; z-index: 19891000; height: auto; background: #fff; }
+@media (max-width: 900px) { .tm-side { display: none; } .tm-wrap { height: calc(100vh - 90px); } }
+</style>
+<div class="main-content">
+	<div class="container-fluid pm-page" style="padding-bottom:16px">
+		<div class="pos-box bgw mtb15">
+			<div class="position f14 c9 pull-left">
+				<a class="plr10 c4" href="/">首页</a>/<span class="plr10 c4">终端</span>
+			</div>
+		</div>
+		<div class="pm-panel tm-wrap" id="tmWrap">
+			<div class="tm-bar">
+				<div class="tm-tabs" id="tmTabs"></div>
+				<span class="tm-add" id="tmAdd" title="新建本机终端">+ 新建终端</span>
+				<div class="pm-right" style="margin-left:auto;display:flex;gap:8px;align-items:center">
+					<span id="tmRemote"></span>
+					<select class="bt-input-text" id="tmFont" style="width:90px" title="字号">
+						<option value="12">12 号字</option><option value="13">13 号字</option><option value="14" selected>14 号字</option>
+						<option value="16">16 号字</option><option value="18">18 号字</option>
+					</select>
+					<button class="btn btn-default btn-sm" id="tmCmdToggle">常用命令</button>
+					<button class="btn btn-default btn-sm" id="tmFull">全屏</button>
+				</div>
+			</div>
+			<div class="tm-main">
+				<div class="tm-screens" id="tmScreens"></div>
+				<div class="tm-side" id="tmSide">
+					<div class="tm-side-head">常用命令 <a class="btlink" id="tmCmdAdd" style="font-weight:400">添加</a></div>
+					<div class="tm-cmds" id="tmCmds"></div>
+					<div class="pm-muted" style="padding:8px 12px;border-top:1px solid #f1f3f6">点击命令发送到当前终端并执行</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+<script src="/static/app/terminal.js?v={{config.version}}"></script>
+{% endblock %}

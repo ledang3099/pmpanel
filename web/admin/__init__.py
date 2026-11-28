@@ -249,6 +249,62 @@ def webssh(data):
     return
 
 
+# ------------------------------- 终端栏目: 本机 pty 终端 -------------------------------
+
+def _pmTermEmitter(sid):
+    def _emit(event, data):
+        socketio.emit(event, data, to=sid)
+    return _emit
+
+
+@socketio.on('pm_term_open')
+def pm_term_open(data):
+    if not isLogined():
+        emit('pm_term_out', {'tid': (data or {}).get('tid', ''), 'data': '会话丢失，请重新登录面板!\r\n'})
+        return
+    from utils.ssh.pty_terminal import PtyTerminal
+    data = data if isinstance(data, dict) else {}
+    tid = str(data.get('tid', ''))[:32]
+    ok, msg = PtyTerminal.instance().open(request.sid, tid, data.get('cols'), data.get('rows'),
+                                          data.get('cwd', ''), _pmTermEmitter(request.sid))
+    if not ok:
+        emit('pm_term_out', {'tid': tid, 'data': '\x1b[31m' + msg + '\x1b[0m\r\n'})
+        emit('pm_term_exit', {'tid': tid})
+    else:
+        mw.writeLog('终端', '打开本机终端')
+
+
+@socketio.on('pm_term_input')
+def pm_term_input(data):
+    if not isLogined() or not isinstance(data, dict):
+        return
+    from utils.ssh.pty_terminal import PtyTerminal
+    PtyTerminal.instance().write(request.sid, data.get('tid', ''), data.get('data', ''))
+
+
+@socketio.on('pm_term_resize')
+def pm_term_resize(data):
+    if not isLogined() or not isinstance(data, dict):
+        return
+    from utils.ssh.pty_terminal import PtyTerminal
+    PtyTerminal.instance().resize(request.sid, data.get('tid', ''), data.get('cols'), data.get('rows'))
+
+
+@socketio.on('pm_term_close')
+def pm_term_close(data):
+    if not isinstance(data, dict):
+        return
+    from utils.ssh.pty_terminal import PtyTerminal
+    PtyTerminal.instance().close(request.sid, data.get('tid', ''))
+
+
+@socketio.on('disconnect')
+def pm_term_disconnect(*args):
+    # 浏览器关闭/刷新页面时结束该页面打开的所有终端
+    from utils.ssh.pty_terminal import PtyTerminal
+    PtyTerminal.instance().closeClient(request.sid)
+
+
 # File logging
 logger = logging.getLogger('werkzeug')
 logger.setLevel(config.CONSOLE_LOG_LEVEL)

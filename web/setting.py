@@ -25,9 +25,10 @@ import core.mw as mw
 import utils.system as system 
 import thisdb
 
-cpu_info = system.getCpuInfo()
-workers = cpu_info[1]
-# workers = 1
+# Socket.IO(终端、WebSSH)在 threading 模式下只能运行在单个进程中:
+# 多个 worker 时同一连接的请求会落到不同进程, 出现 "Invalid session"。
+# 面板并发不高, 用 1 个进程 + 多线程即可。
+workers = 1
 
 panel_dir = mw.getPanelDir()
 log_dir = mw.getMWLogs()
@@ -76,15 +77,13 @@ if panel_ssl_data['open']:
             ssl_version = 2
             http2 = True
 
-if workers > 2:
-    workers = 2
-
-threads = workers * 2
+# 每个打开的终端/WebSocket 会长期占用一个线程, 线程数需留足余量
+threads = 32
 backlog = 2048
 reload = False
 daemon = True
-max_requests = 1000
-max_requests_jitter = 100
+# 不按请求数重启进程: 重启会断开所有终端和 WebSocket 连接
+max_requests = 0
 # # worker_class = 'geventwebsocket.gunicorn.workers.GeventWebSocketWorker'
 worker_class = 'gthread'
 timeout = 600

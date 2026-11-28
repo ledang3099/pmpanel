@@ -608,7 +608,7 @@ function getFiles(Path) {
         }
         setCookie('open_dir_path',rdata.path);
         BarTools += ' <button onclick="javascript:getFiles(\'' + jsAttrEscape(rdata.path) + '\');" class="btn btn-default btn-sm glyphicon glyphicon-refresh" title="刷新"></button>\
-            <button onclick="webShell()" title="终端" type="button" class="btn btn-default btn-sm"><em class="ico-cmd"></em></button>';
+            <button onclick="openTerminalHere()" title="在当前目录打开终端" type="button" class="btn btn-default btn-sm"><em class="ico-cmd"></em></button>';
         var copyName = getCookie('copyFileName');
         var cutName = getCookie('cutFileName');
         var isPaste = (copyName == 'null') ? cutName : copyName;
@@ -1909,3 +1909,10 @@ $("#PathPlaceBtn").on("click", function(e){
 $("#DirPathPlace").on("click", function(e){
     e.stopPropagation();
 });
+
+
+// 在新标签页打开终端栏目, 并进入文件管理当前所在的目录
+function openTerminalHere() {
+    var path = $("#DirPathPlace input").val() || '';
+    window.open('/terminal/index' + (path ? '?path=' + encodeURIComponent(path) : ''), '_blank');
+}
